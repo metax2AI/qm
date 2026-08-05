@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
+  effectiveModelProvider,
   MODEL_PROVIDER_KEYS,
   mockHarnessWarning,
   validatePortalTrust,
@@ -203,7 +204,7 @@ export async function doctorCommon(
 async function baseModelCheck(config: QmConfig, secrets: Map<string, string>): Promise<void> {
   const mockHarness = mockHarnessWarning(config);
   if (mockHarness) warn(mockHarness);
-  const provider = config.modelProvider;
+  const provider = effectiveModelProvider(config);
   if (!provider) {
     step("base model: no modelProvider set — an administrator supplies the key from the Admin page");
     return;
@@ -225,6 +226,7 @@ const MODEL_PROVIDER_PROBES: Readonly<
     url: "https://api.anthropic.com/v1/models?limit=1",
     headers: (key) => ({ "x-api-key": key, "anthropic-version": "2023-06-01" }),
   },
+  deepseek: { url: "https://api.deepseek.com/models", headers: (key) => ({ authorization: `Bearer ${key}` }) },
   openai: { url: "https://api.openai.com/v1/models", headers: (key) => ({ authorization: `Bearer ${key}` }) },
   openrouter: { url: "https://openrouter.ai/api/v1/key", headers: (key) => ({ authorization: `Bearer ${key}` }) },
 };

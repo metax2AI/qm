@@ -8,6 +8,7 @@ import { run } from "./proc.ts";
 export interface AssembledEnv {
   env: Record<string, string>;
   anthropicKeySource: string;
+  deepseekKeySource: string;
   openaiKeySource: string;
   harness: "pi" | "mock" | "opencode" | "codex" | "claude";
   liveEnvFile: string;
@@ -124,8 +125,16 @@ export async function assembleEnv(opts: {
     env.OPENAI_API_KEY = wtEnv.OPENAI_API_KEY;
     openaiKeySource = "the worktree .env";
   }
+  let deepseekKeySource = "";
+  if (opts.callerEnv.DEEPSEEK_API_KEY) deepseekKeySource = "your shell export";
+  else if (env.DEEPSEEK_API_KEY) deepseekKeySource = liveEnvFile;
+  if (!env.DEEPSEEK_API_KEY && wtEnv.DEEPSEEK_API_KEY) {
+    env.DEEPSEEK_API_KEY = wtEnv.DEEPSEEK_API_KEY;
+    deepseekKeySource = "the worktree .env";
+  }
 
   let harness: "pi" | "mock" | "opencode" | "codex" | "claude";
+  const modelProvider = env.MODEL_PROVIDER?.trim();
   if (opts.callerEnv.HARNESS === "codex" || opts.callerEnv.HARNESS === "claude") {
     harness = opts.callerEnv.HARNESS;
     env.HARNESS = harness;
@@ -134,6 +143,20 @@ export async function assembleEnv(opts: {
         "HARNESS=codex needs OPENAI_API_KEY (its CLI cannot do browser OAuth in a container) -- export it, or add it to the live env file or the worktree .env",
       );
     }
+  } else if (modelProvider === "deepseek" || (!modelProvider && env.DEEPSEEK_API_KEY && !env.ANTHROPIC_API_KEY)) {
+    if (!env.DEEPSEEK_API_KEY) {
+      throw new Error(
+        `DEEPSEEK_API_KEY is required when MODEL_PROVIDER=deepseek. Export a key, add one to ${liveEnvFile}, or add one to the worktree .env.`,
+      );
+    }
+    harness = "pi";
+    env.HARNESS = "pi";
+    env.MODEL_PROVIDER = "deepseek";
+    if (!env.PI_CAPTURE_REQUESTS) env.PI_CAPTURE_REQUESTS = "1";
+  } else if (modelProvider && env.DEEPSEEK_API_KEY && !env.ANTHROPIC_API_KEY) {
+    throw new Error(
+      `MODEL_PROVIDER=${modelProvider} cannot use DEEPSEEK_API_KEY. Supply a compatible provider key and harness, or unset MODEL_PROVIDER to auto-select DeepSeek.`,
+    );
   } else if (env.ANTHROPIC_API_KEY) {
     harness = opts.callerEnv.HARNESS === "opencode" ? "opencode" : "pi";
     env.HARNESS = harness;
@@ -141,10 +164,10 @@ export async function assembleEnv(opts: {
   } else if (opts.allowMock) {
     harness = "mock";
     env.HARNESS = "mock";
-    warnings.push("mock turns explicitly allowed by DEV_INSTANCE_ALLOW_MOCK=1 -- no anthropic key found");
+    warnings.push("mock turns explicitly allowed by DEV_INSTANCE_ALLOW_MOCK=1 -- no model provider key found");
   } else {
     throw new Error(
-      `ANTHROPIC_API_KEY is required: dev instances exercise real LLM calls by default. Export a key, add one to ${liveEnvFile}, or set DEV_INSTANCE_ALLOW_MOCK=1 for a deliberate mock-only wiring check.`,
+      `ANTHROPIC_API_KEY or DEEPSEEK_API_KEY is required: dev instances exercise real LLM calls by default. Export a key, add one to ${liveEnvFile}, or set DEV_INSTANCE_ALLOW_MOCK=1 for a deliberate mock-only wiring check.`,
     );
   }
 
@@ -155,7 +178,7 @@ export async function assembleEnv(opts: {
     if (!env[k] && wtEnv[k]) env[k] = wtEnv[k];
   }
 
-  return { env, anthropicKeySource, openaiKeySource, harness, liveEnvFile, warnings };
+  return { env, anthropicKeySource, deepseekKeySource, openaiKeySource, harness, liveEnvFile, warnings };
 }
 
 export function envFileGet(path: string, key: string): string {

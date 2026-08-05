@@ -12,6 +12,7 @@ type SecretGate =
   | "dropbox-oauth"
   | "linear-oauth"
   | "model-anthropic"
+  | "model-deepseek"
   | "model-openai"
   | "model-openrouter";
 
@@ -28,6 +29,7 @@ export const CORE_SECRET_SPECS: readonly RuntimeSecretSpec[] = [
   { name: "SKILL_SIGNING_SECRET", requiredWhen: "production" },
   { name: "OPENAI_API_KEY", requiredWhen: ["codex", "model-openai"] },
   { name: "ANTHROPIC_API_KEY", requiredWhen: "model-anthropic" },
+  { name: "DEEPSEEK_API_KEY", requiredWhen: "model-deepseek" },
   { name: "OPENROUTER_API_KEY", requiredWhen: "model-openrouter" },
   { name: "DATABASE_URL", requiredWhen: "postgres" },
   { name: "SPRITES_TOKEN", requiredWhen: "sprites" },
@@ -51,6 +53,7 @@ const GATE_PREDICATES: Readonly<Record<SecretGate, (env: NodeJS.ProcessEnv) => b
   "dropbox-oauth": (env) => Boolean(env.DROPBOX_OAUTH_CLIENT_ID),
   "linear-oauth": (env) => Boolean(env.LINEAR_OAUTH_CLIENT_ID),
   "model-anthropic": (env) => env.MODEL_PROVIDER?.trim() === "anthropic",
+  "model-deepseek": (env) => env.MODEL_PROVIDER?.trim() === "deepseek",
   "model-openai": (env) => env.MODEL_PROVIDER?.trim() === "openai",
   "model-openrouter": (env) => env.MODEL_PROVIDER?.trim() === "openrouter",
 };

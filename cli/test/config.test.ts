@@ -1138,6 +1138,12 @@ test("aws.services logGroup and stopTimeout adopt live task-def values and valid
 });
 
 test("modelProvider must name a vendor the configured harness can bill", () => {
+  withConfig({ modelProvider: "deepseek", env: { core: { HARNESS: "pi" } } }, ({ path }) => {
+    assert.equal(loadConfigAt(path).config.modelProvider, "deepseek");
+  });
+  withConfig({ modelProvider: "deepseek", env: { core: { HARNESS: "opencode" } } }, ({ path }) => {
+    assert.throws(() => loadConfigAt(path), /model provider "deepseek" cannot serve a base model/);
+  });
   withConfig({ modelProvider: "openrouter", env: { core: { HARNESS: "pi" } } }, ({ path }) => {
     assert.equal(loadConfigAt(path).config.modelProvider, "openrouter");
   });
@@ -1160,6 +1166,55 @@ test("modelProvider must name a vendor the configured harness can bill", () => {
       "an unset harness is mock, which bills anything",
     );
   });
+});
+
+test("modelProvider rejects an explicit model billed by another vendor", () => {
+  withConfig({ modelProvider: "deepseek", model: "claude-opus-4-8", env: { core: { HARNESS: "pi" } } }, ({ path }) => {
+    assert.throws(() => loadConfigAt(path), /model "claude-opus-4-8" uses anthropic, not deepseek/);
+  });
+  withConfig({ modelProvider: "anthropic", model: "claude-opus-4-8", env: { core: { HARNESS: "pi" } } }, ({ path }) => {
+    assert.equal(loadConfigAt(path).config.model, "claude-opus-4-8");
+  });
+  withConfig(
+    {
+      modelProvider: "anthropic",
+      model: "claude-opus-4-8",
+      env: { core: { HARNESS: "pi", MODEL_PROVIDER: "deepseek", PI_MODEL: "deepseek-v4-pro" } },
+    },
+    ({ path }) => {
+      assert.equal(loadConfigAt(path).config.env.core?.PI_MODEL, "deepseek-v4-pro");
+    },
+  );
+  withConfig(
+    {
+      modelProvider: "anthropic",
+      model: "claude-opus-4-8",
+      env: { core: { HARNESS: "pi", MODEL_PROVIDER: "deepseek" } },
+    },
+    ({ path }) => {
+      assert.throws(() => loadConfigAt(path), /model "claude-opus-4-8" uses anthropic, not deepseek/);
+    },
+  );
+  withConfig(
+    {
+      modelProvider: "deepseek",
+      model: "claude-opus-4-8",
+      env: { core: { HARNESS: "pi", PI_MODEL: "" } },
+    },
+    ({ path }) => {
+      assert.equal(loadConfigAt(path).config.env.core?.PI_MODEL, "");
+    },
+  );
+  withConfig(
+    {
+      modelProvider: "openai",
+      model: "claude-opus-4-8",
+      env: { core: { HARNESS: "codex", CODEX_MODEL: "claude-opus-4-8" } },
+    },
+    ({ path }) => {
+      assert.throws(() => loadConfigAt(path), /model "claude-opus-4-8" uses anthropic, not openai/);
+    },
+  );
 });
 
 test("env.core.MODEL_PROVIDER is validated as the provider core will actually use", () => {

@@ -38,6 +38,7 @@ test("temporary onboarding covers model credentials, Slack, and OAuth setup", ()
   assert.match(html, /view-onboarding/);
   assert.match(html, /Model provider/);
   assert.match(html, /OpenRouter/);
+  assert.match(html, /DeepSeek/);
   assert.match(html, /api\("GET", "\/api\/model-providers"\)/);
   assert.match(html, /api\("PUT", "\/api\/model-providers\/" \+ encodeURIComponent\(provider\)/);
   assert.match(html, /models\.data\.models/);

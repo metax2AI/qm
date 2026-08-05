@@ -399,6 +399,7 @@ export function buildApp(
     keyMaterial: config.connectorSecretKey ?? randomBytes(32),
     fallback: {
       ...(config.anthropicApiKey ? { anthropic: config.anthropicApiKey } : {}),
+      ...(config.deepseekApiKey ? { deepseek: config.deepseekApiKey } : {}),
       ...(config.openaiApiKey ? { openai: config.openaiApiKey } : {}),
       ...(config.openrouterApiKey ? { openrouter: config.openrouterApiKey } : {}),
     },
@@ -682,13 +683,15 @@ export function buildApp(
       : createMemoryRunSignalStore();
   const tasks = config.databaseUrl ? createPostgresTaskStore(config.databaseUrl) : createMemoryTaskStore();
   const resolveModelProviderKeys = async () => {
-    const [anthropic, openai, openrouter] = await Promise.all([
+    const [anthropic, deepseek, openai, openrouter] = await Promise.all([
       modelCredentials.resolve("anthropic"),
+      modelCredentials.resolve("deepseek"),
       modelCredentials.resolve("openai"),
       modelCredentials.resolve("openrouter"),
     ]);
     return {
       ...(anthropic ? { anthropic } : {}),
+      ...(deepseek ? { deepseek } : {}),
       ...(openai ? { openai } : {}),
       ...(openrouter ? { openrouter } : {}),
     };

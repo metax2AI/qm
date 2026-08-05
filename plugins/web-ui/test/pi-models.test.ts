@@ -15,6 +15,10 @@ test("web UI resolves models from the shared catalog without privileging a provi
   const openrouter = getBaseModel("openrouter/auto");
   assert.equal(openrouter.provider, "openrouter");
 
+  const deepseek = getBaseModel("deepseek-v4-flash");
+  assert.equal(deepseek.provider, "deepseek");
+  assert.equal(deepseek.api, "openai-completions");
+
   assert.throws(() => getBaseModel("claude-not-real"), /Unsupported/);
 });
 

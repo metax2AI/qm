@@ -10,6 +10,10 @@ const VALIDATION_REQUESTS: Record<ModelProvider, { url: string; headers: (apiKey
       url: "https://api.anthropic.com/v1/models",
       headers: (apiKey) => ({ "x-api-key": apiKey, "anthropic-version": "2023-06-01" }),
     },
+    deepseek: {
+      url: "https://api.deepseek.com/models",
+      headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
+    },
     openai: {
       url: "https://api.openai.com/v1/models",
       headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),

@@ -716,6 +716,29 @@ test("an OpenAI deployment tells the browse runner to build an OpenAI client", a
   assert.equal(captured?.env?.BROWSE_LAB_MODEL_PROVIDER, "openai", "never hardcoded to anthropic");
 });
 
+test("a DeepSeek deployment tells the browse runner to build a DeepSeek client", async () => {
+  const config = testConfig({
+    dataDir: mkdtempSync(join(tmpdir(), "ap-")),
+    orgId: "acme",
+    signingSecret: "test-secret",
+    apiBaseUrl: "https://core.example.com",
+    modelId: "deepseek-v4-flash",
+    deepseekApiKey: "deepseek-org-key",
+  });
+  const { app, sandbox } = buildApp(config);
+  let captured: ProvisionOptions | undefined;
+  const realProvision = sandbox.provision.bind(sandbox);
+  sandbox.provision = (layers, opts) => {
+    captured = opts;
+    return realProvision(layers, opts);
+  };
+
+  const res = await app.turn(dm("!run echo keys", { conversation: { kind: "dm", threadRef: "dm:U1:ds1" } }));
+  assert.equal(res.status, "ok");
+  assert.equal(captured?.env?.BROWSE_LAB_MODEL, "deepseek-v4-flash");
+  assert.equal(captured?.env?.BROWSE_LAB_MODEL_PROVIDER, "deepseek");
+});
+
 test("turn timezone rides the prompt and control-plane capability token", async () => {
   const config = testConfig({
     dataDir: mkdtempSync(join(tmpdir(), "ap-")),
