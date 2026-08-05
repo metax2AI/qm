@@ -5,12 +5,14 @@ import {
   resolveCustomModel,
   isCustomModelId,
   customModelCatalog,
+  customProvidersVersion,
   isReservedCustomProviderId,
   validateCustomProviderSpec,
 } from "../src/model/custom-providers.ts";
 import { builtInModelCatalog } from "../src/model/model-catalog.ts";
 import { createCustomProviderStore } from "../src/model/custom-provider-store.ts";
 import { modelSupportedByHarness, modelServiceable, resolveModel } from "../src/model/pi-models.ts";
+import { createMemoryAdvisoryLock } from "../src/persistence/advisory-lock.ts";
 import { createMemoryMap } from "../src/persistence/durable-map.ts";
 import type { StoredCustomProvider } from "../src/model/custom-provider-store.ts";
 
@@ -84,6 +86,30 @@ test("catalog lists custom models; clearing the registry removes them", () => {
   assert.equal(resolveModel("acme-large"), undefined);
 });
 
+test("identical registry refreshes do not invalidate derived caches", () => {
+  setCustomProviders([GATEWAY]);
+  const before = customProvidersVersion();
+  setCustomProviders([GATEWAY]);
+  assert.equal(customProvidersVersion(), before);
+});
+
+test("duplicate model ids across custom providers are rejected", () => {
+  assert.throws(
+    () =>
+      setCustomProviders([
+        GATEWAY,
+        {
+          id: "other-gateway",
+          name: "Other Gateway",
+          protocol: "openai",
+          baseUrl: "https://other.example.com/v1",
+          models: [{ id: "acme-large" }],
+        },
+      ]),
+    /registered by both/,
+  );
+});
+
 test("spec validation rejects reserved ids, bad slugs, bad URLs, and empty model lists", () => {
   assert.throws(() => validateCustomProviderSpec({ ...GATEWAY, id: "openai" }), /reserved/);
   assert.equal(isReservedCustomProviderId("deepseek"), true);
@@ -129,6 +155,42 @@ test("store validates specs on upsert", async () => {
     keyMaterial: "k",
   });
   await assert.rejects(store.upsert({ ...GATEWAY, id: "anthropic" }, "k", "a@b.c"), /reserved/);
+});
+
+test("store rejects a model id already owned by another provider", async () => {
+  const store = createCustomProviderStore({
+    backing: createMemoryMap<StoredCustomProvider>(),
+    keyMaterial: "k",
+  });
+  await store.upsert(GATEWAY, "first", "a@b.c");
+  await assert.rejects(
+    store.upsert(
+      {
+        id: "other-gateway",
+        name: "Other Gateway",
+        protocol: "openai",
+        baseUrl: "https://other.example.com/v1",
+        models: [{ id: "acme-large" }],
+      },
+      "second",
+      "a@b.c",
+    ),
+    /already registered by provider "acme-gateway"/,
+  );
+});
+
+test("concurrent stores cannot persist the same model id for different providers", async () => {
+  const backing = createMemoryMap<StoredCustomProvider>();
+  const advisoryLock = createMemoryAdvisoryLock();
+  const first = createCustomProviderStore({ backing, keyMaterial: "k", advisoryLock });
+  const second = createCustomProviderStore({ backing, keyMaterial: "k", advisoryLock });
+  const results = await Promise.allSettled([
+    first.upsert({ ...GATEWAY, id: "first-gateway" }, "first", "a@b.c"),
+    second.upsert({ ...GATEWAY, id: "second-gateway" }, "second", "a@b.c"),
+  ]);
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+  assert.equal((await backing.all()).length, 1);
 });
 
 test("registered models surface in the catalog and vanish on unregister", () => {

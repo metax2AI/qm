@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { assistantFailure, createOpenCodeHarness, latestAssistantParts } from "../src/harness/opencode-harness.ts";
@@ -22,10 +22,11 @@ const capture = async (sessionId, body) =>
     headers: { authorization: "Bearer " + process.env.OPENCODE_BRIDGE_SECRET, "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+let sessionSeq = 0;
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://127.0.0.1");
   if (url.pathname === "/global/event") { res.writeHead(200, { "content-type": "text/event-stream" }); res.write("\\n"); return; }
-  if (req.method === "POST" && url.pathname === "/session") { await readBody(req); return json(res, { id: "ses_main" }); }
+  if (req.method === "POST" && url.pathname === "/session") { await readBody(req); return json(res, { id: "ses_" + ++sessionSeq }); }
   const message = url.pathname.match(/^\\/session\\/([^/]+)\\/message$/);
   ${handlers}
   return json(res, {});
@@ -332,6 +333,109 @@ test("custom providers materialize into the opencode config (enabled + provider 
     assert.equal(litellm.options.baseURL, "http://litellm.internal:4000/v1");
     assert.equal(litellm.options.apiKey, "sk-lite");
     assert.deepEqual(litellm.models["deepseek-chat"], { name: "DeepSeek", limit: { context: 128000, output: 8192 } });
+  } finally {
+    await harness.turns.close?.();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("custom provider changes restart the opencode runtime with fresh config", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opencode-custom-refresh-"));
+  const dump = join(dir, "config.json");
+  const starts = join(dir, "starts.txt");
+  const bin = fakeSidecar(dir, "custom-refresh", promptHandlers(okAssistant));
+  const wrapped = join(dir, "custom-refresh-wrapped");
+  writeFileSync(
+    wrapped,
+    `#!/bin/sh\nprintf 'start\\n' >> ${JSON.stringify(starts)}\nprintf '%s' "$OPENCODE_CONFIG_CONTENT" > ${JSON.stringify(dump)}\nexec ${JSON.stringify(bin)} "$@"\n`,
+  );
+  chmodSync(wrapped, 0o755);
+  let apiKey = "first-key";
+  const harness = createOpenCodeHarness({
+    binaryPath: wrapped,
+    resolveCustomProviders: async () => [
+      {
+        spec: {
+          id: "litellm",
+          name: "LiteLLM",
+          protocol: "openai" as const,
+          baseUrl: "http://litellm.internal:4000/v1",
+          models: [{ id: "deepseek-chat" }],
+        },
+        apiKey,
+      },
+    ],
+  });
+  try {
+    await harness.turns.runTurn(turnInput([], []));
+    assert.equal(JSON.parse(readFileSync(dump, "utf8")).provider.litellm.options.apiKey, "first-key");
+    apiKey = "second-key";
+    await harness.turns.runTurn(turnInput([], []));
+    assert.equal(JSON.parse(readFileSync(dump, "utf8")).provider.litellm.options.apiKey, "second-key");
+    assert.equal(readFileSync(starts, "utf8").trim().split("\n").length, 2);
+  } finally {
+    await harness.turns.close?.();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("custom provider restart waits for active turns and starts one replacement runtime", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "opencode-custom-concurrent-refresh-"));
+  const dump = join(dir, "config.json");
+  const starts = join(dir, "starts.txt");
+  const activeMarker = join(dir, "active.txt");
+  const delayedHandlers = `
+  if (req.method === "POST" && message) {
+    await readBody(req);
+    require("node:fs").writeFileSync(${JSON.stringify(activeMarker)}, "active");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await capture(message[1], { system: "s", messages: [{ role: "user" }] });
+    return json(res, ${okAssistant});
+  }
+  if (req.method === "GET" && message) return json(res, [${okAssistant}]);
+`;
+  const bin = fakeSidecar(dir, "custom-concurrent-refresh", delayedHandlers);
+  const wrapped = join(dir, "custom-concurrent-refresh-wrapped");
+  writeFileSync(
+    wrapped,
+    `#!/bin/sh\nprintf 'start\\n' >> ${JSON.stringify(starts)}\nprintf '%s' "$OPENCODE_CONFIG_CONTENT" > ${JSON.stringify(dump)}\nexec ${JSON.stringify(bin)} "$@"\n`,
+  );
+  chmodSync(wrapped, 0o755);
+  let apiKey = "first-key";
+  const harness = createOpenCodeHarness({
+    binaryPath: wrapped,
+    resolveCustomProviders: async () => [
+      {
+        spec: {
+          id: "litellm",
+          name: "LiteLLM",
+          protocol: "openai" as const,
+          baseUrl: "http://litellm.internal:4000/v1",
+          models: [{ id: "deepseek-chat" }],
+        },
+        apiKey,
+      },
+    ],
+  });
+  try {
+    const first = harness.turns.runTurn(turnInput([], []));
+    const deadline = Date.now() + 5_000;
+    while (!existsSync(activeMarker)) {
+      if (Date.now() >= deadline) throw new Error("first OpenCode turn did not become active");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    apiKey = "second-key";
+    const results = await Promise.all([
+      first,
+      harness.turns.runTurn(turnInput([], [])),
+      harness.turns.runTurn(turnInput([], [])),
+    ]);
+    assert.deepEqual(
+      results.map((result) => result.reply),
+      ["hello from fake", "hello from fake", "hello from fake"],
+    );
+    assert.equal(JSON.parse(readFileSync(dump, "utf8")).provider.litellm.options.apiKey, "second-key");
+    assert.equal(readFileSync(starts, "utf8").trim().split("\n").length, 2);
   } finally {
     await harness.turns.close?.();
     rmSync(dir, { recursive: true, force: true });

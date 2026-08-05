@@ -88,6 +88,28 @@ test("doctor probes the effective DeepSeek provider with bearer authentication",
   }
 });
 
+test("doctor probes a configured provider base URL override", async () => {
+  const { sandbox: _sandbox, ...withoutSandbox } = config;
+  void _sandbox;
+  const deepseekConfig: QmConfig = {
+    ...withoutSandbox,
+    modelProvider: "deepseek",
+    env: { core: { HARNESS: "pi", DEEPSEEK_BASE_URL: "https://gateway.internal/deepseek/v1/" } },
+  };
+  const priorFetch = globalThis.fetch;
+  let url = "";
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    url = String(input);
+    return Response.json({ object: "list", data: [] });
+  }) as typeof globalThis.fetch;
+  try {
+    await doctorCommon(deepseekConfig, new Map([["DEEPSEEK_API_KEY", "doctor-deepseek-key"]]));
+    assert.equal(url, "https://gateway.internal/deepseek/v1/models");
+  } finally {
+    globalThis.fetch = priorFetch;
+  }
+});
+
 test("doctor rejects missing and placeholder portal OIDC client ids and tenant gates", async () => {
   const { sandbox: _sandbox, ...withoutSandbox } = config;
   void _sandbox;

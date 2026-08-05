@@ -55,6 +55,8 @@ test("native harnesses reject cross-provider pins and choose their own defaults"
   assert.equal(modelSupportedByHarness("gpt-5.6-sol", "claude"), false);
   assert.equal(modelSupportedByHarness("gpt-5.6-sol", "codex"), true);
   assert.equal(modelSupportedByHarness("claude-opus-4-8", "codex"), false);
+  assert.equal(modelSupportedByHarness("deepseek-v4-flash", "opencode"), false);
+  assert.equal(modelSupportedByHarness("gpt-5.6-sol", "opencode"), true);
   assert.equal(modelSupportedByHarness("claude-future-9", "claude"), true);
   assert.equal(modelSupportedByHarness("gpt-future-9", "codex"), true);
   assert.equal(defaultModelForHarness("codex", "claude-opus-4-8"), "gpt-5.6-sol");

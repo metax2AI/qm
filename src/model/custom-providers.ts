@@ -119,6 +119,7 @@ function toRuntimeModel(provider: CustomProviderSpec, m: CustomModelSpec): Custo
 let registry = new Map<string, CustomRuntimeModel>();
 let providers: CustomProviderSpec[] = [];
 let version = 0;
+let signature = "";
 
 /**
  * Called by wiring at boot and again after every admin write, with the
@@ -129,13 +130,22 @@ let version = 0;
 export function setCustomProviders(specs: CustomProviderSpec[]): void {
   const accepted = specs.filter((spec) => !isReservedCustomProviderId(spec.id));
   const next = new Map<string, CustomRuntimeModel>();
+  const owners = new Map<string, string>();
   for (const spec of accepted) {
     for (const m of spec.models) {
+      const owner = owners.get(m.id);
+      if (owner && owner !== spec.id) {
+        throw new Error(`model id "${m.id}" is registered by both "${owner}" and "${spec.id}"`);
+      }
+      owners.set(m.id, spec.id);
       next.set(m.id, toRuntimeModel(spec, m));
     }
   }
+  const nextSignature = JSON.stringify(accepted);
+  if (nextSignature === signature) return;
   registry = next;
   providers = accepted.map((s) => ({ ...s, models: [...s.models] }));
+  signature = nextSignature;
   version += 1;
 }
 

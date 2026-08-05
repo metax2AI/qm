@@ -352,6 +352,7 @@ export const ADMIN_RESOURCES: readonly AdminResource[] = [
     enumValues: SELECTABLE_BASE_MODELS,
     get: (deps, scope) => deps.config!.getBaseModel(scope),
     apply: async (ctx, _actor, scope) => {
+      await ctx.deps.refreshCustomProviders?.();
       const raw = (ctx.body as { modelId?: unknown }).modelId;
       if (raw !== undefined && raw !== null && typeof raw !== "string")
         return { error: "base-model requires { modelId: string } (empty string clears the override)" };
@@ -396,6 +397,7 @@ export const ADMIN_RESOURCES: readonly AdminResource[] = [
     readKey: "runtime",
     get: (deps, scope) => deps.config!.getRuntimeSelection(scope),
     apply: async (ctx, _actor, scope) => {
+      await ctx.deps.refreshCustomProviders?.();
       if ((ctx.body as { inherit?: unknown }).inherit === true) {
         await ctx.deps.config!.setRuntimeSelectionLatest(scope, null);
         return { ok: true };

@@ -691,13 +691,45 @@ export function buildApp(
   const customProviders = createCustomProviderStore({
     backing: artifactMap("custom_model_providers"),
     keyMaterial: config.connectorSecretKey ?? randomBytes(32),
+    advisoryLock,
   });
-  const refreshCustomProviders = async () => {
-    setCustomProviders(await customProviders.enabled());
+  let requestedCustomProviderRefresh = 0;
+  let completedCustomProviderRefresh = 0;
+  let customProviderRefreshWorker: Promise<void> | null = null;
+  const customProviderRefreshWaiters: Array<{ target: number; resolve: () => void }> = [];
+  const applyCustomProviderRefresh = async () => {
+    try {
+      setCustomProviders(await customProviders.enabled());
+    } catch (e) {
+      setCustomProviders([]);
+      console.error("[wiring] custom provider hydration failed:", errMessage(e));
+    }
   };
-  void refreshCustomProviders().catch((e) =>
-    console.error("[wiring] custom provider hydration failed:", errMessage(e)),
-  );
+  const refreshCustomProviders = (): Promise<void> => {
+    const target = ++requestedCustomProviderRefresh;
+    const completion = new Promise<void>((resolve) => customProviderRefreshWaiters.push({ target, resolve }));
+    if (!customProviderRefreshWorker) {
+      customProviderRefreshWorker = Promise.resolve().then(async () => {
+        while (completedCustomProviderRefresh < requestedCustomProviderRefresh) {
+          const applying = requestedCustomProviderRefresh;
+          await applyCustomProviderRefresh();
+          completedCustomProviderRefresh = applying;
+          for (let index = customProviderRefreshWaiters.length - 1; index >= 0; index -= 1) {
+            const waiter = customProviderRefreshWaiters[index]!;
+            if (waiter.target > completedCustomProviderRefresh) continue;
+            customProviderRefreshWaiters.splice(index, 1);
+            waiter.resolve();
+          }
+        }
+        customProviderRefreshWorker = null;
+      });
+    }
+    return completion;
+  };
+  const customProviderRefresh = createSweeper(refreshCustomProviders, 5_000, {
+    label: "custom provider refresh",
+  });
+  void refreshCustomProviders();
   const resolveModelProviderKeys = async () => {
     const [anthropic, deepseek, openai, openrouter, enabledCustom] = await Promise.all([
       modelCredentials.resolve("anthropic"),
@@ -1383,6 +1415,7 @@ export function buildApp(
     : null;
   const runtime: Runtime = {
     start() {
+      customProviderRefresh.start();
       if (!config.backgroundWorkEnabled) return;
       for (const w of workers) w.start();
       reaper.start();
@@ -1401,6 +1434,7 @@ export function buildApp(
       await Promise.all(workers.map((w) => w.releaseInFlight()));
     },
     async stop() {
+      customProviderRefresh.stop();
       reaper.stop();
       processReaper?.stop();
       monitorPoller?.stop();

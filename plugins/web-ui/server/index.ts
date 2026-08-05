@@ -20,7 +20,7 @@ import {
 } from "../../chassis/src/http.ts";
 import { verifyPortalIdentity, PORTAL_IDENTITY_HEADER } from "../../chassis/src/portal-identity.ts";
 import { createBrandingCache, injectBranding } from "../../chassis/src/branding.ts";
-import { injectDefaultLocale, normalizeWebLocale } from "./localization.ts";
+import { defaultWebLocale, injectDefaultLocale } from "./localization.ts";
 import {
   CORE_API_URL as CORE,
   CORE_ORG_ID as ORG,
@@ -36,7 +36,7 @@ const ALLOW_UNSIGNED_TEST_IDENTITY =
   process.env.NODE_ENV === "test" && process.env.ALLOW_UNSIGNED_TEST_IDENTITY === "1";
 const COOKIE_AUTH = !CORE_SIGNING_SECRET || ALLOW_UNSIGNED_TEST_IDENTITY;
 const AUTH_MODE = COOKIE_AUTH ? "dev" : "portal";
-const DEFAULT_LOCALE = normalizeWebLocale(process.env.WEB_UI_DEFAULT_LOCALE);
+const DEFAULT_LOCALE = defaultWebLocale(process.env.WEB_UI_DEFAULT_LOCALE);
 const ALLOW = (process.env.WEB_UI_PRINCIPALS ?? "")
   .split(",")
   .map((s) => s.trim())

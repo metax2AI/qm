@@ -8,6 +8,7 @@
  */
 
 import { decryptSecret, deriveConnectorKey, encryptSecret } from "../connectors/connector-client-store.ts";
+import { createMemoryAdvisoryLock, type AdvisoryLock } from "../persistence/advisory-lock.ts";
 import type { DurableMap } from "../persistence/durable-map.ts";
 import { isReservedCustomProviderId, validateCustomProviderSpec, type CustomProviderSpec } from "./custom-providers.ts";
 
@@ -49,8 +50,12 @@ function strip(saved: StoredCustomProvider): CustomProviderSpec {
 export function createCustomProviderStore(input: {
   backing: DurableMap<StoredCustomProvider>;
   keyMaterial: string | Buffer;
+  advisoryLock?: AdvisoryLock;
 }): CustomProviderStore {
   const key = deriveConnectorKey(input.keyMaterial, "custom-model-providers");
+  const advisoryLock = input.advisoryLock ?? createMemoryAdvisoryLock();
+  const withRegistryLock = <T>(fn: () => Promise<T>): Promise<T> =>
+    advisoryLock.withLock("custom-model-providers:registry", fn);
 
   return {
     async enabled() {
@@ -82,28 +87,40 @@ export function createCustomProviderStore(input: {
       validateCustomProviderSpec(spec);
       const actor = updatedBy.trim();
       if (!actor) throw new Error("updatedBy is required");
-      const existing = await input.backing.get(spec.id);
-      const trimmedKey = apiKey?.trim();
-      const apiKeyEnc = trimmedKey ? encryptSecret(trimmedKey, key) : existing?.apiKeyEnc;
-      await input.backing.put(spec.id, {
-        ...spec,
-        ...(apiKeyEnc ? { apiKeyEnc } : {}),
-        disabled: false,
-        updatedAt: Date.now(),
-        updatedBy: actor,
+      await withRegistryLock(async () => {
+        const all = await input.backing.all();
+        for (const saved of all) {
+          if (saved.id === spec.id || saved.disabled || isReservedCustomProviderId(saved.id)) continue;
+          const duplicate = spec.models.find((model) => saved.models.some((candidate) => candidate.id === model.id));
+          if (duplicate) {
+            throw new Error(`model id "${duplicate.id}" is already registered by provider "${saved.id}"`);
+          }
+        }
+        const existing = await input.backing.get(spec.id);
+        const trimmedKey = apiKey?.trim();
+        const apiKeyEnc = trimmedKey ? encryptSecret(trimmedKey, key) : existing?.apiKeyEnc;
+        await input.backing.put(spec.id, {
+          ...spec,
+          ...(apiKeyEnc ? { apiKeyEnc } : {}),
+          disabled: false,
+          updatedAt: Date.now(),
+          updatedBy: actor,
+        });
       });
     },
 
     async delete(id, updatedBy) {
-      const existing = await input.backing.get(id);
-      if (!existing || existing.disabled) return false;
-      await input.backing.put(id, {
-        ...existing,
-        disabled: true,
-        updatedAt: Date.now(),
-        updatedBy,
+      return withRegistryLock(async () => {
+        const existing = await input.backing.get(id);
+        if (!existing || existing.disabled) return false;
+        await input.backing.put(id, {
+          ...existing,
+          disabled: true,
+          updatedAt: Date.now(),
+          updatedBy,
+        });
+        return true;
       });
-      return true;
     },
   };
 }

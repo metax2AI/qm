@@ -1004,6 +1004,7 @@ export async function shareArtifact(ctx: ApiCtx): Promise<void> {
 async function getSurfaceConfig(ctx: ApiCtx): Promise<void> {
   const { res, deps } = ctx;
   if (!deps.config) return sendJson(res, 404, { error: "not_found" });
+  await deps.refreshCustomProviders?.();
   const [webuiModels, baseModel, externalSlackParticipants, branding] = await Promise.all([
     deps.config.getWebuiModelsDurable(orgScope(deps)),
     deps.config.getBaseModelDurable(orgScope(deps)),
@@ -1075,6 +1076,7 @@ async function runtimeTarget(ctx: ApiCtx): Promise<{ actorId: string; scope: Sco
 }
 
 async function runtimeConfigBody(ctx: ApiCtx, scope: ScopeId): Promise<Record<string, unknown>> {
+  await ctx.deps.refreshCustomProviders?.();
   const config = ctx.deps.config!;
   const fallback = runtimeFallback(ctx);
   const org = orgScope(ctx.deps);

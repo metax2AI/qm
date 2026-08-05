@@ -869,7 +869,7 @@ function applyRun(
   const approvals = res?.pendingApprovals ?? [];
   const paused = approvals.length > 0;
   const reasonCode = res?.reasonCode ?? res?.refusalKind;
-  const approvalDenied = approvalDeniedMessage(reasonCode, res?.reason);
+  const approvalDenied = approvalDeniedMessage(reasonCode);
   const quiet = res?.status === "silent" || res?.status === "react";
   if (work) {
     work.finishedAt = typeof run.finishedAt === "number" ? run.finishedAt : Date.now();
@@ -1137,12 +1137,8 @@ function deliveredFilesFromAttachments(
     }));
 }
 
-function approvalDeniedMessage(reasonCode?: string, reason?: string): string | null {
-  if (reasonCode === "approval_denied") return localizedError(reasonCode) ?? msg("Denied.");
-  const trimmed = reason?.trim();
-  return trimmed === "approval denied" || trimmed?.startsWith("approval denied for ")
-    ? (localizedError("approval_denied") ?? msg("Denied."))
-    : null;
+function approvalDeniedMessage(reasonCode?: string): string | null {
+  return reasonCode === "approval_denied" ? (localizedError(reasonCode) ?? msg("Denied.")) : null;
 }
 
 function sleep(ms: number): Promise<void> {

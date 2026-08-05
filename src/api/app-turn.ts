@@ -13,7 +13,7 @@ import {
   modelProviderAvailabilityFor,
   modelServiceable,
 } from "../model/pi-models.ts";
-import { selectableCatalogForHarness, selectableModelCatalog } from "../model/model-catalog.ts";
+import { builtInModelCatalog, selectableCatalogForHarness, selectableModelCatalog } from "../model/model-catalog.ts";
 import { resolveRuntimeChoiceDurable, RuntimeChoiceError } from "../harness/harness-router.ts";
 import { errMessage } from "../util/errors.ts";
 
@@ -54,6 +54,7 @@ export function createTurnMethods(
   const { shouldRouteToSpine, markTriggerHandled, addressedWakeText } = ambient;
   return {
     async turn(req: TurnRequest): Promise<TurnResult> {
+      await deps.refreshCustomProviders?.();
       await deps.identity.refresh();
       const actor: Principal = deps.identity.resolve(req.actor);
       let projectAudience: Principal[] | undefined;
@@ -208,11 +209,11 @@ export function createTurnMethods(
           };
         }
         const configuredWebuiModels = await deps.config.getWebuiModelsDurable(org);
-        let enabledWebuiModels: string[] | null = null;
-        if (configuredWebuiModels?.length) {
-          enabledWebuiModels = [...new Set([...configuredWebuiModels, orgRuntime.modelId])];
-        } else if (providers?.openrouter) {
-          enabledWebuiModels = [
+        const enabledWebuiModels = await (async () => {
+          if (configuredWebuiModels?.length) return [...new Set([...configuredWebuiModels, orgRuntime.modelId])];
+          if (!providers?.openrouter)
+            return selectableCatalogForHarness(builtInModelCatalog(), runtime.harnessId).map((model) => model.id);
+          return [
             ...new Set([
               ...selectableCatalogForHarness(
                 await selectableModelCatalog(deps.modelCredentialFetch),
@@ -221,7 +222,7 @@ export function createTurnMethods(
               ...(orgRuntime.harnessId === runtime.harnessId ? [orgRuntime.modelId] : []),
             ]),
           ];
-        }
+        })();
         const invalidModelOption =
           validateWebTurnModelOptions(req, enabledWebuiModels, providers) ??
           webTurnRuntimeModelRefusal(runtime.modelId, orgRuntime.modelId, configuredWebuiModels);

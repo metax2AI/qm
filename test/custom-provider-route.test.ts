@@ -97,6 +97,30 @@ test("custom provider lifecycle: register, list, resolve, delete — admin only,
   }
 });
 
+test("surface reads an externally persisted provider without a process restart", async () => {
+  const srv = start();
+  try {
+    await srv.built.customProviders.upsert(
+      {
+        id: "external-gateway",
+        name: "External Gateway",
+        protocol: "openai",
+        baseUrl: "https://external.example.com/v1",
+        models: [{ id: "external-model" }],
+      },
+      "external-key",
+      "other-instance@default-org",
+    );
+    assert.equal(resolveModel("external-model"), undefined);
+    const surface = await fetch(`${srv.base}/v1/surface-config`);
+    assert.equal(surface.status, 200);
+    assert.ok(((await surface.json()) as { webuiModels: string[] }).webuiModels.includes("external-model"));
+    assert.equal(resolveModel("external-model")?.provider, "external-gateway");
+  } finally {
+    await srv.close();
+  }
+});
+
 test("a rejected key blocks registration unless validate:false", async () => {
   const srv = start(async () => new Response(null, { status: 401 }));
   try {

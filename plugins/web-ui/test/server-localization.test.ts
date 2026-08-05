@@ -1,15 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { injectDefaultLocale, normalizeWebLocale } from "../server/localization.ts";
+import { defaultWebLocale, injectDefaultLocale, normalizeWebLocale } from "../server/localization.ts";
 
 test("normalizes supported deployment locale aliases", () => {
   assert.equal(normalizeWebLocale("zh-CN"), "zh-Hans");
   assert.equal(normalizeWebLocale("zh_SG"), "zh-Hans");
   assert.equal(normalizeWebLocale("zh-Hans-SG"), "zh-Hans");
   assert.equal(normalizeWebLocale("zh-CN-u-hc-h23"), "zh-Hans");
+  assert.equal(normalizeWebLocale("zh-u-nu-hanidec"), "zh-Hans");
+  assert.equal(normalizeWebLocale("zh-x-company"), "zh-Hans");
   assert.equal(normalizeWebLocale("en-US"), "en");
   assert.equal(normalizeWebLocale("zh-TW"), null);
   assert.equal(normalizeWebLocale(undefined), null);
+});
+
+test("defaults a downstream Web deployment to Simplified Chinese", () => {
+  assert.equal(defaultWebLocale(undefined), "zh-Hans");
+  assert.equal(defaultWebLocale("fr"), "zh-Hans");
+  assert.equal(defaultWebLocale("en"), "en");
 });
 
 test("injects the deployment locale into first-response HTML", () => {

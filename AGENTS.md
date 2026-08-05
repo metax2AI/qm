@@ -85,8 +85,8 @@ branch, merge rather than rebase, record the merged range and every resolved con
 run the affected verification, and merge the result into the downstream `main` through
 a PR. Preserve both new upstream behavior and intentional downstream behavior when
 resolving conflicts; never choose one side wholesale merely to complete a merge. The
-`update-qm` skill supplies the safe merge and verification workflow, but its stricter
-byte-identical-core assumption does not apply to a downstream distribution.
+`update-qm` skill supplies the same safe merge, conflict-resolution, and verification
+workflow.
 
 Generic improvements may still be contributed with the `upstream-pr` skill, but doing so
 is optional and downstream history must never be pushed to upstream. Pass `--repo` to

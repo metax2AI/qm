@@ -6,12 +6,12 @@ description: Update a private qm fork by merging upstream qm into it and opening
 # update-qm
 
 An organization customizes qm from a private fork: a standalone private repository whose
-history begins as a clone of qm, with everything organization-specific confined to
-`deploy/layers/<org>/` and the rest of the tree identical to upstream. That rest is what
-this skill means by core: every file outside the organization's layer directory,
-including the plugins, the CLI, the docs, and CI, not just the runtime under `src/`.
-This skill keeps a private fork current. It merges upstream qm in and opens the
-resulting sync PR.
+history begins as a clone of qm. Everything organization-specific is confined to
+`deploy/layers/<org>/`; the downstream product may intentionally modify core when those
+changes remain customer-independent, tested, and maintainable across upstream merges.
+Core means every file outside the organization's layer directory, including the plugins,
+the CLI, the docs, and CI, not just the runtime under `src/`. This skill keeps a private
+fork current. It merges upstream qm in and opens the resulting sync PR.
 
 See [`deploy/layers/README.md`](../../../deploy/layers/README.md) for the layer boundary,
 and the `upstream-pr` skill for sending changes the other direction.
@@ -53,22 +53,22 @@ PR.
 
 ## Resolving conflicts
 
-A merge conflict needs both histories to change the same path, and upstream has no files
-under `deploy/layers/<org>/`, so an organization's layer cannot conflict with a sync.
-Upstream changing the layer contract does not conflict either; it surfaces as a `qm check`
-failure, covered below. Every conflict in a sync therefore means the private fork edited a
-file that exists in upstream qm, which the layer boundary exists to prevent. For each such
-file, decide which happened:
+A merge conflict needs both histories to change the same path. Upstream has no files under
+`deploy/layers/<org>/`, so an organization's layer normally cannot conflict with a sync.
+Upstream changing the layer contract surfaces as a `qm check` failure, covered below.
+Conflicts outside the layer are expected when the downstream product intentionally changes
+core. For each conflict, classify the downstream edit before resolving it:
 
 - The edit is organization-specific and should never have been in core. Take upstream's
   side, then move the customization into `deploy/layers/<org>/`.
-- The edit belongs in core qm for everyone. Resolve in whichever direction keeps the tree
-  working, then use the `upstream-pr` skill to send it to qm so the next sync stops
-  conflicting on it.
+- The edit is a customer-independent downstream product decision. Preserve its behavior
+  while incorporating compatible upstream behavior, then add or update regression tests.
+- The edit belongs in core qm for everyone. Preserve the working behavior, then use the
+  `upstream-pr` skill from a clean upstream branch so future syncs stop conflicting on it.
 
-List these files in the PR description either way. A private fork that accumulates core edits
-gets more expensive to sync each time, and the sync PR is where that cost should be
-visible.
+List every conflicted file and its resolution in the PR description. Intentional core
+divergence has a maintenance cost, and the sync PR is where that cost and its tests should
+be visible.
 
 ## Verify before opening the PR
 
