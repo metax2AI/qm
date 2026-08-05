@@ -10,6 +10,7 @@ import type { Server } from "node:http";
 import { buildApp, type BuiltApp } from "../src/wiring.ts";
 import { createServer } from "../src/api/server.ts";
 import { createSecretDropStore, SECRET_DROP_TTL_MS } from "../src/credentials/secret-drop.ts";
+import { KeychainError } from "../src/credentials/keychain.ts";
 import { fireDropResolution, type DropResolution } from "../src/triggers/keychain-ask.ts";
 import { createMemoryMap } from "../src/persistence/durable-map.ts";
 import { createDeliveryStore } from "../src/delivery/delivery-store.ts";
@@ -409,6 +410,29 @@ describe("/v1/keychain/drops — mint, form, redeem", async () => {
       404,
       "unknown link → 404",
     );
+  });
+
+  it("redeem returns the KeychainError code", async () => {
+    const minted = await post(
+      "/v1/keychain/drops",
+      { service: "unavailable", purpose: "test the error contract" },
+      await capFor("U_A", scopeId("channel", "C1")),
+    );
+    const { dropId, formPath } = (await minted.json()) as { dropId: string; formPath: string };
+    const save = built.keychain!.save;
+    built.keychain!.save = async () => {
+      throw new KeychainError(422, "credential unavailable", "credential_unavailable");
+    };
+    try {
+      const response = await redeem(dropId, { secret: "x" }, "U_A", linkToken(formPath));
+      assert.equal(response.status, 422);
+      assert.deepEqual(await response.json(), {
+        error: "credential_unavailable",
+        message: "credential unavailable",
+      });
+    } finally {
+      built.keychain!.save = save;
+    }
   });
 
   const mintFor = async (owner: string, service = "tokensvc") => {

@@ -341,6 +341,15 @@ test("web turns gate the requested and scope-selected harness against its real k
     assert.equal(requested.status, "refused");
     assert.match(requested.reason ?? "", /provider isn't configured/);
 
+    srv.built.config.setApprovedHarnesses(["pi"]);
+    const unapproved = await turn("web:alice:unapproved-codex", { harness: "codex", model: "gpt-5.6-sol" });
+    assert.equal(unapproved.status, "refused");
+    assert.equal(unapproved.reasonCode, "runtime_not_approved");
+    const invalid = await turn("web:alice:invalid-runtime", { harness: "bogus", model: "unknown-model" });
+    assert.equal(invalid.status, "refused");
+    assert.equal(invalid.reasonCode, "runtime_not_approved");
+    srv.built.config.setApprovedHarnesses(["pi", "opencode"]);
+
     await srv.built.config.setRuntimeSelectionLatest("personal:alice", {
       harnessId: "opencode",
       modelId: "gpt-5.6-sol",

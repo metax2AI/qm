@@ -8,7 +8,7 @@ test("scope-default buttons render when any runtime setting differs from the sco
   assert.match(composer, /const runtimeToggled =\s*!runtimePending/);
   assert.match(composer, /composerState\.effortLevel !== effectiveEffort/);
   assert.match(composer, /fastOn !== effectiveFast/);
-  assert.match(composer, /\$\{\s*runtimeToggled\s*\? html`[\s\S]{0,800}?>\s*Make default\s*<\/button>/);
+  assert.match(composer, /\$\{\s*runtimeToggled\s*\? html`[\s\S]{0,800}?>\s*\$\{msg\("Make default"\)\}\s*<\/button>/);
   assert.match(composer, /\$\{\s*runtimeToggled && activeRuntimeConfig\?\.scopeOverride/);
 });
 

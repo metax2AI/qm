@@ -1,4 +1,5 @@
 import { html, nothing, render, type TemplateResult } from "lit";
+import { msg, str } from "@lit/localize";
 import { ref } from "lit/directives/ref.js";
 import { Binoculars, Cog, Expand, Maximize2, Plus, Shrink, X } from "lucide";
 import {
@@ -12,6 +13,7 @@ import {
   type IGroupHeaderProps,
   type IHeaderActionsRenderer,
   type ITabRenderer,
+  type Position,
   type SerializedDockview,
   type TabPartInitParameters,
 } from "dockview-core";
@@ -55,6 +57,7 @@ import {
 } from "./sessions";
 import { conversationBackground, type RowIndicators } from "./session-list";
 import type { CoreSession } from "./core-bridge";
+import { formatNumber } from "./localization.ts";
 
 export const splitState = {
   active: false,
@@ -107,6 +110,36 @@ function persistSoon(): void {
   }, 150);
 }
 
+function dockPlacement(position: Position, target: string): string {
+  switch (position) {
+    case "center":
+      return msg(str`Tab into ${target}`);
+    case "left":
+      return msg(str`Split to the left of ${target}`);
+    case "right":
+      return msg(str`Split to the right of ${target}`);
+    case "top":
+      return msg(str`Split above ${target}`);
+    case "bottom":
+      return msg(str`Split below ${target}`);
+  }
+}
+
+function dockCommit(source: string, position: Position, target: string): string {
+  switch (position) {
+    case "center":
+      return msg(str`${source} moved into ${target} as a tab.`);
+    case "left":
+      return msg(str`${source} moved to the left of ${target}.`);
+    case "right":
+      return msg(str`${source} moved to the right of ${target}.`);
+    case "top":
+      return msg(str`${source} moved above ${target}.`);
+    case "bottom":
+      return msg(str`${source} moved below ${target}.`);
+  }
+}
+
 function buildDock(): DockviewApi {
   const host = canvasHost!;
   const dockEl = document.createElement("div");
@@ -122,6 +155,24 @@ function buildDock(): DockviewApi {
     createRightHeaderActionComponent: () => new GroupActions(),
     singleTabMode: "fullwidth",
     disableFloatingGroups: true,
+    messages: {
+      panelOpened: (title) => msg(str`${title} opened`),
+      panelClosed: (title) => msg(str`${title} closed`),
+      groupMaximized: (title) => msg(str`${title} maximized`),
+      groupRestored: (title) => msg(str`${title} restored`),
+      groupFloated: (title) => msg(str`${title} floated`),
+      groupDocked: (title) => msg(str`${title} docked`),
+      groupPoppedOut: (title) => msg(str`${title} opened in a new window`),
+      movePickTarget: (source, target, current, total) =>
+        msg(
+          str`Moving ${source}. Target ${target}, ${formatNumber(current)} of ${formatNumber(total)}. Press Enter to choose a position or Escape to cancel.`,
+        ),
+      movePickEdge: (position, target) =>
+        msg(str`${dockPlacement(position, target)}. Use arrow keys to change, Enter to confirm, or Escape to go back.`),
+      moveCommitted: (source, target, position) => dockCommit(source, position, target),
+      moveCancelled: () => msg("Move cancelled."),
+      moveNotAllowed: () => msg("That move is not allowed."),
+    },
   });
   const inner = dockEl.querySelector(":scope > .dv-dockview") as HTMLElement | null;
   const box = (inner ?? dockEl).getBoundingClientRect();
@@ -130,7 +181,7 @@ function buildDock(): DockviewApi {
     if (e.getData() === undefined) return;
     if (api.groups.length >= MAX_TILES && dropAddsTile(nativeDrop(api, e))) {
       e.preventDefault();
-      canvasToast(`${MAX_TILES} tiles is the limit — drop it on a tab strip instead`);
+      canvasToast(msg(str`${formatNumber(MAX_TILES)} tiles is the limit — drop it on a tab strip instead`));
     }
   };
   api.onWillDrop(holdTileCap);
@@ -235,7 +286,7 @@ function addPane(
     id: uid(),
     component: "pane",
     tabComponent: "pane",
-    title: params.sessionId ? "Conversation" : "New session",
+    title: params.sessionId ? msg("Conversation") : msg("New session"),
     params: { ...params },
     ...(position ? { position } : {}),
   });
@@ -375,7 +426,7 @@ function focusExistingPane(sessionId: string, exceptPaneId?: string): boolean {
   if (!dup) return false;
   if (dup.id !== exceptPaneId) {
     dup.api.setActive();
-    canvasToast("Already open in a pane");
+    canvasToast(msg("Already open in a pane"));
   }
   return true;
 }
@@ -392,14 +443,15 @@ function openInPane(paneId: string, sessionId: string, threadRef: string): void 
 
 function roomForAnotherPane(): boolean {
   if ((dockApi?.panels.length ?? 0) < MAX_PANES) return true;
-  canvasToast(`${MAX_PANES} conversations is all one canvas holds — close one first`);
+  canvasToast(msg(str`${formatNumber(MAX_PANES)} conversations is all one canvas holds — close one first`));
   return false;
 }
 
 function splitPane(paneId: string, edge: SplitEdge, params: PaneParams): void {
   if (!dockApi || !roomForAnotherPane()) return;
   if (dockApi.groups.length >= MAX_TILES) {
-    if (tabIntoPane(paneId, params)) canvasToast(`${MAX_TILES} tiles is the limit — opened as a tab`);
+    if (tabIntoPane(paneId, params))
+      canvasToast(msg(str`${formatNumber(MAX_TILES)} tiles is the limit — opened as a tab`));
     return;
   }
   const fresh = addPane(params, { referencePanel: paneId, direction: edgeToDirection(edge) });
@@ -467,7 +519,7 @@ function reconcileAfterClose(): void {
 
 async function maximizePane(params: PaneParams): Promise<void> {
   if (!params.sessionId) {
-    canvasToast("Start the chat first, then open it full screen");
+    canvasToast(msg("Start the chat first, then open it full screen"));
     return;
   }
   const find = (): CoreSession | undefined => sessionsState.list.find((s) => s.id === params.sessionId);
@@ -480,7 +532,7 @@ async function maximizePane(params: PaneParams): Promise<void> {
     }
     session = find();
     if (!session) {
-      canvasToast("Still syncing this conversation — try again in a moment");
+      canvasToast(msg("Still syncing this conversation — try again in a moment"));
       return;
     }
   }
@@ -550,9 +602,9 @@ function zoneTpl(edge: DropEdge, label: string, onDrop: () => void): TemplateRes
 
 function zonesTpl(act: (edge: DropEdge) => () => void): TemplateResult {
   return html`
-    ${zoneTpl("center", "Open here", act("center"))} ${zoneTpl("left", "Split left", act("left"))}
-    ${zoneTpl("right", "Split right", act("right"))} ${zoneTpl("top", "Split up", act("top"))}
-    ${zoneTpl("bottom", "Split down", act("bottom"))}
+    ${zoneTpl("center", msg("Open here"), act("center"))} ${zoneTpl("left", msg("Split left"), act("left"))}
+    ${zoneTpl("right", msg("Split right"), act("right"))} ${zoneTpl("top", msg("Split up"), act("top"))}
+    ${zoneTpl("bottom", msg("Split down"), act("bottom"))}
   `;
 }
 
@@ -638,8 +690,8 @@ function paneSession(panel: IDockviewPanel): CoreSession | undefined {
 function paneTitle(panel: IDockviewPanel): string {
   const session = paneSession(panel);
   if (session) return sessionTitle(session);
-  if (panelParams(panel).sessionId) return "Conversation";
-  return "New session";
+  if (panelParams(panel).sessionId) return msg("Conversation");
+  return msg("New session");
 }
 
 function paneIsWorking(panel: IDockviewPanel): boolean {
@@ -812,8 +864,20 @@ class PaneTab implements ITabRenderer {
     this.element.title = title;
     render(
       html`
-        ${working ? html`<span class="working-dot" ${ref(syncWorkingPulse)} title="Agent is working"></span>` : nothing}
-        ${awaiting ? html`<span class="awaiting-dot" title="Waiting for your reply" aria-label="Waiting for your reply"></span>` : nothing}
+        ${
+          working
+            ? html`<span class="working-dot" ${ref(syncWorkingPulse)} title=${msg("Agent is working")}></span>`
+            : nothing
+        }
+        ${
+          awaiting
+            ? html`<span
+                class="awaiting-dot"
+                title=${msg("Waiting for your reply")}
+                aria-label=${msg("Waiting for your reply")}
+              ></span>`
+            : nothing
+        }
         ${
           background
             ? html`<span
@@ -833,8 +897,8 @@ class PaneTab implements ITabRenderer {
             ? html`<button
                 class="icon-btn subtle split-tab-close"
                 type="button"
-                title="Close pane"
-                aria-label="Close pane"
+                title=${msg("Close pane")}
+                aria-label=${msg("Close pane")}
                 @click=${(e: Event) => {
                   e.stopPropagation();
                   closePanels([panel]);
@@ -879,7 +943,7 @@ class GroupActions implements IHeaderActionsRenderer {
     const maximized = props.api.isMaximized();
     const buttons: { label: string; glyph: TemplateResult | SVGElement; cls?: string; run: () => void }[] = [
       {
-        label: "Split this pane with a new session",
+        label: msg("Split this pane with a new session"),
         glyph: icon(Plus, 15),
         run: () => {
           const p = activePanel();
@@ -887,12 +951,12 @@ class GroupActions implements IHeaderActionsRenderer {
         },
       },
       {
-        label: maximized ? "Restore to grid (Esc)" : "Focus this pane over the grid",
+        label: maximized ? msg("Restore to grid (Esc)") : msg("Focus this pane over the grid"),
         glyph: icon(maximized ? Shrink : Expand, 14),
         run: () => (maximized ? props.api.exitMaximized() : props.api.maximize()),
       },
       {
-        label: "Open full screen",
+        label: msg("Open full screen"),
         glyph: icon(Maximize2, 14),
         run: () => {
           const p = activePanel();
@@ -900,7 +964,7 @@ class GroupActions implements IHeaderActionsRenderer {
         },
       },
       {
-        label: "Close pane",
+        label: msg("Close pane"),
         glyph: icon(X, 15),
         cls: " split-group-close",
         run: () => {

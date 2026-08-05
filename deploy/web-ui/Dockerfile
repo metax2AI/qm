@@ -4,7 +4,9 @@ ARG WEB_UI_BASE=/
 ENV WEB_UI_BASE=$WEB_UI_BASE
 COPY plugins/web-ui/package.json plugins/web-ui/package-lock.json ./
 RUN npm ci
-COPY plugins/web-ui/index.html plugins/web-ui/vite.config.ts plugins/web-ui/tsconfig.json ./
+COPY plugins/web-ui/index.html plugins/web-ui/vite.config.ts plugins/web-ui/tsconfig.json plugins/web-ui/lit-localize.json ./
+COPY plugins/web-ui/xliff ./xliff
+COPY plugins/web-ui/scripts ./scripts
 COPY plugins/web-ui/src ./src
 COPY plugins/chassis/src /chassis/src
 RUN npm run build

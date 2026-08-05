@@ -9,6 +9,16 @@ export interface RuntimeChoice {
   modelId: string;
 }
 
+export class RuntimeChoiceError extends NonRetryableTurnError {
+  readonly reasonCode: "runtime_not_approved" | "model_not_supported";
+
+  constructor(reasonCode: "runtime_not_approved" | "model_not_supported", message: string) {
+    super(message);
+    this.name = "RuntimeChoiceError";
+    this.reasonCode = reasonCode;
+  }
+}
+
 export function resolveRuntimeChoice(
   config: Pick<ScopedConfigStore, "getApprovedHarnesses" | "getRuntimeSelection" | "getBaseModel">,
   orgScopeId: ScopeId,
@@ -45,9 +55,22 @@ export function resolveRuntimeChoice(
     requested?.harnessId || requested?.modelId
       ? { harnessId: requested.harnessId ?? inherited.harnessId, modelId: requested.modelId ?? inherited.modelId }
       : inherited;
-  if (!approved.includes(choice.harnessId) || !modelSupportedByHarness(choice.modelId, choice.harnessId)) {
-    if (requested?.harnessId || requested?.modelId)
-      throw new NonRetryableTurnError(`runtime ${choice.harnessId}/${choice.modelId} is not approved`);
+  if (!approved.includes(choice.harnessId)) {
+    if (requested?.harnessId || requested?.modelId) {
+      throw new RuntimeChoiceError(
+        "runtime_not_approved",
+        `runtime ${choice.harnessId}/${choice.modelId} is not approved`,
+      );
+    }
+    return org;
+  }
+  if (!modelSupportedByHarness(choice.modelId, choice.harnessId)) {
+    if (requested?.harnessId || requested?.modelId) {
+      throw new RuntimeChoiceError(
+        "model_not_supported",
+        `model ${choice.modelId} is not supported by runtime ${choice.harnessId}`,
+      );
+    }
     return org;
   }
   return choice;

@@ -5,7 +5,11 @@ import {
   type PersistedApprovedHarnesses,
   type PersistedBaseModel,
 } from "../src/resolution/config-store.ts";
-import { resolveRuntimeChoice, resolveRuntimeChoiceDurable } from "../src/harness/harness-router.ts";
+import {
+  resolveRuntimeChoice,
+  resolveRuntimeChoiceDurable,
+  RuntimeChoiceError,
+} from "../src/harness/harness-router.ts";
 import { createMemoryMap } from "../src/persistence/durable-map.ts";
 
 const ORG = "org:default-org" as const;
@@ -47,7 +51,14 @@ test("runtime resolution uses explicit choice, then scope, then org and rejects 
   );
   assert.throws(
     () => resolveRuntimeChoice(config, ORG, PERSONAL, fallback, { harnessId: "opencode", modelId: "claude-opus-4-8" }),
-    /not approved/,
+    (error) => error instanceof RuntimeChoiceError && error.reasonCode === "runtime_not_approved",
+  );
+  assert.throws(
+    () => resolveRuntimeChoice(config, ORG, PERSONAL, fallback, { harnessId: "codex", modelId: "claude-opus-4-8" }),
+    (error) =>
+      error instanceof RuntimeChoiceError &&
+      error.reasonCode === "model_not_supported" &&
+      /not supported by runtime/.test(error.message),
   );
 });
 

@@ -67,7 +67,7 @@ async function resolveScopeNames(
 
 async function handleKeychain(ctx: ApiCtx): Promise<void> {
   const { res, app, deps, pathname, method, body, capability, params } = ctx;
-  if (!deps.keychain) return sendJson(res, 404, { error: "not_found" });
+  if (!deps.keychain) return sendJson(res, 503, { error: "not_configured", message: "keychain not configured" });
   if (!capability)
     return sendJson(res, 401, { error: "unauthorized", message: "keychain routes require an agent capability token" });
   const kc = deps.keychain;
@@ -176,7 +176,7 @@ async function handleKeychain(ctx: ApiCtx): Promise<void> {
       const ok = await kc.remove(actorId, id);
       if (ok)
         audit(deps, { principalId: actorId, action: "keychain.delete", resource: id, scopeLabel: capability.scopeId });
-      return ok ? sendJson(res, 200, { ok: true }) : sendJson(res, 404, { error: "not_found" });
+      return ok ? sendJson(res, 200, { ok: true }) : sendJson(res, 404, { error: "credential_not_found" });
     }
 
     if (method === "POST" && pathname === "/v1/keychain/grants") {
@@ -269,7 +269,7 @@ async function handleKeychain(ctx: ApiCtx): Promise<void> {
       const ok = await kc.revokeGrant(actorId, id);
       if (ok)
         audit(deps, { principalId: actorId, action: "keychain.revoke", resource: id, scopeLabel: capability.scopeId });
-      return ok ? sendJson(res, 200, { ok: true }) : sendJson(res, 404, { error: "not_found" });
+      return ok ? sendJson(res, 200, { ok: true }) : sendJson(res, 404, { error: "grant_not_found" });
     }
 
     if (method === "POST" && pathname === "/v1/keychain/asks") {
@@ -300,7 +300,7 @@ async function handleKeychain(ctx: ApiCtx): Promise<void> {
         });
       }
       const cred = await kc.getCredential(b.credential);
-      if (!cred) return sendJson(res, 404, { error: "not_found", message: "unknown credential" });
+      if (!cred) return sendJson(res, 404, { error: "credential_not_found", message: "unknown credential" });
       const ch = await app.resolveChannel(scope.ref);
       if (ch.kind !== "one") {
         return sendJson(res, 403, {
@@ -423,7 +423,7 @@ async function handleKeychain(ctx: ApiCtx): Promise<void> {
       return;
     }
   } catch (e) {
-    if (e instanceof KeychainError) return sendJson(res, e.status, { error: "keychain", message: e.message });
+    if (e instanceof KeychainError) return sendJson(res, e.status, { error: e.code, message: e.message });
     throw e;
   }
   return sendJson(res, 404, { error: "not_found" });

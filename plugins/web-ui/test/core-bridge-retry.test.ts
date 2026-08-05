@@ -129,7 +129,7 @@ test("a 4xx is definitive — the poll fails immediately without retrying", asyn
   const final = await drain(stream);
 
   assert.equal(final.stopReason, "error");
-  assert.equal(final.errorMessage, "not_found");
+  assert.equal(final.errorMessage, "The requested item was not found.");
   assert.equal(i, 1, "no retries after a definitive 4xx");
 });
 

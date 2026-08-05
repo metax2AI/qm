@@ -1,7 +1,7 @@
 @import "@earendil-works/pi-web-ui/app.css";
 
 :root {
-  --app-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --app-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --sidebar-w: 280px;
   --content-w: 820px;
   --radius-sm: 8px;
@@ -927,6 +927,22 @@ a.chat-row-open {
   margin-top: 6px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
+}
+.locale-picker {
+  position: relative;
+  flex: 0 0 auto;
+}
+.locale-picker select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.locale-picker:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--foreground) 65%, transparent);
+  outline-offset: 2px;
 }
 .user-pill {
   cursor: default;

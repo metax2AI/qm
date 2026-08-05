@@ -1,0 +1,38 @@
+import { bootSafely } from "./shell.ts";
+import { closeFormMenus } from "./ui.ts";
+import { allConversations } from "./conversations.ts";
+import { closeOpenSessionMenu, renderList, sessionsState } from "./sessions.ts";
+import { closeDeployMenu } from "./deploys.ts";
+
+function closeComposerMenus(keepOpenWithin: Element | null): boolean {
+  let changed = false;
+  for (const conv of allConversations()) {
+    if (keepOpenWithin && conv.state.host?.contains(keepOpenWithin)) continue;
+    if (!conv.composer.closeMenus()) continue;
+    changed = true;
+    conv.redraw();
+  }
+  return changed;
+}
+
+document.addEventListener("click", (e) => {
+  const target = e.target as Element | null;
+  const inside = target?.closest(".menu-control, .composer-wrap") ?? null;
+  closeComposerMenus(inside);
+  if (!target?.closest(".form-menu-control")) closeFormMenus();
+  if (sessionsState.openMenuId && !target?.closest(".session-menu")) {
+    sessionsState.openMenuId = null;
+    renderList();
+  }
+  closeDeployMenu(target);
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  closeComposerMenus(null);
+  closeOpenSessionMenu();
+  closeDeployMenu(null, true);
+  closeFormMenus();
+});
+
+void bootSafely();

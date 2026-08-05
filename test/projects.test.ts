@@ -130,6 +130,22 @@ test("Project routes use ordinary group sessions with the durable roster as auth
     { principalId: "roster-helper", displayName: "Roster Helper", type: "internal" },
   ]);
 
+  const missingPrincipal = await fetch(`${base}/v1/projects`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Launch Cohort" }),
+  });
+  assert.equal(missingPrincipal.status, 400);
+  assert.equal(((await missingPrincipal.json()) as { error: string }).error, "bad_request");
+
+  const invalidName = await fetch(`${base}/v1/projects`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ principalId: "owner", name: "   " }),
+  });
+  assert.equal(invalidName.status, 400);
+  assert.equal(((await invalidName.json()) as { error: string }).error, "invalid_name");
+
   const create = await fetch(`${base}/v1/projects`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -185,6 +201,14 @@ test("Project routes use ordinary group sessions with the durable roster as auth
   });
   assert.equal(denied.status, 403);
 
+  const invalidMember = await fetch(`${base}/v1/projects/${project.id}/members`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ principalId: "owner", memberId: "   " }),
+  });
+  assert.equal(invalidMember.status, 400);
+  assert.equal(((await invalidMember.json()) as { error: string }).error, "invalid_member");
+
   await new Promise((resolve) => setTimeout(resolve, 2));
   const added = await fetch(`${base}/v1/projects/${project.id}/members`, {
     method: "POST",
@@ -216,6 +240,7 @@ test("Project routes use ordinary group sessions with the durable roster as auth
     body: JSON.stringify({ principalId: "owner", name: "   " }),
   });
   assert.equal(renameEmpty.status, 400);
+  assert.equal(((await renameEmpty.json()) as { error: string }).error, "invalid_name");
   const renamed = await fetch(`${base}/v1/projects/${project.id}`, {
     method: "PATCH",
     headers: { "content-type": "application/json" },
@@ -497,6 +522,7 @@ test("Project routes use ordinary group sessions with the durable roster as auth
   try {
     const finished = await built.runs.waitFor(queued.runId!, 5_000);
     assert.equal(finished.result?.status, "refused");
+    assert.equal(finished.result?.reasonCode, "project_membership_changed");
     assert.match(finished.result?.reason ?? "", /membership changed/);
     assert.equal(await built.sessions.getByThread("web:member:queued-before-removal"), null);
   } finally {
@@ -558,6 +584,7 @@ test("a member added mid-turn sees the thread but never the prior roster's outpu
 
     const result = await turn;
     assert.equal(result.status, "refused");
+    assert.equal(result.reasonCode, "project_membership_changed");
     assert.match(result.reason ?? "", /membership changed/);
     const lateView = await built.app.getSessionForViewer(session.id, "late-member");
     assert.ok(lateView);
@@ -671,6 +698,7 @@ test("Auto quarantine honors the current Project roster epoch", async () => {
   try {
     const raced = await request("race-marker", true);
     assert.equal(raced.status, "refused");
+    assert.equal(raced.reasonCode, "project_membership_changed");
     assert.match(raced.reason ?? "", /membership changed/);
     assert.equal(changed, true);
     assert.deepEqual(await built.sessions.getEntries(session.id), entriesBeforeRace);

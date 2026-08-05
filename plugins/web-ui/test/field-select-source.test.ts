@@ -7,13 +7,15 @@ const srcDir = new URL("../src/", import.meta.url);
 const ui = readFileSync(new URL("ui.ts", srcDir), "utf8");
 const css = readFileSync(new URL("shell.css", srcDir), "utf8");
 
-test("the shell has exactly one dropdown, and it is a real select", () => {
+test("page dropdowns share fieldSelect and the locale picker is the only shell-level select", () => {
   const offenders = readdirSync(srcDir)
     .filter((f) => f.endsWith(".ts"))
     .filter((f) => readFileSync(new URL(f, srcDir), "utf8").includes("<select"));
-  assert.deepEqual(offenders, ["ui.ts"], "every dropdown goes through fieldSelect()");
+  assert.deepEqual(offenders, ["shell.ts", "ui.ts"]);
   assert.match(ui, /<select/);
   assert.match(ui, /icon\(ChevronDown, 16\)/);
+  const shell = readFileSync(new URL("shell.ts", srcDir), "utf8");
+  assert.match(shell, /class="icon-btn subtle locale-picker"[\s\S]*<select[\s\S]*saveLocale/);
 });
 
 test("the dropdown keeps the accessible name, focus key and disabled state its callers pass", () => {

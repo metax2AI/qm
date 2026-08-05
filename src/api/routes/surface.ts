@@ -494,7 +494,11 @@ async function putSelfMemory(ctx: ApiCtx): Promise<void> {
       : (await deps.memory.replace(scope, b.content, principalId), true);
   if (!saved) {
     const head = await deps.memory.readHead?.(scope);
-    return sendJson(res, 409, { error: "conflict", message: "Memory changed while you were editing.", ...head });
+    return sendJson(res, 409, {
+      error: "memory_revision_conflict",
+      message: "Memory changed while you were editing.",
+      ...head,
+    });
   }
   audit(deps, { principalId, action: "memory.self.update", resource: "memory", scopeLabel: scope });
   const head = await deps.memory.readHead?.(scope);
@@ -540,7 +544,10 @@ async function restoreSelfMemory(ctx: ApiCtx): Promise<void> {
   if (!scope) return sendJson(res, 404, { error: "not_found" });
   const restored = await deps.memory?.restore?.(scope, b.revision, b.expectedRevision, viewer);
   if (!restored)
-    return sendJson(res, 409, { error: "conflict", message: "Memory changed, or that revision no longer exists." });
+    return sendJson(res, 409, {
+      error: "memory_revision_conflict",
+      message: "Memory changed, or that revision no longer exists.",
+    });
   audit(deps, {
     principalId: viewer,
     action: "memory.self.restore",
@@ -873,13 +880,13 @@ async function createSkill(ctx: ApiCtx): Promise<void> {
     });
   }
   if (typeof b.name !== "string" || !b.name.trim()) {
-    return sendJson(res, 400, { error: "bad_request", message: "name required" });
+    return sendJson(res, 400, { error: "skill_name_required", message: "name required" });
   }
   if (typeof b.description !== "string" || !b.description.trim()) {
-    return sendJson(res, 400, { error: "bad_request", message: "description required" });
+    return sendJson(res, 400, { error: "skill_description_required", message: "description required" });
   }
   if (typeof b.body !== "string" || !b.body.trim()) {
-    return sendJson(res, 400, { error: "bad_request", message: "body required" });
+    return sendJson(res, 400, { error: "skill_body_required", message: "body required" });
   }
   const created = await app.createOwnedSkill({
     principalId,
@@ -890,7 +897,7 @@ async function createSkill(ctx: ApiCtx): Promise<void> {
   });
   if (!created)
     return sendJson(res, 409, {
-      error: "exists",
+      error: "skill_already_exists",
       message: "a skill of that name already exists here — edit it instead",
     });
   return sendJson(res, 201, {

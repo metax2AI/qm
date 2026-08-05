@@ -91,7 +91,8 @@ test("provider-key gating applies only to key-authed harnesses (no over-hiding o
 test("web-turn gate refuses a keyless model cleanly, accepts it once the provider is configured", () => {
   const noOpenai = { anthropic: true, openai: false, openrouter: false };
   const refused = validateWebTurnModelOptions({ model: "gpt-5.6-sol" }, null, noOpenai);
-  assert.match(refused ?? "", /provider isn't configured/);
+  assert.match(refused?.reason ?? "", /provider isn't configured/);
+  assert.equal(refused?.reasonCode, "model_provider_unavailable");
   assert.equal(
     validateWebTurnModelOptions({ model: "gpt-5.6-sol" }, null, { anthropic: true, openai: true, openrouter: false }),
     null,

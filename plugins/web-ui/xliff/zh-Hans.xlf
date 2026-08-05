@@ -1,0 +1,3895 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+<file target-language="zh-Hans" source-language="en" original="lit-localize-inputs" datatype="plaintext">
+<body>
+<trans-unit id="s0d1c8190a8d0c2ae">
+  <source>Couldn't load this scope's standing orders.</source>
+  <target>无法加载此范围的常驻指令。</target>
+</trans-unit>
+<trans-unit id="s1c7d83e8dc6b85de">
+  <source>Saved.</source>
+  <target>已保存。</target>
+</trans-unit>
+<trans-unit id="s3a61e6b54ce4b3ed">
+  <source>Couldn't save — try again.</source>
+  <target>无法保存，请重试。</target>
+</trans-unit>
+<trans-unit id="sa6cc19a82bd6f6db">
+  <source>“<x id="0" equiv-text="${name}"/>” is already in the ledger.</source>
+  <target>“<x id="0" equiv-text="${name}"/>”已在名册中。</target>
+</trans-unit>
+<trans-unit id="s917734d83f35efa3">
+  <source>Ignore</source>
+  <target>忽略</target>
+</trans-unit>
+<trans-unit id="sbd786859c3f27029">
+  <source>Batch updates</source>
+  <target>批量更新</target>
+</trans-unit>
+<trans-unit id="s6d7f30f57dabf7bd">
+  <source>Act immediately</source>
+  <target>立即处理</target>
+</trans-unit>
+<trans-unit id="s1cdc6737e342b756">
+  <source>Treat like a person</source>
+  <target>视同真人</target>
+</trans-unit>
+<trans-unit id="s41798da2ccbf5d75">
+  <source>Handling for <x id="0" equiv-text="${b.name}"/></source>
+  <target><x id="0" equiv-text="${b.name}"/> 的处理方式</target>
+</trans-unit>
+<trans-unit id="s1153970079d1c964">
+  <source>every</source>
+  <target>每隔</target>
+</trans-unit>
+<trans-unit id="s66e85c95c4587f3b">
+  <source>Batch interval for <x id="0" equiv-text="${b.name}"/> in hours</source>
+  <target><x id="0" equiv-text="${b.name}"/> 的批量处理间隔（小时）</target>
+</trans-unit>
+<trans-unit id="saf63e54c8601fbd7">
+  <source>h</source>
+  <target>小时</target>
+</trans-unit>
+<trans-unit id="s121559c1cdd4d5ab">
+  <source>Remove <x id="0" equiv-text="${b.name}"/> from the ledger</source>
+  <target>从名册中移除 <x id="0" equiv-text="${b.name}"/></target>
+</trans-unit>
+<trans-unit id="sea4f08110bb8f15d">
+  <source>Remove</source>
+  <target>移除</target>
+</trans-unit>
+<trans-unit id="s662e354c867eb6e4">
+  <source>Agent behavior</source>
+  <target>智能体行为</target>
+</trans-unit>
+<trans-unit id="s6ebc9bd6feae62a3">
+  <source>Loading…</source>
+  <target>正在加载…</target>
+</trans-unit>
+<trans-unit id="sd16df7b33ba3146e">
+  <source>Choose what this project should notice and act on.</source>
+  <target>选择此项目需要关注和处理的内容。</target>
+</trans-unit>
+<trans-unit id="s8945fac4c868e4bb">
+  <source>Ambient behavior</source>
+  <target>环境感知行为</target>
+</trans-unit>
+<trans-unit id="sc75f16859608f0ed">
+  <source>Default (on when standing orders are set)</source>
+  <target>默认（设置常驻指令时开启）</target>
+</trans-unit>
+<trans-unit id="s091d5807b5b33550">
+  <source>On</source>
+  <target>开启</target>
+</trans-unit>
+<trans-unit id="s302cbb19bf9a174a">
+  <source>Off</source>
+  <target>关闭</target>
+</trans-unit>
+<trans-unit id="sc2a195c2c7375715">
+  <source>When off, the agent never acts on overheard messages here — it only responds to direct @mentions. Default: on only when standing orders (or an action-mode bot) are set below — otherwise mention-only.</source>
+  <target>关闭后，智能体不会处理这里旁听到的消息，只响应直接 @提及。默认情况下，仅在下方设置了常驻指令（或操作模式机器人）时开启，否则只响应提及。</target>
+</trans-unit>
+<trans-unit id="s8055b89bac8d8016">
+  <source>Standing orders</source>
+  <target>常驻指令</target>
+</trans-unit>
+<trans-unit id="sea912b7676c782c3">
+  <source>For example: Flag anything that could delay the launch.</source>
+  <target>例如：标记任何可能延误发布的事项。</target>
+</trans-unit>
+<trans-unit id="s591d3d7977d96578">
+  <source>Plain-language guidance for proactive work. Leave empty to respond only when addressed.</source>
+  <target>用自然语言说明主动工作的要求。留空则仅在被点名时响应。</target>
+</trans-unit>
+<trans-unit id="sb71005b51fc838b3">
+  <source>Automated posters</source>
+  <target>自动发帖机器人</target>
+</trans-unit>
+<trans-unit id="s959fe115edf0f7ca">
+  <source>Control how messages from bots and integrations wake the agent.</source>
+  <target>控制机器人和集成发送的消息如何唤醒智能体。</target>
+</trans-unit>
+<trans-unit id="s1526130554e8ecff">
+  <source>No bots added. All bot posts are treated as activity.</source>
+  <target>尚未添加机器人。所有机器人消息都会被视为活动。</target>
+</trans-unit>
+<trans-unit id="sc637cb4a2c6517a1">
+  <source>Bot name</source>
+  <target>机器人名称</target>
+</trans-unit>
+<trans-unit id="sa1815cc6453205a1">
+  <source>Add bot</source>
+  <target>添加机器人</target>
+</trans-unit>
+<trans-unit id="sb060188bb28bfa9f">
+  <source>Saving…</source>
+  <target>正在保存…</target>
+</trans-unit>
+<trans-unit id="s33f85f24c0f5f008">
+  <source>Save</source>
+  <target>保存</target>
+</trans-unit>
+<trans-unit id="sc96dda2077e74e3f">
+  <source>Could not start the conversation.</source>
+  <target>无法开始会话。</target>
+</trans-unit>
+<trans-unit id="s3662883be510115b">
+  <source>Could not send the approval.</source>
+  <target>无法发送批准结果。</target>
+</trans-unit>
+<trans-unit id="sfb2937ef6c208fd2">
+  <source>Could not reconnect to the running task.</source>
+  <target>无法重新连接到正在运行的任务。</target>
+</trans-unit>
+<trans-unit id="s9ddea786984626f4">
+  <source>This conversation lives in Slack. Replies happen there.</source>
+  <target>此会话位于 Slack，请在那里回复。</target>
+</trans-unit>
+<trans-unit id="se5cc6ee694484bc8">
+  <source>Open in Slack</source>
+  <target>在 Slack 中打开</target>
+</trans-unit>
+<trans-unit id="sbefed41ba7d46009">
+  <source>This conversation is read-only here.</source>
+  <target>此会话在这里为只读。</target>
+</trans-unit>
+<trans-unit id="sb14e65608d4710e5">
+  <source>Loading earlier messages…</source>
+  <target>正在加载更早的消息…</target>
+</trans-unit>
+<trans-unit id="s500595d21b54d904">
+  <source>Show earlier messages</source>
+  <target>显示更早的消息</target>
+</trans-unit>
+<trans-unit id="s3988276191f4a51c">
+  <source>No readable messages in this conversation.</source>
+  <target>此会话中没有可读消息。</target>
+</trans-unit>
+<trans-unit id="s4c0c845a2ed923e6">
+  <source>Hi — I'm your AI teammate 👋
+
+I run tasks on a computer of my own and work across your connected tools — Slack, Google Workspace, GitHub, Linear, and the open web — and I remember what we work on together.
+
+Want to get set up? Tell me your name and what you're working on, and I'll take it from there — or just ask me anything to dive straight in.</source>
+  <target>你好，我是你的 AI 队友 👋
+
+我在自己的电脑上执行任务，也能使用你已连接的工具，包括 Slack、Google Workspace、GitHub、Linear 和开放网络。我还会记住我们共同处理的工作。
+
+想先完成设置吗？告诉我你的名字和正在做的事情，接下来交给我；你也可以直接提问，马上开始。</target>
+</trans-unit>
+<trans-unit id="sc8d4ad4433d1be37">
+  <source>Expand this pane</source>
+  <target>展开此窗格</target>
+</trans-unit>
+<trans-unit id="s3763f519c347a9f7">
+  <source>Now</source>
+  <target>刚刚</target>
+</trans-unit>
+<trans-unit id="sa5c253b1db000c10">
+  <source>Needs your approval</source>
+  <target>需要你的批准</target>
+</trans-unit>
+<trans-unit id="s1d3d57f58bcb4ea1">
+  <source>Thinking…</source>
+  <target>正在思考…</target>
+</trans-unit>
+<trans-unit id="s635ab3ed75a4b7d3">
+  <source><x id="0" equiv-text="${summary.label}"/> — <x id="1" equiv-text="${summary.detail}"/></source>
+  <target><x id="0" equiv-text="${summary.label}"/> — <x id="1" equiv-text="${summary.detail}"/></target>
+</trans-unit>
+<trans-unit id="s16b30010721cb867">
+  <source>Drop files or folders to attach</source>
+  <target>拖放文件或文件夹以添加附件</target>
+</trans-unit>
+<trans-unit id="sa0df619d00c39bb6">
+  <source>This chat runs in the <x id="0" equiv-text="${label}"/> context — the agent works with that context's files and memory, separate from your personal context.</source>
+  <target>此聊天在 <x id="0" equiv-text="${label}"/> 上下文中运行。智能体会使用该上下文的文件和记忆，与个人上下文相互独立。</target>
+</trans-unit>
+<trans-unit id="s41c171b52673603c">
+  <source>context</source>
+  <target>上下文</target>
+</trans-unit>
+<trans-unit id="s0ff8f5bcfbd13f18">
+  <source>Refresh conversations</source>
+  <target>刷新会话</target>
+</trans-unit>
+<trans-unit id="s047793043f67b336">
+  <source>↪ steered the running task</source>
+  <target>↪ 已引导正在运行的任务</target>
+</trans-unit>
+<trans-unit id="s3687049d1af562c4">
+  <source>Copy</source>
+  <target>复制</target>
+</trans-unit>
+<trans-unit id="s67b8d96c4d75442b">
+  <source>Copy message</source>
+  <target>复制消息</target>
+</trans-unit>
+<trans-unit id="se70d869c0002e602">
+  <source>Fork conversation from here</source>
+  <target>从此处派生会话</target>
+</trans-unit>
+<trans-unit id="s900129fd2bf1e8ad">
+  <source>Could not fork the conversation.</source>
+  <target>无法派生会话。</target>
+</trans-unit>
+<trans-unit id="s8eb4d098672ee981">
+  <source>your account</source>
+  <target>你的账户</target>
+</trans-unit>
+<trans-unit id="s601290c1c0664f6a">
+  <source>Connected <x id="0" equiv-text="${name}"/></source>
+  <target>已连接 <x id="0" equiv-text="${name}"/></target>
+</trans-unit>
+<trans-unit id="s8a6bcc06049052ec">
+  <source>Authorized — its tools work here now</source>
+  <target>已授权，其工具现在可在此使用</target>
+</trans-unit>
+<trans-unit id="s81c0fe8ab4f39dbf">
+  <source>Connect <x id="0" equiv-text="${name}"/></source>
+  <target>连接 <x id="0" equiv-text="${name}"/></target>
+</trans-unit>
+<trans-unit id="s64f96bcd46539d2b">
+  <source>Authorize access in a new tab</source>
+  <target>在新标签页中授权访问</target>
+</trans-unit>
+<trans-unit id="scc2f862c1d285c7d">
+  <source>Thinking</source>
+  <target>正在思考</target>
+</trans-unit>
+<trans-unit id="sa5236d5b5e68c688">
+  <source>Failed to load background activity.</source>
+  <target>无法加载后台活动。</target>
+</trans-unit>
+<trans-unit id="sc445138710fcd565">
+  <source>expiring</source>
+  <target>即将到期</target>
+</trans-unit>
+<trans-unit id="sd877089775b3ea9d">
+  <source><x id="0" equiv-text="${formatNumber(mins)}"/>m left</source>
+  <target>剩余 <x id="0" equiv-text="${mins}"/> 分钟</target>
+</trans-unit>
+<trans-unit id="s94e1e7fe3d8500f1">
+  <source><x id="0" equiv-text="${formatNumber(Math.floor(mins / 60))}"/>h <x id="1" equiv-text="${formatNumber(mins % 60, { minimumIntegerDigits: 2 })}"/>m left</source>
+  <target>剩余 <x id="0" equiv-text="${Math.floor(mins / 60)}"/> 小时 <x id="1" equiv-text="${String(mins % 60).padStart(2, &quot;0&quot;)}"/> 分钟</target>
+</trans-unit>
+<trans-unit id="s5b288501794d4840">
+  <source>Hide background activity</source>
+  <target>隐藏后台活动</target>
+</trans-unit>
+<trans-unit id="s3746f8ed00508471">
+  <source>Work continuing on the agent's computer — click to inspect</source>
+  <target>工作仍在智能体的电脑上继续，点击查看</target>
+</trans-unit>
+<trans-unit id="sb43caf22ae6a88d6">
+  <source>Background activity</source>
+  <target>后台活动</target>
+</trans-unit>
+<trans-unit id="saf7b14c431a78878">
+  <source>Nothing running here anymore.</source>
+  <target>这里已没有正在运行的任务。</target>
+</trans-unit>
+<trans-unit id="s4da9323bb7febd85">
+  <source>exited (<x id="0" equiv-text="${out.exitCode}"/>)</source>
+  <target>已退出（<x id="0" equiv-text="${out.exitCode}"/>）</target>
+</trans-unit>
+<trans-unit id="sacee83d3afdf0aec">
+  <source>exited</source>
+  <target>已退出</target>
+</trans-unit>
+<trans-unit id="s7a0b457f8eb1ff5a">
+  <source>Hide output</source>
+  <target>隐藏输出</target>
+</trans-unit>
+<trans-unit id="s7c0306469112419b">
+  <source>Show live output</source>
+  <target>显示实时输出</target>
+</trans-unit>
+<trans-unit id="sbeb11c32619b696f">
+  <source>started <x id="0" equiv-text="${relTime(j.startedAt)}"/> · <x id="1" equiv-text="${status}"/></source>
+  <target>开始于 <x id="0" equiv-text="${relTime(j.startedAt)}"/> · <x id="1" equiv-text="${status}"/></target>
+</trans-unit>
+<trans-unit id="sefe44cced6cfa9ba">
+  <source>(no output yet)</source>
+  <target>（暂无输出）</target>
+</trans-unit>
+<trans-unit id="s92f41d1015715d76">
+  <source>Loading output…</source>
+  <target>正在加载输出…</target>
+</trans-unit>
+<trans-unit id="s7d7eb9e221157b19">
+  <source>output matching /<x id="0" equiv-text="${w.pattern}"/>/</source>
+  <target>匹配 /<x id="0" equiv-text="${w.pattern}"/>/ 的输出</target>
+</trans-unit>
+<trans-unit id="s6383f43ad5601f74">
+  <source>any new output</source>
+  <target>任何新输出</target>
+</trans-unit>
+<trans-unit id="se7dc8c10c547c33c">
+  <source>armed <x id="0" equiv-text="${relTime(w.createdAt)}"/> · last fired <x id="1" equiv-text="${relTime(w.lastFiredAt)}"/> · <x id="2" equiv-text="${timeLeft(w.expiresAt)}"/></source>
+  <target>启用于 <x id="0" equiv-text="${relTime(w.createdAt)}"/> · 上次触发于 <x id="1" equiv-text="${relTime(w.lastFiredAt)}"/> · <x id="2" equiv-text="${timeLeft(w.expiresAt)}"/></target>
+</trans-unit>
+<trans-unit id="sa5dea8a182597991">
+  <source>armed <x id="0" equiv-text="${relTime(w.createdAt)}"/> · <x id="1" equiv-text="${timeLeft(w.expiresAt)}"/></source>
+  <target>启用于 <x id="0" equiv-text="${relTime(w.createdAt)}"/> · <x id="1" equiv-text="${timeLeft(w.expiresAt)}"/></target>
+</trans-unit>
+<trans-unit id="sba36a4d334527950">
+  <source>Watch — wakes on <x id="0" equiv-text="${what}"/> · “<x id="1" equiv-text="${note}"/>”</source>
+  <target>监视器 — 出现 <x id="0" equiv-text="${what}"/> 时唤醒 · “<x id="1" equiv-text="${note}"/>”</target>
+</trans-unit>
+<trans-unit id="s5724516ee2ff04e8">
+  <source>Watch — wakes on <x id="0" equiv-text="${what}"/></source>
+  <target>监视器 — 出现 <x id="0" equiv-text="${what}"/> 时唤醒</target>
+</trans-unit>
+<trans-unit id="sa50a6326530d8a0d">
+  <source>Show less</source>
+  <target>收起</target>
+</trans-unit>
+<trans-unit id="sb2c57b2d347203dd">
+  <source>Show more</source>
+  <target>展开</target>
+</trans-unit>
+<trans-unit id="s1d1d5ff58b94fc39">
+  <source>Thinking<x id="0" equiv-text="${usedToolsSuffix(work)}"/></source>
+  <target>正在思考<x id="0" equiv-text="${usedToolsSuffix(work)}"/></target>
+</trans-unit>
+<trans-unit id="s9df6ebfcee51a675">
+  <source><x id="0" equiv-text="${verb}"/> interrupted — resuming…</source>
+  <target><x id="0" equiv-text="${verb}"/>被中断，正在恢复…</target>
+</trans-unit>
+<trans-unit id="s62a78ba8d52cb453">
+  <source>Interrupted — resuming…</source>
+  <target>已中断，正在恢复…</target>
+</trans-unit>
+<trans-unit id="s7ad84f5e8abaab85">
+  <source><x id="0" equiv-text="${meta.active}"/> for <x id="1" equiv-text="${formatNumber(secs)}"/>s</source>
+  <target><x id="0" equiv-text="${meta.active}"/>，持续 <x id="1" equiv-text="${secs}"/> 秒</target>
+</trans-unit>
+<trans-unit id="s0e45e1d27fa252b3">
+  <source> (used <x id="0" equiv-text="${formatNumber(n)}"/> tool)</source>
+  <target>（使用了 <x id="0" equiv-text="${n}"/> 个工具）</target>
+</trans-unit>
+<trans-unit id="se4432eaee1d63818">
+  <source> (used <x id="0" equiv-text="${formatNumber(n)}"/> tools)</source>
+  <target>（使用了 <x id="0" equiv-text="${n}"/> 个工具）</target>
+</trans-unit>
+<trans-unit id="s8f4d75ce937f93f6">
+  <source>Working for <x id="0" equiv-text="${formatNumber(secs)}"/>s</source>
+  <target>已工作 <x id="0" equiv-text="${secs}"/> 秒</target>
+</trans-unit>
+<trans-unit id="s25cbc357b0f10025">
+  <source>Worked for <x id="0" equiv-text="${formatNumber(secs)}"/>s</source>
+  <target>工作了 <x id="0" equiv-text="${secs}"/> 秒</target>
+</trans-unit>
+<trans-unit id="s314c20605643b117">
+  <source><x id="0" equiv-text="${formatNumber(tools)}"/> tool call</source>
+  <target><x id="0" equiv-text="${tools}"/> 次工具调用</target>
+</trans-unit>
+<trans-unit id="s080c67b295066cec">
+  <source><x id="0" equiv-text="${formatNumber(tools)}"/> tool calls</source>
+  <target><x id="0" equiv-text="${tools}"/> 次工具调用</target>
+</trans-unit>
+<trans-unit id="s84cbbdb4e1de13e5">
+  <source>Failed after <x id="0" equiv-text="${formatNumber(secs)}"/>s</source>
+  <target><x id="0" equiv-text="${secs}"/> 秒后失败</target>
+</trans-unit>
+<trans-unit id="saf4293e102a82d93">
+  <source>Approval needed</source>
+  <target>需要批准</target>
+</trans-unit>
+<trans-unit id="s74cf0a19e64a56d9">
+  <source>Why</source>
+  <target>原因</target>
+</trans-unit>
+<trans-unit id="s48c520cfafc3b8cf">
+  <source>Triggered by</source>
+  <target>触发来源</target>
+</trans-unit>
+<trans-unit id="se879e2c7b70eda78">
+  <source>Show full command</source>
+  <target>显示完整命令</target>
+</trans-unit>
+<trans-unit id="s4409d76a6d4b31cd">
+  <source>Running command</source>
+  <target>正在运行命令</target>
+</trans-unit>
+<trans-unit id="s7cc5884a4a7d15a3">
+  <source>Ran command</source>
+  <target>已运行命令</target>
+</trans-unit>
+<trans-unit id="s4a90f02629769fea">
+  <source>Tried command</source>
+  <target>尝试运行命令</target>
+</trans-unit>
+<trans-unit id="s38383683ffe682a7">
+  <source>Reading file</source>
+  <target>正在读取文件</target>
+</trans-unit>
+<trans-unit id="s5353530f8d00d2d1">
+  <source>Read file</source>
+  <target>已读取文件</target>
+</trans-unit>
+<trans-unit id="s115e2dfae913756f">
+  <source>Tried reading file</source>
+  <target>尝试读取文件</target>
+</trans-unit>
+<trans-unit id="s39d91af8b8c6b89b">
+  <source>Writing file</source>
+  <target>正在写入文件</target>
+</trans-unit>
+<trans-unit id="sa0b4c24af746ec64">
+  <source>Wrote file</source>
+  <target>已写入文件</target>
+</trans-unit>
+<trans-unit id="s34193c484d3ab9f3">
+  <source>Tried writing file</source>
+  <target>尝试写入文件</target>
+</trans-unit>
+<trans-unit id="sf0da5c24d6d9dd80">
+  <source>Publishing</source>
+  <target>正在发布</target>
+</trans-unit>
+<trans-unit id="s53542cfe7f346398">
+  <source>Tried publishing</source>
+  <target>尝试发布</target>
+</trans-unit>
+<trans-unit id="s098d32be5e25f11e">
+  <source>Searching memory</source>
+  <target>正在搜索记忆</target>
+</trans-unit>
+<trans-unit id="s64db18dd86c00743">
+  <source>Searched memory</source>
+  <target>已搜索记忆</target>
+</trans-unit>
+<trans-unit id="s1ec03f3d38cd8376">
+  <source>Tried searching memory</source>
+  <target>尝试搜索记忆</target>
+</trans-unit>
+<trans-unit id="sc1f1114b53889b8e">
+  <source>Using memory</source>
+  <target>正在使用记忆</target>
+</trans-unit>
+<trans-unit id="s3eaa07613dc47ed3">
+  <source>Used memory</source>
+  <target>已使用记忆</target>
+</trans-unit>
+<trans-unit id="s0d444933750ff756">
+  <source>Tried using memory</source>
+  <target>尝试使用记忆</target>
+</trans-unit>
+<trans-unit id="s14aea0dae2a8834f">
+  <source>Searching history</source>
+  <target>正在搜索历史记录</target>
+</trans-unit>
+<trans-unit id="s891d5be5b71f7498">
+  <source>Searched history</source>
+  <target>已搜索历史记录</target>
+</trans-unit>
+<trans-unit id="s1d63aaad20e9c1d7">
+  <source>Tried searching history</source>
+  <target>尝试搜索历史记录</target>
+</trans-unit>
+<trans-unit id="sb0aa80d535efd888">
+  <source>Managing process</source>
+  <target>正在管理进程</target>
+</trans-unit>
+<trans-unit id="s922a42338ae1e14f">
+  <source>Managed process</source>
+  <target>已管理进程</target>
+</trans-unit>
+<trans-unit id="s3d8b75d4357788e0">
+  <source>Tried managing process</source>
+  <target>尝试管理进程</target>
+</trans-unit>
+<trans-unit id="s2d0a710d94702ac3">
+  <source>Finished step</source>
+  <target>已完成步骤</target>
+</trans-unit>
+<trans-unit id="s6d0e9bd45cc04f17">
+  <source>Tried step</source>
+  <target>尝试执行步骤</target>
+</trans-unit>
+<trans-unit id="s2b7c3fd76250eff3">
+  <source><x id="0" equiv-text="${q}"/> · <x id="1" equiv-text="${formatNumber(result.count)}"/> result</source>
+  <target><x id="0" equiv-text="${q}"/> · <x id="1" equiv-text="${result.count}"/> 条结果</target>
+</trans-unit>
+<trans-unit id="s350ffafc0f86f680">
+  <source><x id="0" equiv-text="${q}"/> · <x id="1" equiv-text="${formatNumber(result.count)}"/> results</source>
+  <target><x id="0" equiv-text="${q}"/> · <x id="1" equiv-text="${result.count}"/> 条结果</target>
+</trans-unit>
+<trans-unit id="sb6d729c6e0ce587e">
+  <source><x id="0" equiv-text="${formatNumber(result.added)}"/> saved</source>
+  <target>已保存 <x id="0" equiv-text="${result.added}"/> 条</target>
+</trans-unit>
+<trans-unit id="sa528816d0949ff3b">
+  <source><x id="0" equiv-text="${meta.active}"/> — interrupted</source>
+  <target><x id="0" equiv-text="${meta.active}"/> — 已中断</target>
+</trans-unit>
+<trans-unit id="s1dc338639fe7aae9">
+  <source><x id="0" equiv-text="${formatNumber(row.attempts)}"/> attempts</source>
+  <target><x id="0" equiv-text="${row.attempts}"/> 次尝试</target>
+</trans-unit>
+<trans-unit id="sadd87fd3b0a56813">
+  <source>exit <x id="0" equiv-text="${result.code ?? 0}"/></source>
+  <target>退出码 <x id="0" equiv-text="${result.code ?? 0}"/></target>
+</trans-unit>
+<trans-unit id="s6b834baa64e28b27">
+  <source> · timed out</source>
+  <target> · 已超时</target>
+</trans-unit>
+<trans-unit id="s182f350b90de5e66">
+  <source>Show full output</source>
+  <target>显示完整输出</target>
+</trans-unit>
+<trans-unit id="sf5a0b09ed5ca124e">
+  <source>Couldn't load the full output.</source>
+  <target>无法加载完整输出。</target>
+</trans-unit>
+<trans-unit id="sd16ad214c32ec4ac">
+  <source>Could not load runtime settings.</source>
+  <target>无法加载运行设置。</target>
+</trans-unit>
+<trans-unit id="s29f740fd0f92d4ac">
+  <source>Could not update the scope default.</source>
+  <target>无法更新此范围的默认值。</target>
+</trans-unit>
+<trans-unit id="s385aee70596b6387">
+  <source>Fast mode is only available on Opus models</source>
+  <target>快速模式仅适用于 Opus 模型</target>
+</trans-unit>
+<trans-unit id="s3d9c6e2dc3d9f578">
+  <source>Fast mode active</source>
+  <target>快速模式已启用</target>
+</trans-unit>
+<trans-unit id="sd46f7b3653c1d14a">
+  <source>Fast mode</source>
+  <target>快速模式</target>
+</trans-unit>
+<trans-unit id="sf2be273b4a117844">
+  <source>Ask anything</source>
+  <target>输入任何问题</target>
+</trans-unit>
+<trans-unit id="s471a13ff4a3d38a7">
+  <source>Loading runtime…</source>
+  <target>正在加载运行配置…</target>
+</trans-unit>
+<trans-unit id="s257f183b8d579c69">
+  <source>Approve or deny to continue</source>
+  <target>批准或拒绝后继续</target>
+</trans-unit>
+<trans-unit id="sc7b3951da4b68807">
+  <source>Steer the running task…</source>
+  <target>引导正在运行的任务…</target>
+</trans-unit>
+<trans-unit id="sd11eb7b9e3c2d43e">
+  <source>Preparing files...</source>
+  <target>正在准备文件...</target>
+</trans-unit>
+<trans-unit id="s2c8189544e3ea679">
+  <source>Retry</source>
+  <target>重试</target>
+</trans-unit>
+<trans-unit id="s39439f5405d6455e">
+  <source>Loading runtime settings…</source>
+  <target>正在加载运行设置…</target>
+</trans-unit>
+<trans-unit id="scd2d392c09502f46">
+  <source>The org now recommends <x id="0" equiv-text="${modelOptionFor(`${activeRuntimeConfig.orgDefault.harnessId}:${activeRuntimeConfig.orgDefault.modelId}`).harnessLabel}"/> · <x id="1" equiv-text="${modelOptionFor(`${activeRuntimeConfig.orgDefault.harnessId}:${activeRuntimeConfig.orgDefault.modelId}`).buttonLabel}"/>.</source>
+  <target>组织现在推荐 <x id="0" equiv-text="${modelOptionFor(`${activeRuntimeConfig.orgDefault.harnessId}:${activeRuntimeConfig.orgDefault.modelId}`).harnessLabel}"/> · <x id="1" equiv-text="${modelOptionFor(`${activeRuntimeConfig.orgDefault.harnessId}:${activeRuntimeConfig.orgDefault.modelId}`).buttonLabel}"/>。</target>
+</trans-unit>
+<trans-unit id="sfb720fc010661f17">
+  <source>Upgrade</source>
+  <target>升级</target>
+</trans-unit>
+<trans-unit id="s6fb8d8a859a512a3">
+  <source>Keep mine</source>
+  <target>保留我的设置</target>
+</trans-unit>
+<trans-unit id="s1fd3669a08c6d81f">
+  <source>Inherit future defaults</source>
+  <target>继承今后的默认值</target>
+</trans-unit>
+<trans-unit id="sa65cdadb2857b648">
+  <source>View pasted text</source>
+  <target>查看粘贴的文本</target>
+</trans-unit>
+<trans-unit id="s49ee2ba362a6da34">
+  <source>View session log (admin)</source>
+  <target>查看会话日志（管理员）</target>
+</trans-unit>
+<trans-unit id="s6eedf55b0382aa4b">
+  <source>Attach files</source>
+  <target>添加附件</target>
+</trans-unit>
+<trans-unit id="s44c58ef3ef14b90f">
+  <source>Effort</source>
+  <target>推理强度</target>
+</trans-unit>
+<trans-unit id="s19e84b851836664f">
+  <source>Fast</source>
+  <target>快速</target>
+</trans-unit>
+<trans-unit id="s967f2ab8959b30b6">
+  <source>Make default</source>
+  <target>设为默认</target>
+</trans-unit>
+<trans-unit id="s11326fd2590f4e5e">
+  <source>Default</source>
+  <target>默认</target>
+</trans-unit>
+<trans-unit id="saabf60277cc81bcd">
+  <source>Use this harness, model, effort, and fast setting as the default for this scope</source>
+  <target>将此 Harness、模型、推理强度和快速设置设为此范围的默认值</target>
+</trans-unit>
+<trans-unit id="sd0da65022095807b">
+  <source>Use org default</source>
+  <target>使用组织默认值</target>
+</trans-unit>
+<trans-unit id="s81d3e1be03866b6c">
+  <source>Org default</source>
+  <target>组织默认值</target>
+</trans-unit>
+<trans-unit id="sa27d8e1bb3867e0b">
+  <source>Harness</source>
+  <target>Harness</target>
+</trans-unit>
+<trans-unit id="scbdba711955d770b">
+  <source>Pasted text</source>
+  <target>粘贴的文本</target>
+</trans-unit>
+<trans-unit id="s052d27a4814f4dc5">
+  <source>Insert into message</source>
+  <target>插入消息</target>
+</trans-unit>
+<trans-unit id="s57adf424d57c8a0f">
+  <source>Send</source>
+  <target>发送</target>
+</trans-unit>
+<trans-unit id="sb074d5130dbc208b">
+  <source>Steer the running task (attachments stay for your next message)</source>
+  <target>引导正在运行的任务（附件会保留到下一条消息）</target>
+</trans-unit>
+<trans-unit id="s61cc5ee0e0994e7b">
+  <source>Steer the running task</source>
+  <target>引导正在运行的任务</target>
+</trans-unit>
+<trans-unit id="sd9ad53251f2330a5">
+  <source>Stop</source>
+  <target>停止</target>
+</trans-unit>
+<trans-unit id="s2e1e1604feb3052d">
+  <source>Command approval</source>
+  <target>命令审批</target>
+</trans-unit>
+<trans-unit id="sd0680e7343dedb27">
+  <source>Deny</source>
+  <target>拒绝</target>
+</trans-unit>
+<trans-unit id="sb6fa8b5eb62ca073">
+  <source>Allow once</source>
+  <target>允许一次</target>
+</trans-unit>
+<trans-unit id="s5bbaa979d7f110e1">
+  <source>Allow for session</source>
+  <target>本次会话允许</target>
+</trans-unit>
+<trans-unit id="s4d6cb9e1d66eb113">
+  <source>Allow always</source>
+  <target>始终允许</target>
+</trans-unit>
+<trans-unit id="s054f8cb3853767ef">
+  <source><x id="0" equiv-text="${selected.buttonLabel}"/> · <x id="1" equiv-text="${effortLabel(composerState.effortLevel)}"/> · Fast</source>
+  <target><x id="0" equiv-text="${selected.buttonLabel}"/> · <x id="1" equiv-text="${effortLabel(composerState.effortLevel)}"/> · 快速</target>
+</trans-unit>
+<trans-unit id="s393057888fc2f40e">
+  <source><x id="0" equiv-text="${selected.buttonLabel}"/> · <x id="1" equiv-text="${effortLabel(composerState.effortLevel)}"/></source>
+  <target><x id="0" equiv-text="${selected.buttonLabel}"/> · <x id="1" equiv-text="${effortLabel(composerState.effortLevel)}"/></target>
+</trans-unit>
+<trans-unit id="s39e64bedf6985386">
+  <source>Session settings — <x id="0" equiv-text="${summary}"/></source>
+  <target>会话设置 — <x id="0" equiv-text="${summary}"/></target>
+</trans-unit>
+<trans-unit id="sc5efc3ed4fac7a4b">
+  <source>Loading skills…</source>
+  <target>正在加载技能…</target>
+</trans-unit>
+<trans-unit id="s24b1dafb1b20370c">
+  <source>Team</source>
+  <target>团队</target>
+</trans-unit>
+<trans-unit id="s24761a0cc8d9c0aa">
+  <source>Organization</source>
+  <target>组织</target>
+</trans-unit>
+<trans-unit id="s115b2ea5daa34a2f">
+  <source>Could not steer the running task.</source>
+  <target>无法引导正在运行的任务。</target>
+</trans-unit>
+<trans-unit id="s7ce9c8f6e5c8ce28">
+  <source>Could not deliver the message — the running task never settled. It is back in the composer.</source>
+  <target>无法发送消息，正在运行的任务始终未就绪。消息已放回输入框。</target>
+</trans-unit>
+<trans-unit id="s4e8e0d3cb31e4a46">
+  <source>Could not deliver the message — the running task ended mid-send. It is back in the composer.</source>
+  <target>无法发送消息，正在运行的任务在发送过程中结束。消息已放回输入框。</target>
+</trans-unit>
+<trans-unit id="s1b281eb0a6096db6">
+  <source>Could not send message.</source>
+  <target>无法发送消息。</target>
+</trans-unit>
+<trans-unit id="s8e2a769e2d1fae7d">
+  <source>Still preparing the previous drop — try again in a moment.</source>
+  <target>仍在处理上次拖放的内容，请稍后重试。</target>
+</trans-unit>
+<trans-unit id="sd2592408c34960ac">
+  <source>That drop included a folder this browser can't read — zip it and drop the archive instead.</source>
+  <target>拖放内容中包含此浏览器无法读取的文件夹，请将其压缩后拖放压缩包。</target>
+</trans-unit>
+<trans-unit id="s07099924414fd42d">
+  <source>Could not attach that file.</source>
+  <target>无法添加该文件。</target>
+</trans-unit>
+<trans-unit id="sa3edae105811e365">
+  <source>Gmail, Calendar, Drive, Sheets</source>
+  <target>Gmail、Calendar、Drive、Sheets</target>
+</trans-unit>
+<trans-unit id="s69e1e46c3c7ce464">
+  <source>Lets the agent read and act in your Gmail, Calendar, and Sheets on your behalf, and read your Drive (it can save new files there, but not edit your existing ones).</source>
+  <target>允许智能体代表你读取 Gmail、Calendar 和 Sheets 并执行操作，以及读取 Drive（可以保存新文件，但不能编辑现有文件）。</target>
+</trans-unit>
+<trans-unit id="s2ff0e58d2f43fe01">
+  <source>Channels &amp; messages</source>
+  <target>频道和消息</target>
+</trans-unit>
+<trans-unit id="s2724bdaf4733a23d">
+  <source>Lets the agent act in Slack as you — read your channels and post messages on your behalf. (To chat with the agent in Slack, just DM it — you don't need this.)</source>
+  <target>允许智能体在 Slack 中以你的身份操作，读取你的频道并代表你发送消息。（要在 Slack 中与智能体聊天，直接给它发私信即可，无需连接此账户。）</target>
+</trans-unit>
+<trans-unit id="s801144a234cfddff">
+  <source>Pages &amp; databases</source>
+  <target>页面和数据库</target>
+</trans-unit>
+<trans-unit id="s0209113a277d286e">
+  <source>Lets the agent read the Notion pages and databases you share with it (and edit them if you grant that access).</source>
+  <target>允许智能体读取你与它共享的 Notion 页面和数据库（如果授予相应权限，也可以编辑）。</target>
+</trans-unit>
+<trans-unit id="s45b18f6001c61e47">
+  <source>Issues &amp; projects</source>
+  <target>议题和项目</target>
+</trans-unit>
+<trans-unit id="s9c0f08f8dcd8ded3">
+  <source>Lets the agent read and update your Linear issues on your behalf.</source>
+  <target>允许智能体代表你读取和更新 Linear 议题。</target>
+</trans-unit>
+<trans-unit id="sed12e2532518ae67">
+  <source>Repos, issues &amp; PRs</source>
+  <target>仓库、议题和 PR</target>
+</trans-unit>
+<trans-unit id="s9bb7fb537d44b924">
+  <source>Lets the agent read and update your GitHub repos, issues, and PRs on your behalf.</source>
+  <target>允许智能体代表你读取和更新 GitHub 仓库、议题和 PR。</target>
+</trans-unit>
+<trans-unit id="sa1650c2b73f9ddbf">
+  <source>Files &amp; folders</source>
+  <target>文件和文件夹</target>
+</trans-unit>
+<trans-unit id="s1b4424fdcee5d12e">
+  <source>Lets the agent browse, download, and upload files in your Dropbox on your behalf, and manage shared links.</source>
+  <target>允许智能体代表你浏览、下载和上传 Dropbox 中的文件，以及管理共享链接。</target>
+</trans-unit>
+<trans-unit id="s594bac882714d91f">
+  <source>Posts &amp; profile</source>
+  <target>帖子和个人资料</target>
+</trans-unit>
+<trans-unit id="sc2c3446168b3f937">
+  <source>Lets the agent read X and post, like, and follow as you — used when an action should come from your account rather than the org's.</source>
+  <target>允许智能体读取 X，并以你的身份发帖、点赞和关注；适用于操作需要来自你的账户而非组织账户的情况。</target>
+</trans-unit>
+<trans-unit id="se96544ae83aa1f55">
+  <source>standing</source>
+  <target>长期</target>
+</trans-unit>
+<trans-unit id="sff83a8f9ee72062a">
+  <source>Encrypted at rest</source>
+  <target>静态加密</target>
+</trans-unit>
+<trans-unit id="s0f68a515d412cf25">
+  <source>Expires <x id="0" equiv-text="${fmtDate(c.expiresAt)}"/></source>
+  <target>到期于 <x id="0" equiv-text="${fmtDate(c.expiresAt)}"/></target>
+</trans-unit>
+<trans-unit id="s273704c54e960353">
+  <source>Added <x id="0" equiv-text="${fmtDate(c.createdAt)}"/></source>
+  <target>添加于 <x id="0" equiv-text="${fmtDate(c.createdAt)}"/></target>
+</trans-unit>
+<trans-unit id="scfbf182faae49756">
+  <source>Last used <x id="0" equiv-text="${fmtDate(lastUse.ts)}"/> in <x id="1" equiv-text="${scopeName(lastUse.scopeLabel)}"/> · <x id="2" equiv-text="${localizedStatus(lastUse.status)}"/></source>
+  <target>上次于 <x id="0" equiv-text="${fmtDate(lastUse.ts)}"/> 在 <x id="1" equiv-text="${scopeName(lastUse.scopeLabel)}"/> 中使用 · <x id="2" equiv-text="${lastUse.status}"/></target>
+</trans-unit>
+<trans-unit id="sbbbad20157444571">
+  <source>No audited use yet</source>
+  <target>暂无已审计的使用记录</target>
+</trans-unit>
+<trans-unit id="s2a2a074cfe0a50da">
+  <source>Pending requests</source>
+  <target>待处理请求</target>
+</trans-unit>
+<trans-unit id="ha751ebe5dd231ea2">
+  <source><x id="0" equiv-text="&lt;strong&gt;${scopeName(ask.requesterScopeId)}&lt;/strong&gt;"/> requested
+                          <x id="1" equiv-text="${accessModeText(ask.requestedMode)}"/> access</source>
+  <target><x id="0" equiv-text="&lt;strong&gt;${scopeName(ask.requesterScopeId)}&lt;/strong&gt;"/> 请求了
+                          <x id="1" equiv-text="${accessModeText(ask.requestedMode)}"/>访问权限</target>
+</trans-unit>
+<trans-unit id="s4fd67663886c1705">
+  <source>expires <x id="0" equiv-text="${fmtDate(ask.expiresAt)}"/></source>
+  <target>到期于 <x id="0" equiv-text="${fmtDate(ask.expiresAt)}"/></target>
+</trans-unit>
+<trans-unit id="s4f68e2fb642033c3">
+  <source>Active access</source>
+  <target>有效授权</target>
+</trans-unit>
+<trans-unit id="s810e5b4702a5c27e">
+  <source> · expires <x id="0" equiv-text="${fmtDate(grant.expiresAt)}"/></source>
+  <target> · 到期于 <x id="0" equiv-text="${fmtDate(grant.expiresAt)}"/></target>
+</trans-unit>
+<trans-unit id="s0e871352ba4b17d3">
+  <source>Revoke</source>
+  <target>撤销</target>
+</trans-unit>
+<trans-unit id="sb30e0275a250b61f">
+  <source>a personal DM</source>
+  <target>个人私信</target>
+</trans-unit>
+<trans-unit id="s0d6dad800c0a4eee">
+  <source>a Slack channel (<x id="0" equiv-text="${ref}"/>)</source>
+  <target>Slack 频道（<x id="0" equiv-text="${ref}"/>）</target>
+</trans-unit>
+<trans-unit id="sf1c6884825399e0a">
+  <source>a group DM</source>
+  <target>群组私信</target>
+</trans-unit>
+<trans-unit id="se789e6fd03aa5788">
+  <source>a team (<x id="0" equiv-text="${ref}"/>)</source>
+  <target>团队（<x id="0" equiv-text="${ref}"/>）</target>
+</trans-unit>
+<trans-unit id="s0ecf91cfd6c765a5">
+  <source>a team</source>
+  <target>团队</target>
+</trans-unit>
+<trans-unit id="se4aae5f2698ac9d9">
+  <source>the whole org</source>
+  <target>整个组织</target>
+</trans-unit>
+<trans-unit id="sd30ef23ebf0784da">
+  <source>New credential</source>
+  <target>新建凭据</target>
+</trans-unit>
+<trans-unit id="s2cbd936674178ad8">
+  <source>Add a credential</source>
+  <target>添加凭据</target>
+</trans-unit>
+<trans-unit id="s9e10cbbbbf9b8fc8">
+  <source>Describe the credential here, then paste the secret itself on a private one-time page. It goes straight to your encrypted keychain — it is never shown in chat or stored on this page.</source>
+  <target>在此描述凭据，然后在私密的一次性页面中粘贴密钥。密钥会直接进入加密钥匙串，绝不会显示在聊天中或存储在此页面上。</target>
+</trans-unit>
+<trans-unit id="sa618e0adffbb5ed2">
+  <source>Your one-time page is ready</source>
+  <target>你的一次性页面已准备好</target>
+</trans-unit>
+<trans-unit id="sebf51db50faf90b6">
+  <source>Open it in a new tab and paste the secret there.</source>
+  <target>在新标签页中打开，并在那里粘贴密钥。</target>
+</trans-unit>
+<trans-unit id="s14cc02cf7a6a5c1f">
+  <source>Open the one-time page</source>
+  <target>打开一次性页面</target>
+</trans-unit>
+<trans-unit id="sf1bbac50373377e4">
+  <source>Service</source>
+  <target>服务</target>
+</trans-unit>
+<trans-unit id="s6fee34d7157ab6fa">
+  <source>Environment variable</source>
+  <target>环境变量</target>
+</trans-unit>
+<trans-unit id="s629576c6b305d539">
+  <source>optional</source>
+  <target>可选</target>
+</trans-unit>
+<trans-unit id="s6d9e89e9aa685f21">
+  <source>Purpose</source>
+  <target>用途</target>
+</trans-unit>
+<trans-unit id="sc555bd7c2c3d161a">
+  <source>What may the agent use this credential for?</source>
+  <target>允许智能体将此凭据用于什么用途？</target>
+</trans-unit>
+<trans-unit id="s3964867b2d60b20b">
+  <source>Preparing…</source>
+  <target>正在准备…</target>
+</trans-unit>
+<trans-unit id="s81ecf2d4386b8e84">
+  <source>Continue</source>
+  <target>继续</target>
+</trans-unit>
+<trans-unit id="s84aced0993201f57">
+  <source>Check impact</source>
+  <target>检查影响</target>
+</trans-unit>
+<trans-unit id="s7c23e86188e801b8">
+  <source><x id="0" equiv-text="${name}"/>: connected.</source>
+  <target><x id="0" equiv-text="${name}"/>：已连接。</target>
+</trans-unit>
+<trans-unit id="s365a8886a063bf22">
+  <source><x id="0" equiv-text="${name}"/>: connection failed.</source>
+  <target><x id="0" equiv-text="${name}"/>：连接失败。</target>
+</trans-unit>
+<trans-unit id="s801ca3f7c573aebd">
+  <source>Not connected</source>
+  <target>未连接</target>
+</trans-unit>
+<trans-unit id="s13da8ee6bacb31f3">
+  <source>Reconnect needed</source>
+  <target>需要重新连接</target>
+</trans-unit>
+<trans-unit id="sbbe5cbd0cc808ba7">
+  <source>Refresh failed: <x id="0" equiv-text="${p.refreshError}"/></source>
+  <target>刷新失败：<x id="0" equiv-text="${p.refreshError}"/></target>
+</trans-unit>
+<trans-unit id="s31853dc46cf19846">
+  <source>Reconnect</source>
+  <target>重新连接</target>
+</trans-unit>
+<trans-unit id="s5b4b640cf824e7ae">
+  <source>Connect account</source>
+  <target>连接账户</target>
+</trans-unit>
+<trans-unit id="sd2208cd1a767644b">
+  <source>Disconnect</source>
+  <target>断开连接</target>
+</trans-unit>
+<trans-unit id="sdd6fcf6cdf4df035">
+  <source>Keychain</source>
+  <target>钥匙串</target>
+</trans-unit>
+<trans-unit id="s5cb3808b57f6b244">
+  <source>Accounts and credentials your agent may use on your behalf.</source>
+  <target>智能体可代表你使用的账户和凭据。</target>
+</trans-unit>
+<trans-unit id="s8dcc0af25fc5aa3a">
+  <source>Secrets stay encrypted and every use or shared grant is audited.</source>
+  <target>密钥始终保持加密，每次使用或共享授权都会被审计。</target>
+</trans-unit>
+<trans-unit id="s129eea261fc60350">
+  <source>Refresh keychain</source>
+  <target>刷新钥匙串</target>
+</trans-unit>
+<trans-unit id="s1d99cf55bcc1453d">
+  <source>Add credential</source>
+  <target>添加凭据</target>
+</trans-unit>
+<trans-unit id="s54132b6b8b2211e9">
+  <source>Keychain summary</source>
+  <target>钥匙串摘要</target>
+</trans-unit>
+<trans-unit id="s54f4a1a0751d6034">
+  <source>Connected accounts</source>
+  <target>已连接账户</target>
+</trans-unit>
+<trans-unit id="sfe484d19bce9679c">
+  <source>Stored credentials</source>
+  <target>已存储凭据</target>
+</trans-unit>
+<trans-unit id="s7bea63b4e5175162">
+  <source>Active grants</source>
+  <target>有效授权</target>
+</trans-unit>
+<trans-unit id="sa2fda097a2bdcf5b">
+  <source>Need attention</source>
+  <target>需要处理</target>
+</trans-unit>
+<trans-unit id="s9dcb340d1237f2c0">
+  <source>Loading your keychain…</source>
+  <target>正在加载你的钥匙串…</target>
+</trans-unit>
+<trans-unit id="s93c10eb43c8dedc4">
+  <source>Linked accounts</source>
+  <target>已关联账户</target>
+</trans-unit>
+<trans-unit id="s185011b0653a1f9d">
+  <source>Provider APIs the agent can use as you.</source>
+  <target>智能体可代表你使用的服务商 API。</target>
+</trans-unit>
+<trans-unit id="s35d70d5f2e05b0c1">
+  <source>No accounts available</source>
+  <target>没有可用账户</target>
+</trans-unit>
+<trans-unit id="s2fbd2b12bac4ed67">
+  <source>Your workspace has not configured any account providers yet.</source>
+  <target>你的工作区尚未配置任何账户服务商。</target>
+</trans-unit>
+<trans-unit id="sda38d2e1c507a93d">
+  <source>API keys, tokens, and files you added through the one-time page.</source>
+  <target>你通过一次性页面添加的 API 密钥、令牌和文件。</target>
+</trans-unit>
+<trans-unit id="sa17e395bb37a785b">
+  <source>No stored credentials</source>
+  <target>没有已存储的凭据</target>
+</trans-unit>
+<trans-unit id="s1559ced0bf7a622d">
+  <source>Add one without pasting a secret into chat.</source>
+  <target>添加凭据，无需在聊天中粘贴密钥。</target>
+</trans-unit>
+<trans-unit id="se983335fccfa1bf5">
+  <source>Failed to load connectors.</source>
+  <target>无法加载连接器。</target>
+</trans-unit>
+<trans-unit id="sd02646e01a74b838">
+  <source>Failed to load stored keys.</source>
+  <target>无法加载已存储的密钥。</target>
+</trans-unit>
+<trans-unit id="s2df60f0e1dd0a566">
+  <source>It will immediately revoke <x id="0" equiv-text="${formatNumber(active.length)}"/> active grant: <x id="1" equiv-text="${audiences}"/>. Automations using it may stop working. The credential cannot be recovered.</source>
+  <target>这将立即撤销 <x id="0" equiv-text="${active.length}"/> 项有效授权：<x id="1" equiv-text="${audiences}"/>。使用此凭据的自动化可能停止工作。凭据无法恢复。</target>
+</trans-unit>
+<trans-unit id="sd13a5b0a2a3d3865">
+  <source>It will immediately revoke <x id="0" equiv-text="${formatNumber(active.length)}"/> active grants: <x id="1" equiv-text="${audiences}"/>. Automations using it may stop working. The credential cannot be recovered.</source>
+  <target>这将立即撤销 <x id="0" equiv-text="${active.length}"/> 项有效授权：<x id="1" equiv-text="${audiences}"/>。使用此凭据的自动化可能停止工作。凭据无法恢复。</target>
+</trans-unit>
+<trans-unit id="sccb4336a4c07b417">
+  <source>Automations using it may stop working. The credential cannot be recovered.</source>
+  <target>使用此凭据的自动化可能停止工作。凭据无法恢复。</target>
+</trans-unit>
+<trans-unit id="sae5c1db6a5a5d9db">
+  <source>Delete credential</source>
+  <target>删除凭据</target>
+</trans-unit>
+<trans-unit id="s4e7ab10b3db89c66">
+  <source>Another keychain change is still in progress.</source>
+  <target>另一项钥匙串更改仍在进行中。</target>
+</trans-unit>
+<trans-unit id="sb19b4b9ec0649018">
+  <source>Could not delete the key.</source>
+  <target>无法删除密钥。</target>
+</trans-unit>
+<trans-unit id="s81395f5d4152c7ff">
+  <source>Revoke access for <x id="0" equiv-text="${scopeName(grant.audienceScopeId)}"/>?</source>
+  <target>撤销 <x id="0" equiv-text="${scopeName(grant.audienceScopeId)}"/> 的访问权限？</target>
+</trans-unit>
+<trans-unit id="s03bab8f50cebd754">
+  <source>This <x id="0" equiv-text="${accessModeText(grant.mode)}"/> access ends immediately. Automations using it may stop working.</source>
+  <target>此<x id="0" equiv-text="${accessModeText(grant.mode)}"/>访问权限将立即终止。使用它的自动化可能停止工作。</target>
+</trans-unit>
+<trans-unit id="s97c7f25a581b01d7">
+  <source>Revoke access</source>
+  <target>撤销访问权限</target>
+</trans-unit>
+<trans-unit id="sb67e64a4907d8340">
+  <source>Access revoked ✓</source>
+  <target>访问权限已撤销 ✓</target>
+</trans-unit>
+<trans-unit id="s4aa3254b751e89db">
+  <source>Could not revoke access.</source>
+  <target>无法撤销访问权限。</target>
+</trans-unit>
+<trans-unit id="sa1ee1aedd9bbb758">
+  <source>Service and purpose are required.</source>
+  <target>服务和用途为必填项。</target>
+</trans-unit>
+<trans-unit id="s84ac11aebabe1cc0">
+  <source>No one-time page URL was returned.</source>
+  <target>未返回一次性页面 URL。</target>
+</trans-unit>
+<trans-unit id="sf7a4c3a98b626634">
+  <source>Your one-time page is ready.</source>
+  <target>你的一次性页面已准备好。</target>
+</trans-unit>
+<trans-unit id="sa7a3a7b0bb366b6f">
+  <source>Could not create the one-time page.</source>
+  <target>无法创建一次性页面。</target>
+</trans-unit>
+<trans-unit id="s4a1f318cd7bfbe3c">
+  <source>No authorization URL was returned.</source>
+  <target>未返回授权 URL。</target>
+</trans-unit>
+<trans-unit id="s0997f063efc8bb63">
+  <source>Could not start the connector.</source>
+  <target>无法启动连接器。</target>
+</trans-unit>
+<trans-unit id="sf8ab78218f479aef">
+  <source>It will also stop <x id="0" equiv-text="${formatNumber(active.length)}"/> active credential grant for this account. Automations using this account may stop working.</source>
+  <target>这还将终止此账户的 <x id="0" equiv-text="${active.length}"/> 项有效凭据授权。使用此账户的自动化可能停止工作。</target>
+</trans-unit>
+<trans-unit id="sb9efd71104dc2044">
+  <source>It will also stop <x id="0" equiv-text="${formatNumber(active.length)}"/> active credential grants for this account. Automations using this account may stop working.</source>
+  <target>这还将终止此账户的 <x id="0" equiv-text="${active.length}"/> 项有效凭据授权。使用此账户的自动化可能停止工作。</target>
+</trans-unit>
+<trans-unit id="saad18d1ddeefe5e4">
+  <source>Automations using this account may stop working.</source>
+  <target>使用此账户的自动化可能停止工作。</target>
+</trans-unit>
+<trans-unit id="s4f1d2200b03912e6">
+  <source>Disconnect <x id="0" equiv-text="${CONNECTOR_LABELS[provider]?.name ?? provider}"/>?</source>
+  <target>断开 <x id="0" equiv-text="${CONNECTOR_LABELS[provider]?.name ?? provider}"/> 的连接？</target>
+</trans-unit>
+<trans-unit id="s7322792b2d571d30">
+  <source>Disconnect account</source>
+  <target>断开账户连接</target>
+</trans-unit>
+<trans-unit id="se7f484cb5d663adf">
+  <source>Could not disconnect.</source>
+  <target>无法断开连接。</target>
+</trans-unit>
+<trans-unit id="s9b447004af37e209">
+  <source>Couldn't load this project's model.</source>
+  <target>无法加载此项目的模型。</target>
+</trans-unit>
+<trans-unit id="s9c06ce2834ccd9ce">
+  <source>Saved — new conversations here run on <x id="0" equiv-text="${labelForRuntime(config, config.effective)}"/>.</source>
+  <target>已保存。此处的新会话将使用 <x id="0" equiv-text="${labelForRuntime(config, config.effective)}"/> 运行。</target>
+</trans-unit>
+<trans-unit id="sd074a70dba177c00">
+  <source>Couldn't change the model — try again.</source>
+  <target>无法更改模型，请重试。</target>
+</trans-unit>
+<trans-unit id="s5da52af9b083c29a">
+  <source>Model</source>
+  <target>模型</target>
+</trans-unit>
+<trans-unit id="s5301f3438d199deb">
+  <source>The model every conversation here starts on.</source>
+  <target>此处每个会话开始时使用的模型。</target>
+</trans-unit>
+<trans-unit id="s6950c05cfff1d8f1">
+  <source>Default model for this project</source>
+  <target>此项目的默认模型</target>
+</trans-unit>
+<trans-unit id="s4d3a0975ff2a6605">
+  <source>Org default (<x id="0" equiv-text="${labelForRuntime(config, config.orgDefault)}"/>)</source>
+  <target>组织默认值（<x id="0" equiv-text="${labelForRuntime(config, config.orgDefault)}"/>）</target>
+</trans-unit>
+<trans-unit id="s6df1e5418a921282">
+  <source><x id="0" equiv-text="${labelForRuntime(config, config.scopeOverride!)}"/> — no longer offered</source>
+  <target><x id="0" equiv-text="${labelForRuntime(config, config.scopeOverride!)}"/> — 已不再提供</target>
+</trans-unit>
+<trans-unit id="s6084155cb6870146">
+  <source>Following the org default — it changes when the org's does.</source>
+  <target>跟随组织默认值，组织默认值更改时会同步更改。</target>
+</trans-unit>
+<trans-unit id="s6b0b537cd90bee2e">
+  <source>Pinned for this project. Anyone in a chat can still pick a different model for that conversation.</source>
+  <target>已为此项目固定。聊天中的任何人仍可为该会话选择其他模型。</target>
+</trans-unit>
+<trans-unit id="s1413b08ab8839e73">
+  <source> The channel description in Slack names this model.</source>
+  <target> Slack 中的频道描述会注明此模型。</target>
+</trans-unit>
+<trans-unit id="s1c87ec4a170fcac9">
+  <source>Failed to load contexts.</source>
+  <target>无法加载上下文。</target>
+</trans-unit>
+<trans-unit id="s9306d34f317edc11">
+  <source><x id="0" equiv-text="${formatNumber(memberCount)}"/> member</source>
+  <target><x id="0" equiv-text="${memberCount}"/> 名成员</target>
+</trans-unit>
+<trans-unit id="s537571911a907a86">
+  <source><x id="0" equiv-text="${formatNumber(memberCount)}"/> members</source>
+  <target><x id="0" equiv-text="${memberCount}"/> 名成员</target>
+</trans-unit>
+<trans-unit id="sc6b229d2082bad97">
+  <source>Just you — your web chats and DMs with the agent live here.</source>
+  <target>仅限你本人。你与智能体的网页聊天和私信都在这里。</target>
+</trans-unit>
+<trans-unit id="se46ecbea6ce3b3b7">
+  <source>Group DM</source>
+  <target>群组私信</target>
+</trans-unit>
+<trans-unit id="sf30286f59cdd03b4">
+  <source>Shared with everyone in this group conversation.</source>
+  <target>与此群组会话中的所有人共享。</target>
+</trans-unit>
+<trans-unit id="s1da50951bdd7a204">
+  <source>Channel</source>
+  <target>频道</target>
+</trans-unit>
+<trans-unit id="s6823e09783c7d3ff">
+  <source>Shared with everyone in this channel.</source>
+  <target>与此频道中的所有人共享。</target>
+</trans-unit>
+<trans-unit id="s014872f1ca642a6a">
+  <source>Shared personal space</source>
+  <target>共享个人空间</target>
+</trans-unit>
+<trans-unit id="s1f9ed8d17b81180c">
+  <source>In <x id="0" equiv-text="${title}"/></source>
+  <target>位于 <x id="0" equiv-text="${title}"/></target>
+</trans-unit>
+<trans-unit id="sf5fe60eb4752dab4">
+  <source>All contexts</source>
+  <target>所有上下文</target>
+</trans-unit>
+<trans-unit id="sa7412c28dcc4eb30">
+  <source>Filter by: <x id="0" equiv-text="${label}"/></source>
+  <target>筛选条件：<x id="0" equiv-text="${label}"/></target>
+</trans-unit>
+<trans-unit id="s474a1059b6c1744f">
+  <source>Filter by context</source>
+  <target>按上下文筛选</target>
+</trans-unit>
+<trans-unit id="s4e4ed33a2c088453">
+  <source>Loading projects…</source>
+  <target>正在加载项目…</target>
+</trans-unit>
+<trans-unit id="s85f66d87d45215e2">
+  <source>No projects match your search.</source>
+  <target>没有符合搜索条件的项目。</target>
+</trans-unit>
+<trans-unit id="s8e6f9e4e82003e60">
+  <source>No projects yet.</source>
+  <target>暂无项目。</target>
+</trans-unit>
+<trans-unit id="s199f5853f4e718f7">
+  <source>Projects</source>
+  <target>项目</target>
+</trans-unit>
+<trans-unit id="sc32add6957c5aaa6">
+  <source>Refresh projects</source>
+  <target>刷新项目</target>
+</trans-unit>
+<trans-unit id="sf28d171a302d2b60">
+  <source>New project</source>
+  <target>新建项目</target>
+</trans-unit>
+<trans-unit id="s7e0d4f02e45424f1">
+  <source>Search projects</source>
+  <target>搜索项目</target>
+</trans-unit>
+<trans-unit id="s84a218e9fac43955">
+  <source>Search projects…</source>
+  <target>搜索项目…</target>
+</trans-unit>
+<trans-unit id="s716a6024e3fe999c">
+  <source>Show</source>
+  <target>显示</target>
+</trans-unit>
+<trans-unit id="sfde071152c2558af">
+  <source>Active only</source>
+  <target>仅显示活跃项目</target>
+</trans-unit>
+<trans-unit id="s651f3a92741d9520">
+  <source>Everything</source>
+  <target>全部</target>
+</trans-unit>
+<trans-unit id="s8f47eed10135f82c">
+  <source><x id="0" equiv-text="${formatNumber(c.sessionCount)}"/> conversation</source>
+  <target><x id="0" equiv-text="${c.sessionCount}"/> 个会话</target>
+</trans-unit>
+<trans-unit id="sad332c250eb5096d">
+  <source><x id="0" equiv-text="${formatNumber(c.sessionCount)}"/> conversations</source>
+  <target><x id="0" equiv-text="${c.sessionCount}"/> 个会话</target>
+</trans-unit>
+<trans-unit id="s5372ff1a721f5657">
+  <source>Private channel</source>
+  <target>私有频道</target>
+</trans-unit>
+<trans-unit id="sa692e55ab08b6e5e">
+  <source>owned</source>
+  <target>自有</target>
+</trans-unit>
+<trans-unit id="sc5a11c2dd9ab8cec">
+  <source>private</source>
+  <target>私有</target>
+</trans-unit>
+<trans-unit id="s080a026ee7d87df4">
+  <source>shared</source>
+  <target>共享</target>
+</trans-unit>
+<trans-unit id="s82d28dad1d50d979">
+  <source>active <x id="0" equiv-text="${relTime(c.lastActivityAt)}"/></source>
+  <target>活跃于 <x id="0" equiv-text="${relTime(c.lastActivityAt)}"/></target>
+</trans-unit>
+<trans-unit id="s83997d41aee20f64">
+  <source><x id="0" equiv-text="${sub}"/> The agent's files and memory here are separate from your other contexts.</source>
+  <target><x id="0" equiv-text="${sub}"/> 智能体在这里的文件和记忆与其他上下文相互独立。</target>
+</trans-unit>
+<trans-unit id="seac7c7f7c3fe00df">
+  <source>Add people</source>
+  <target>添加成员</target>
+</trans-unit>
+<trans-unit id="s4bd7ca6a8730461d">
+  <source>New chat</source>
+  <target>新建聊天</target>
+</trans-unit>
+<trans-unit id="sfa34aedd907264b5">
+  <source>This project is ready for work</source>
+  <target>此项目已准备就绪</target>
+</trans-unit>
+<trans-unit id="s0a4898edb2e80c53">
+  <source>Start a conversation with New chat. Files, automations, and other work created there will stay scoped to this project.</source>
+  <target>使用“新建聊天”开始会话。在其中创建的文件、自动化和其他工作将仅限于此项目。</target>
+</trans-unit>
+<trans-unit id="s12ae2efccc49d4af">
+  <source>Conversations</source>
+  <target>会话</target>
+</trans-unit>
+<trans-unit id="sa9fe1e471b08293e">
+  <source>No conversations yet.</source>
+  <target>暂无会话。</target>
+</trans-unit>
+<trans-unit id="s2661574c10dd719f">
+  <source>Project settings</source>
+  <target>项目设置</target>
+</trans-unit>
+<trans-unit id="s403fcaba6c4aadb9">
+  <source>Context settings</source>
+  <target>上下文设置</target>
+</trans-unit>
+<trans-unit id="scb6a9c1a1757adbc">
+  <source>You</source>
+  <target>你</target>
+</trans-unit>
+<trans-unit id="s4854cd48f30ff8ee">
+  <source>People</source>
+  <target>成员</target>
+</trans-unit>
+<trans-unit id="s2fa05f91c1baa29b">
+  <source>Remove <x id="0" equiv-text="${label}"/></source>
+  <target>移除 <x id="0" equiv-text="${label}"/></target>
+</trans-unit>
+<trans-unit id="s999e1e0281c5c0c5">
+  <source>Everyone matching is already in this project.</source>
+  <target>所有匹配的成员都已在此项目中。</target>
+</trans-unit>
+<trans-unit id="s3cbcd4f1fc45e76d">
+  <source>No matches for “<x id="0" equiv-text="${contextsState.memberSearchedQuery}"/>”.</source>
+  <target>没有与“<x id="0" equiv-text="${contextsState.memberSearchedQuery}"/>”匹配的成员。</target>
+</trans-unit>
+<trans-unit id="s9cfa7823fc62aba3">
+  <source>Searching…</source>
+  <target>正在搜索…</target>
+</trans-unit>
+<trans-unit id="se6d0c90fca026c0a">
+  <source>Working…</source>
+  <target>正在处理…</target>
+</trans-unit>
+<trans-unit id="s03eb49a29724ecf8">
+  <source>Search by name or handle</source>
+  <target>按姓名或用户名搜索</target>
+</trans-unit>
+<trans-unit id="s5d929ff1619ac0c9">
+  <source>Search</source>
+  <target>搜索</target>
+</trans-unit>
+<trans-unit id="s5e8250fb85d64c23">
+  <source>Close</source>
+  <target>关闭</target>
+</trans-unit>
+<trans-unit id="sd13d455892314421">
+  <source>Loading this context's files, crons, apps and skills…</source>
+  <target>正在加载此上下文的文件、定时任务、应用和技能…</target>
+</trans-unit>
+<trans-unit id="s803ce7e1a2294d50">
+  <source>Files</source>
+  <target>文件</target>
+</trans-unit>
+<trans-unit id="s01b09ac2bd6fcb1f">
+  <source>Skills</source>
+  <target>技能</target>
+</trans-unit>
+<trans-unit id="sf7eeef8b4d6e602d">
+  <source>Apps</source>
+  <target>应用</target>
+</trans-unit>
+<trans-unit id="sf462d3b9a877de86">
+  <source>Delete this cron? This can't be undone.</source>
+  <target>删除此定时任务？此操作无法撤销。</target>
+</trans-unit>
+<trans-unit id="s7a7aa89ed39abc73">
+  <source>Couldn't update that cron.</source>
+  <target>无法更新该定时任务。</target>
+</trans-unit>
+<trans-unit id="s1d33273e94be8e25">
+  <source>Delete this skill? This can't be undone.</source>
+  <target>删除此技能？此操作无法撤销。</target>
+</trans-unit>
+<trans-unit id="se475fbd635e7e394">
+  <source>Couldn't delete that skill.</source>
+  <target>无法删除该技能。</target>
+</trans-unit>
+<trans-unit id="sc41426622aab8b8b">
+  <source>View all</source>
+  <target>查看全部</target>
+</trans-unit>
+<trans-unit id="s1f7698c061c208c9">
+  <source>Open</source>
+  <target>打开</target>
+</trans-unit>
+<trans-unit id="s0fa3391db68e4425">
+  <source>disabled</source>
+  <target>已禁用</target>
+</trans-unit>
+<trans-unit id="se17417fb33768153">
+  <source>archived</source>
+  <target>已归档</target>
+</trans-unit>
+<trans-unit id="s70d885806b56289e">
+  <source>enabled</source>
+  <target>已启用</target>
+</trans-unit>
+<trans-unit id="s1641a1c90d9840ec">
+  <source>draft</source>
+  <target>草稿</target>
+</trans-unit>
+<trans-unit id="s9fd5a352473652b8">
+  <source>reviewed</source>
+  <target>已审核</target>
+</trans-unit>
+<trans-unit id="s1ae6b10eed206469">
+  <source>published</source>
+  <target>已发布</target>
+</trans-unit>
+<trans-unit id="s60147fb4fa4a8e0c">
+  <source>running</source>
+  <target>运行中</target>
+</trans-unit>
+<trans-unit id="sa3deee7949f9fece">
+  <source>stopped</source>
+  <target>已停止</target>
+</trans-unit>
+<trans-unit id="sedba96908a1f41b6">
+  <source>manage</source>
+  <target>管理</target>
+</trans-unit>
+<trans-unit id="s4ce6531fbfddd605">
+  <source>read</source>
+  <target>读取</target>
+</trans-unit>
+<trans-unit id="sf32c060bcf2c031c">
+  <source>Close new project</source>
+  <target>关闭新建项目</target>
+</trans-unit>
+<trans-unit id="sef49aec68fd1dc66">
+  <source>Name</source>
+  <target>名称</target>
+</trans-unit>
+<trans-unit id="s608fc9991fea2677">
+  <source>launch cohort</source>
+  <target>发布小组</target>
+</trans-unit>
+<trans-unit id="s84fe348d9e99e6b0">
+  <source>Creating…</source>
+  <target>正在创建…</target>
+</trans-unit>
+<trans-unit id="sfb43be2359ccab14">
+  <source>Create project</source>
+  <target>创建项目</target>
+</trans-unit>
+<trans-unit id="s22e2859c72a39268">
+  <source>Enter a project name.</source>
+  <target>请输入项目名称。</target>
+</trans-unit>
+<trans-unit id="s7d0f6550213cf0d3">
+  <source>Couldn't create that project.</source>
+  <target>无法创建该项目。</target>
+</trans-unit>
+<trans-unit id="se72cc2267fd4734f">
+  <source>Enter at least two characters.</source>
+  <target>请至少输入两个字符。</target>
+</trans-unit>
+<trans-unit id="s67f61db68dad6f69">
+  <source>Couldn't search for people.</source>
+  <target>无法搜索成员。</target>
+</trans-unit>
+<trans-unit id="s879998ca7c182ba8">
+  <source>Couldn't add that person.</source>
+  <target>无法添加该成员。</target>
+</trans-unit>
+<trans-unit id="s08da30b32e210070">
+  <source>this project</source>
+  <target>此项目</target>
+</trans-unit>
+<trans-unit id="sba4e63b5f7df5240">
+  <source>Remove <x id="0" equiv-text="${label}"/> from <x id="1" equiv-text="${projectName}"/>?</source>
+  <target>将 <x id="0" equiv-text="${label}"/> 从 <x id="1" equiv-text="${projectName}"/> 中移除？</target>
+</trans-unit>
+<trans-unit id="s381b8766c4c47d67">
+  <source>Couldn't remove that person.</source>
+  <target>无法移除该成员。</target>
+</trans-unit>
+<trans-unit id="sd8cd6f6b1786453d">
+  <source>Failed to load this context's resources.</source>
+  <target>无法加载此上下文的资源。</target>
+</trans-unit>
+<trans-unit id="s367ffc9d1aef367e">
+  <source>Core</source>
+  <target>Core</target>
+</trans-unit>
+<trans-unit id="s30de336971b2a118">
+  <source>Read-only — replies happen on the original surface</source>
+  <target>只读，请在原始界面回复</target>
+</trans-unit>
+<trans-unit id="sf1e23d44c360af5b">
+  <source>another conversation</source>
+  <target>其他会话</target>
+</trans-unit>
+<trans-unit id="s26e181d2d1ffe9df">
+  <source>Shared channel</source>
+  <target>共享频道</target>
+</trans-unit>
+<trans-unit id="s98b1cb8fb62909ec">
+  <source>Group</source>
+  <target>群组</target>
+</trans-unit>
+<trans-unit id="s8ccd934f3d733431">
+  <source>The agent run failed.</source>
+  <target>智能体运行失败。</target>
+</trans-unit>
+<trans-unit id="sa7a1f8d3c4cb38a8">
+  <source>Timed out waiting for the agent to respond.</source>
+  <target>等待智能体响应超时。</target>
+</trans-unit>
+<trans-unit id="se799f23e0f4a9aaf">
+  <source>cron <x id="0" equiv-text="${c.schedule.cron.trim().replace(/\s+/g, &quot; &quot;)}"/></source>
+  <target>定时表达式 <x id="0" equiv-text="${c.schedule.cron.trim().replace(/\s+/g, &quot; &quot;)}"/></target>
+</trans-unit>
+<trans-unit id="s0546acbc1a989216">
+  <source>every <x id="0" equiv-text="${humanizeCronInterval(c.schedule.everyMs)}"/></source>
+  <target>每隔 <x id="0" equiv-text="${humanizeCronInterval(c.schedule.everyMs)}"/></target>
+</trans-unit>
+<trans-unit id="s6d4996ed9ab0a5ff">
+  <source>one-time</source>
+  <target>一次性</target>
+</trans-unit>
+<trans-unit id="s55fa598b754cc3cc">
+  <source><x id="0" equiv-text="${label}"/> (<x id="1" equiv-text="${tz}"/>)</source>
+  <target><x id="0" equiv-text="${label}"/>（<x id="1" equiv-text="${tz}"/>）</target>
+</trans-unit>
+<trans-unit id="s25b9eb868103173c">
+  <source><x id="0" equiv-text="${label}"/> (default timezone)</source>
+  <target><x id="0" equiv-text="${label}"/>（默认时区）</target>
+</trans-unit>
+<trans-unit id="sf539081265b77ff7">
+  <source><x id="0" equiv-text="${label}"/> - first run <x id="1" equiv-text="${dateTime}"/></source>
+  <target><x id="0" equiv-text="${label}"/> - 首次运行 <x id="1" equiv-text="${dateTime}"/></target>
+</trans-unit>
+<trans-unit id="sd285dcac57df0c61">
+  <source><x id="0" equiv-text="${label}"/> - run <x id="1" equiv-text="${dateTime}"/></source>
+  <target><x id="0" equiv-text="${label}"/> - 运行时间 <x id="1" equiv-text="${dateTime}"/></target>
+</trans-unit>
+<trans-unit id="s6b0d71f2dade79a3">
+  <source>due <x id="0" equiv-text="${dateTime}"/></source>
+  <target>应于 <x id="0" equiv-text="${dateTime}"/> 运行</target>
+</trans-unit>
+<trans-unit id="s4f84443129fa6ab2">
+  <source>next <x id="0" equiv-text="${dateTime}"/></source>
+  <target>下次 <x id="0" equiv-text="${dateTime}"/></target>
+</trans-unit>
+<trans-unit id="s58aae57af5e72c7f">
+  <source>last <x id="0" equiv-text="${relTime(c.lastFiredAt)}"/></source>
+  <target>上次 <x id="0" equiv-text="${relTime(c.lastFiredAt)}"/></target>
+</trans-unit>
+<trans-unit id="s0404015b549aad57">
+  <source>first <x id="0" equiv-text="${formatCronDateTime(c.schedule.firstFireAt, now, tz)}"/></source>
+  <target>首次 <x id="0" equiv-text="${formatCronDateTime(c.schedule.firstFireAt, now, tz)}"/></target>
+</trans-unit>
+<trans-unit id="s3d28a139cf768639">
+  <source>never fired</source>
+  <target>从未触发</target>
+</trans-unit>
+<trans-unit id="s9460d335584cef23">
+  <source>Next run: <x id="0" equiv-text="${formatTitleDateTime(next, tz)}"/></source>
+  <target>下次运行：<x id="0" equiv-text="${formatTitleDateTime(next, tz)}"/></target>
+</trans-unit>
+<trans-unit id="s15b2e72b778811ef">
+  <source>Last fired: <x id="0" equiv-text="${formatTitleDateTime(c.lastFiredAt, tz)}"/></source>
+  <target>上次触发：<x id="0" equiv-text="${formatTitleDateTime(c.lastFiredAt, tz)}"/></target>
+</trans-unit>
+<trans-unit id="s52478c30976a9960">
+  <source>First run: <x id="0" equiv-text="${formatTitleDateTime(c.schedule.firstFireAt, tz)}"/></source>
+  <target>首次运行：<x id="0" equiv-text="${formatTitleDateTime(c.schedule.firstFireAt, tz)}"/></target>
+</trans-unit>
+<trans-unit id="sf75e54faa2203f19">
+  <source>Never fired</source>
+  <target>从未触发</target>
+</trans-unit>
+<trans-unit id="s48a8b770771cf5c4">
+  <source>tomorrow <x id="0" equiv-text="${time}"/></source>
+  <target>明天 <x id="0" equiv-text="${time}"/></target>
+</trans-unit>
+<trans-unit id="s4d5cd48fd7c53c9b">
+  <source>Yours</source>
+  <target>你的</target>
+</trans-unit>
+<trans-unit id="sf072d582c213e3d4">
+  <source>Shared</source>
+  <target>共享</target>
+</trans-unit>
+<trans-unit id="s1104e1a7449d5080">
+  <source>Failed to load crons.</source>
+  <target>无法加载定时任务。</target>
+</trans-unit>
+<trans-unit id="s276a112bfac0d38d">
+  <source>(untitled cron)</source>
+  <target>（无标题定时任务）</target>
+</trans-unit>
+<trans-unit id="sae575e8592d5089f">
+  <source>a Slack channel</source>
+  <target>Slack 频道</target>
+</trans-unit>
+<trans-unit id="s807a1e495e4226f3">
+  <source>org-wide</source>
+  <target>整个组织</target>
+</trans-unit>
+<trans-unit id="sdc57e42946f6e08c">
+  <source>group</source>
+  <target>群组</target>
+</trans-unit>
+<trans-unit id="s9bfc95548d124b1c">
+  <source>React</source>
+  <target>回应</target>
+</trans-unit>
+<trans-unit id="s8abaf85e33f52622">
+  <source>That cron wasn't found, or you don't have access to it.</source>
+  <target>找不到该定时任务，或你无权访问。</target>
+</trans-unit>
+<trans-unit id="sdff1eaf91bd75c51">
+  <source>No active crons.</source>
+  <target>没有活跃的定时任务。</target>
+</trans-unit>
+<trans-unit id="s56c77fa6d25e42c2">
+  <source>None of your own crons yet.</source>
+  <target>你还没有自己的定时任务。</target>
+</trans-unit>
+<trans-unit id="s5ef97613e0745de7">
+  <source>No crons shared with you.</source>
+  <target>没有与你共享的定时任务。</target>
+</trans-unit>
+<trans-unit id="s5f3c953b439ec232">
+  <source>Nothing archived.</source>
+  <target>没有已归档的内容。</target>
+</trans-unit>
+<trans-unit id="s11fb581e29fb4b25">
+  <source>No crons yet.</source>
+  <target>暂无定时任务。</target>
+</trans-unit>
+<trans-unit id="s48f43d18aeccb908">
+  <source>Loading crons…</source>
+  <target>正在加载定时任务…</target>
+</trans-unit>
+<trans-unit id="scaa0ab68db440751">
+  <source>No crons in this context.</source>
+  <target>此上下文中没有定时任务。</target>
+</trans-unit>
+<trans-unit id="s1f262e00913d5b8e">
+  <source>Crons</source>
+  <target>定时任务</target>
+</trans-unit>
+<trans-unit id="sa27d6a6ab846094f">
+  <source>New cron</source>
+  <target>新建定时任务</target>
+</trans-unit>
+<trans-unit id="s361292447cec228c">
+  <source>Search crons</source>
+  <target>搜索定时任务</target>
+</trans-unit>
+<trans-unit id="s81177e233e5b43be">
+  <source>Cron view</source>
+  <target>定时任务视图</target>
+</trans-unit>
+<trans-unit id="s208d64e531ed6f07">
+  <source>Hide disabled</source>
+  <target>隐藏已禁用项</target>
+</trans-unit>
+<trans-unit id="s77e8921c57eed2bc">
+  <source>Show disabled</source>
+  <target>显示已禁用项</target>
+</trans-unit>
+<trans-unit id="s9078ee819c18df6e">
+  <source>Enable</source>
+  <target>启用</target>
+</trans-unit>
+<trans-unit id="s8436015a139df496">
+  <source>Enable cron</source>
+  <target>启用定时任务</target>
+</trans-unit>
+<trans-unit id="sf71a90bc017f1e80">
+  <source>Unarchive</source>
+  <target>取消归档</target>
+</trans-unit>
+<trans-unit id="sf5ae6ebc0aca0d5c">
+  <source>Unarchive cron</source>
+  <target>取消归档定时任务</target>
+</trans-unit>
+<trans-unit id="s10c8e4cae4e11503">
+  <source>Disable</source>
+  <target>禁用</target>
+</trans-unit>
+<trans-unit id="sad59c1aa360f25dd">
+  <source>Disable cron</source>
+  <target>禁用定时任务</target>
+</trans-unit>
+<trans-unit id="s943849187170306e">
+  <source>Cron actions</source>
+  <target>定时任务操作</target>
+</trans-unit>
+<trans-unit id="s64ef2a6c2dd1d3d1">
+  <source>Edit</source>
+  <target>编辑</target>
+</trans-unit>
+<trans-unit id="sb5c1149df4c7020f">
+  <source>Edit cron</source>
+  <target>编辑定时任务</target>
+</trans-unit>
+<trans-unit id="sa0ca791d0f13f0e5">
+  <source>Archive</source>
+  <target>归档</target>
+</trans-unit>
+<trans-unit id="s30ce187577cd9a4b">
+  <source>Archive cron</source>
+  <target>归档定时任务</target>
+</trans-unit>
+<trans-unit id="s8a980d89744f262e">
+  <source>Run now</source>
+  <target>立即运行</target>
+</trans-unit>
+<trans-unit id="s63e03c70f67ebf9c">
+  <source>Context</source>
+  <target>上下文</target>
+</trans-unit>
+<trans-unit id="s99f110d27e30b289">
+  <source>Title</source>
+  <target>标题</target>
+</trans-unit>
+<trans-unit id="s79e8cc71a5975b04">
+  <source>Message</source>
+  <target>消息</target>
+</trans-unit>
+<trans-unit id="s03ee3cfb0919c62c">
+  <source>Task</source>
+  <target>任务</target>
+</trans-unit>
+<trans-unit id="s9b8dccb514a0e34c">
+  <source>Schedule</source>
+  <target>计划</target>
+</trans-unit>
+<trans-unit id="sb971debc37bf0b54">
+  <source>Owner</source>
+  <target>所有者</target>
+</trans-unit>
+<trans-unit id="s7d61376257220dab">
+  <source>Scope</source>
+  <target>范围</target>
+</trans-unit>
+<trans-unit id="sad3e3c8146fc920f">
+  <source>Status</source>
+  <target>状态</target>
+</trans-unit>
+<trans-unit id="s354ae458a550da1f">
+  <source>Destination</source>
+  <target>发送目标</target>
+</trans-unit>
+<trans-unit id="sf92789320708efed">
+  <source>Next run</source>
+  <target>下次运行</target>
+</trans-unit>
+<trans-unit id="sb77cfd90e0fdfe09">
+  <source>Last fired</source>
+  <target>上次触发</target>
+</trans-unit>
+<trans-unit id="s8b97ea84af17c029">
+  <source>Never</source>
+  <target>从未</target>
+</trans-unit>
+<trans-unit id="sdc673e73b5c13aea">
+  <source>Delete</source>
+  <target>删除</target>
+</trans-unit>
+<trans-unit id="s09c36d4374db7cb2">
+  <source>Shared from <x id="0" equiv-text="${cronScopeLabel(c)}"/> — you can view it, but not change it.</source>
+  <target>由 <x id="0" equiv-text="${cronScopeLabel(c)}"/> 共享，你可以查看，但不能更改。</target>
+</trans-unit>
+<trans-unit id="s1e18f425f38d0878">
+  <source>Recent runs</source>
+  <target>最近运行</target>
+</trans-unit>
+<trans-unit id="s7b7163270e57e8b4">
+  <source>Refresh</source>
+  <target>刷新</target>
+</trans-unit>
+<trans-unit id="s2b979f6bfe8c1318">
+  <source>No runs yet.</source>
+  <target>暂无运行记录。</target>
+</trans-unit>
+<trans-unit id="s475ad3be2dcb23e2">
+  <source>Worklog</source>
+  <target>工作日志</target>
+</trans-unit>
+<trans-unit id="s241169c4b1c347da">
+  <source>Couldn't load run history.</source>
+  <target>无法加载运行历史。</target>
+</trans-unit>
+<trans-unit id="s9c23ce9981f16c38">
+  <source>Run started. Refresh recent runs after it completes.</source>
+  <target>运行已开始。完成后请刷新最近运行记录。</target>
+</trans-unit>
+<trans-unit id="sb8de5c4d8a8435df">
+  <source>run failed</source>
+  <target>运行失败</target>
+</trans-unit>
+<trans-unit id="sc860a4e75456106d">
+  <source>Delete <x id="0" equiv-text="${cronTitle(c)}"/>?</source>
+  <target>删除 <x id="0" equiv-text="${cronTitle(c)}"/>？</target>
+</trans-unit>
+<trans-unit id="sf9bb002e78bf952a">
+  <source>This permanently removes the schedule and its retained run history. Archive it instead if you may need it later.</source>
+  <target>这将永久删除计划及其保留的运行历史。如果以后可能需要，请改为归档。</target>
+</trans-unit>
+<trans-unit id="s2ceb11be2290bb1b">
+  <source>Cancel</source>
+  <target>取消</target>
+</trans-unit>
+<trans-unit id="sf0ef7644098b8a63">
+  <source>Delete permanently</source>
+  <target>永久删除</target>
+</trans-unit>
+<trans-unit id="s352bb0b98d7665ad">
+  <source>To change the schedule, timezone, destination, or run mode, use the agent so it can validate the resulting behavior and permissions.</source>
+  <target>如需更改计划、时区、发送目标或运行模式，请使用智能体，以便验证更改后的行为和权限。</target>
+</trans-unit>
+<trans-unit id="sa2745416598eb6f8">
+  <source>To change the message, schedule, timezone, destination, or run mode, use the agent so it can validate the resulting behavior and permissions.</source>
+  <target>如需更改消息、计划、时区、发送目标或运行模式，请使用智能体，以便验证更改后的行为和权限。</target>
+</trans-unit>
+<trans-unit id="s7635b323f9d33ca6">
+  <source>Edit behavior with agent</source>
+  <target>使用智能体编辑行为</target>
+</trans-unit>
+<trans-unit id="sfe495d389cd269b6">
+  <source>Title and task are required.</source>
+  <target>标题和任务为必填项。</target>
+</trans-unit>
+<trans-unit id="sf9af23ae968e8332">
+  <source>Title is required.</source>
+  <target>标题为必填项。</target>
+</trans-unit>
+<trans-unit id="sfb96aea5e889115e">
+  <source>edit failed</source>
+  <target>编辑失败</target>
+</trans-unit>
+<trans-unit id="s9a4ba9d5d0bd9fec">
+  <source>Cron updated.</source>
+  <target>定时任务已更新。</target>
+</trans-unit>
+<trans-unit id="sf0bc0baeef07c2aa">
+  <source>archive failed</source>
+  <target>归档失败</target>
+</trans-unit>
+<trans-unit id="sf0dc4237350043b5">
+  <source>unarchive failed</source>
+  <target>取消归档失败</target>
+</trans-unit>
+<trans-unit id="se92e58c237e2d01b">
+  <source>enable failed</source>
+  <target>启用失败</target>
+</trans-unit>
+<trans-unit id="s4e62ff5f7dcad278">
+  <source>disable failed</source>
+  <target>禁用失败</target>
+</trans-unit>
+<trans-unit id="s260f393b9d40d91f">
+  <source>delete failed</source>
+  <target>删除失败</target>
+</trans-unit>
+<trans-unit id="h96263bf286b74a9b">
+  <source>Describe what you want scheduled — what to do, how often, and where the result should go. The agent sets
+            it up and confirms in chat; it will ask if anything is unclear. It should give the cron a short, distinctive
+            title naming what it is for, like <x id="0" equiv-text="&lt;code&gt;"/>Gmail unread digest<x id="1" equiv-text="&lt;/code&gt;"/> or <x id="2" equiv-text="&lt;code&gt;"/>GitLab CI watch<x id="3" equiv-text="&lt;/code&gt;"/>.</source>
+  <target>描述你想安排的内容，包括做什么、多久执行一次以及结果发送到哪里。智能体会完成设置并在聊天中确认；如有不清楚之处，它会询问。智能体应为定时任务设置一个简短、独特且说明用途的标题，例如 <x id="0" equiv-text="&lt;code&gt;"/>Gmail 未读邮件摘要<x id="1" equiv-text="&lt;/code&gt;"/> 或 <x id="2" equiv-text="&lt;code&gt;"/>GitLab CI 监控<x id="3" equiv-text="&lt;/code&gt;"/>。</target>
+</trans-unit>
+<trans-unit id="s26e97abc439880c2">
+  <source>Every weekday at 9am, summarize my unread email and DM me the highlights.</source>
+  <target>每个工作日上午 9 点汇总我的未读邮件，并私信发送要点。</target>
+</trans-unit>
+<trans-unit id="s7d38c7d1c91f6013">
+  <source>Ask the agent to set it up</source>
+  <target>让智能体进行设置</target>
+</trans-unit>
+<trans-unit id="s54b07a4a33eb791a">
+  <source>Describe the cron you want.</source>
+  <target>请描述你想要的定时任务。</target>
+</trans-unit>
+<trans-unit id="s6b5f45c6a83cf408">
+  <source>No apps shared with you.</source>
+  <target>没有与你共享的应用。</target>
+</trans-unit>
+<trans-unit id="sf3a1f9e27db5d9e2">
+  <source>No apps of your own yet.</source>
+  <target>你还没有自己的应用。</target>
+</trans-unit>
+<trans-unit id="s3e66f66b69c0031e">
+  <source>Unknown owner</source>
+  <target>未知所有者</target>
+</trans-unit>
+<trans-unit id="s2da915ea14504b52">
+  <source>Deploying</source>
+  <target>正在部署</target>
+</trans-unit>
+<trans-unit id="sc592307ea80f16b9">
+  <source>Unknown</source>
+  <target>未知</target>
+</trans-unit>
+<trans-unit id="sc6f8679040e3168c">
+  <source>You own this app or have permission to manage it.</source>
+  <target>你拥有此应用或有权管理它。</target>
+</trans-unit>
+<trans-unit id="s591434cb930e76f7">
+  <source>This app is shared with a context you can access. You can open and clone it, but not change it.</source>
+  <target>此应用已共享到你可访问的上下文。你可以打开和克隆，但不能更改。</target>
+</trans-unit>
+<trans-unit id="s7695b1c8160b7be0">
+  <source>Can manage</source>
+  <target>可管理</target>
+</trans-unit>
+<trans-unit id="sc413888db84af94a">
+  <source>Can view</source>
+  <target>可查看</target>
+</trans-unit>
+<trans-unit id="s5f1be9b40774a409">
+  <source>Version unknown</source>
+  <target>版本未知</target>
+</trans-unit>
+<trans-unit id="s4a942b5f5b26ca9f">
+  <source>v<x id="0" equiv-text="${d.appliedVersion}"/> live · v<x id="1" equiv-text="${d.currentVersion}"/> pending</source>
+  <target>v<x id="0" equiv-text="${d.appliedVersion}"/> 已上线 · v<x id="1" equiv-text="${d.currentVersion}"/> 待发布</target>
+</trans-unit>
+<trans-unit id="sd45310de23f7f6e9">
+  <source>Deployed <x id="0" equiv-text="${relTime(at)}"/></source>
+  <target>部署于 <x id="0" equiv-text="${relTime(at)}"/></target>
+</trans-unit>
+<trans-unit id="s37f43c4215a59e8d">
+  <source>Deployment time unavailable</source>
+  <target>部署时间不可用</target>
+</trans-unit>
+<trans-unit id="s6b5d74bc8611ec45">
+  <source>Your personal context</source>
+  <target>你的个人上下文</target>
+</trans-unit>
+<trans-unit id="s59ad532af52e8e74">
+  <source><x id="0" equiv-text="${friendlyPrincipal(d.ownerScopeId.slice(&quot;personal:&quot;.length))}"/> · Personal</source>
+  <target><x id="0" equiv-text="${friendlyPrincipal(d.ownerScopeId.slice(&quot;personal:&quot;.length))}"/> · 个人</target>
+</trans-unit>
+<trans-unit id="sb391518a3469d895">
+  <source>Shared context · created by <x id="0" equiv-text="${friendlyPrincipal(d.createdBy)}"/></source>
+  <target>共享上下文 · 由 <x id="0" equiv-text="${friendlyPrincipal(d.createdBy)}"/> 创建</target>
+</trans-unit>
+<trans-unit id="s0c854b70d7223cff">
+  <source>Shared context</source>
+  <target>共享上下文</target>
+</trans-unit>
+<trans-unit id="sf0e1784c0643203d">
+  <source>App view</source>
+  <target>应用视图</target>
+</trans-unit>
+<trans-unit id="s6dda451237ad32ef">
+  <source>App actions</source>
+  <target>应用操作</target>
+</trans-unit>
+<trans-unit id="s32491d3c0c928676">
+  <source>Copy app URL</source>
+  <target>复制应用 URL</target>
+</trans-unit>
+<trans-unit id="s9f6c516e9c21b166">
+  <source>More actions for <x id="0" equiv-text="${deploymentTitle(d)}"/></source>
+  <target><x id="0" equiv-text="${deploymentTitle(d)}"/> 的更多操作</target>
+</trans-unit>
+<trans-unit id="s26f91b6796e33111">
+  <source>Restore</source>
+  <target>恢复</target>
+</trans-unit>
+<trans-unit id="s3fcea49289e4c1a2">
+  <source>Edit display name</source>
+  <target>编辑显示名称</target>
+</trans-unit>
+<trans-unit id="s2c8e92cef6aa857b">
+  <source>Change URL slug</source>
+  <target>更改 URL 标识</target>
+</trans-unit>
+<trans-unit id="se1386c35e57e5081">
+  <source>Loading apps…</source>
+  <target>正在加载应用…</target>
+</trans-unit>
+<trans-unit id="s4368dcd47555c7d8">
+  <source>No apps match your search.</source>
+  <target>没有符合搜索条件的应用。</target>
+</trans-unit>
+<trans-unit id="s54079f4e5003fcea">
+  <source>No apps in this context.</source>
+  <target>此上下文中没有应用。</target>
+</trans-unit>
+<trans-unit id="saa264d5288c6f287">
+  <source>Deploy with Agent</source>
+  <target>使用智能体部署</target>
+</trans-unit>
+<trans-unit id="s08f298450f2561df">
+  <source>Sort apps</source>
+  <target>应用排序</target>
+</trans-unit>
+<trans-unit id="sfc8cccc54f96c067">
+  <source>Search apps</source>
+  <target>搜索应用</target>
+</trans-unit>
+<trans-unit id="saf1bdf210617f722">
+  <source>Could not load app details.</source>
+  <target>无法加载应用详情。</target>
+</trans-unit>
+<trans-unit id="sb7e7c1321e842c0e">
+  <source>Open app</source>
+  <target>打开应用</target>
+</trans-unit>
+<trans-unit id="s575c151bb8aaae01">
+  <source>Edit live</source>
+  <target>在线编辑</target>
+</trans-unit>
+<trans-unit id="sef5bd6ed8fab8065">
+  <source>Copy URL</source>
+  <target>复制 URL</target>
+</trans-unit>
+<trans-unit id="s91067d01c39edcc1">
+  <source>Loading authoritative app details…</source>
+  <target>正在加载权威应用详情…</target>
+</trans-unit>
+<trans-unit id="s3d197283cb019b5a">
+  <source>Overview</source>
+  <target>概览</target>
+</trans-unit>
+<trans-unit id="sd68e02234ded71af">
+  <source>Live version</source>
+  <target>在线版本</target>
+</trans-unit>
+<trans-unit id="s1900d5ddcc0d26fe">
+  <source>Latest version</source>
+  <target>最新版本</target>
+</trans-unit>
+<trans-unit id="s140da4f059294211">
+  <source>Last deployed</source>
+  <target>上次部署</target>
+</trans-unit>
+<trans-unit id="s1b73d93966e88d86">
+  <source>Last opened</source>
+  <target>上次打开</target>
+</trans-unit>
+<trans-unit id="s734e9234a069b648">
+  <source>No recorded access</source>
+  <target>没有访问记录</target>
+</trans-unit>
+<trans-unit id="s13c123f97668a70b">
+  <source>Access</source>
+  <target>访问权限</target>
+</trans-unit>
+<trans-unit id="s4d120318d5bee2ef">
+  <source>Ownership and access</source>
+  <target>所有权和访问权限</target>
+</trans-unit>
+<trans-unit id="s4aff49a672f466a2">
+  <source>Created in</source>
+  <target>创建于</target>
+</trans-unit>
+<trans-unit id="s4aee34a672e5cfc0">
+  <source>Created by</source>
+  <target>创建者</target>
+</trans-unit>
+<trans-unit id="s5edfe72a8b8f3ea7">
+  <source>Git remote</source>
+  <target>Git 远程仓库</target>
+</trans-unit>
+<trans-unit id="s52ba9c8cac0021ba">
+  <source>Copy Git remote</source>
+  <target>复制 Git 远程仓库地址</target>
+</trans-unit>
+<trans-unit id="s961d713b295e369f">
+  <source>Clone or push a new version with this short-lived authenticated URL.</source>
+  <target>使用此短期有效的认证 URL 克隆或推送新版本。</target>
+</trans-unit>
+<trans-unit id="s54845dc285260f91">
+  <source>Clone source with this short-lived read-only authenticated URL.</source>
+  <target>使用此短期有效的只读认证 URL 克隆源代码。</target>
+</trans-unit>
+<trans-unit id="s9d8b8aa2b404c2c8">
+  <source>Settings</source>
+  <target>设置</target>
+</trans-unit>
+<trans-unit id="se724e8e0ccb7f52c">
+  <source>Display name</source>
+  <target>显示名称</target>
+</trans-unit>
+<trans-unit id="s9c612302dae284c6">
+  <source>The human-friendly name shown here. This does not change the app URL.</source>
+  <target>这里显示的易读名称。此名称不会更改应用 URL。</target>
+</trans-unit>
+<trans-unit id="sedc8e6e5c827bcb5">
+  <source>Using URL slug</source>
+  <target>正在使用 URL 标识</target>
+</trans-unit>
+<trans-unit id="s7ac1e0a401ee1555">
+  <source>URL slug</source>
+  <target>URL 标识</target>
+</trans-unit>
+<trans-unit id="sa5338aa426997e85">
+  <source>Changes the app URL. Existing links do not redirect.</source>
+  <target>这会更改应用 URL，现有链接不会重定向。</target>
+</trans-unit>
+<trans-unit id="s2f64461723d3df5d">
+  <source>Change</source>
+  <target>更改</target>
+</trans-unit>
+<trans-unit id="s03b68bf3e2ddca9c">
+  <source>Restore deployment</source>
+  <target>恢复应用</target>
+</trans-unit>
+<trans-unit id="s084f3abb5617d858">
+  <source>Archive deployment</source>
+  <target>归档应用</target>
+</trans-unit>
+<trans-unit id="s9b28a3055acab3ef">
+  <source>Version history</source>
+  <target>版本历史</target>
+</trans-unit>
+<trans-unit id="s3d1396b47ff4a56f">
+  <source>Live</source>
+  <target>在线</target>
+</trans-unit>
+<trans-unit id="sc966d49eebca4286">
+  <source>Latest</source>
+  <target>最新</target>
+</trans-unit>
+<trans-unit id="se6fe4b6ffa5a12a5">
+  <source>No version history available.</source>
+  <target>没有可用的版本历史。</target>
+</trans-unit>
+<trans-unit id="se222452040cc51d5">
+  <source>A URL slug is required.</source>
+  <target>URL 标识为必填项。</target>
+</trans-unit>
+<trans-unit id="sd02a9432614df2f5">
+  <source><x id="0" equiv-text="${deploymentTitle(updated)}"/> settings saved.</source>
+  <target><x id="0" equiv-text="${deploymentTitle(updated)}"/> 的设置已保存。</target>
+</trans-unit>
+<trans-unit id="s1af750daf790878e">
+  <source>Could not save app settings.</source>
+  <target>无法保存应用设置。</target>
+</trans-unit>
+<trans-unit id="sb734722030a1d544">
+  <source>Archive <x id="0" equiv-text="${deploymentTitle(d)}"/>?</source>
+  <target>归档 <x id="0" equiv-text="${deploymentTitle(d)}"/>？</target>
+</trans-unit>
+<trans-unit id="s096d7ca51d0f9130">
+  <source>This takes the app offline immediately, so its current URL will stop working. Its source and version history are kept, and you can restore it later.</source>
+  <target>这会立即让应用离线，其当前 URL 将停止工作。源代码和版本历史会保留，你可以稍后恢复应用。</target>
+</trans-unit>
+<trans-unit id="s29a991792d63a40c">
+  <source>Archive and take offline</source>
+  <target>归档并下线</target>
+</trans-unit>
+<trans-unit id="s57208437b1514ea5">
+  <source>Archiving deployment…</source>
+  <target>正在归档应用…</target>
+</trans-unit>
+<trans-unit id="s6dbd636692ac4a19">
+  <source><x id="0" equiv-text="${deploymentTitle(d)}"/> is offline and archived.</source>
+  <target><x id="0" equiv-text="${deploymentTitle(d)}"/> 已下线并归档。</target>
+</trans-unit>
+<trans-unit id="sd0527aaa4d528e42">
+  <source>Could not archive deployment.</source>
+  <target>无法归档应用。</target>
+</trans-unit>
+<trans-unit id="se5b60b49c68b18f1">
+  <source>Restoring deployment…</source>
+  <target>正在恢复应用…</target>
+</trans-unit>
+<trans-unit id="scd7c1e330b5f3945">
+  <source><x id="0" equiv-text="${deploymentTitle(d)}"/> is restored and running.</source>
+  <target><x id="0" equiv-text="${deploymentTitle(d)}"/> 已恢复并正在运行。</target>
+</trans-unit>
+<trans-unit id="sce43ea30667e1236">
+  <source>Could not restore deployment.</source>
+  <target>无法恢复应用。</target>
+</trans-unit>
+<trans-unit id="s8f4be9f086eb530f">
+  <source>Undo</source>
+  <target>撤销</target>
+</trans-unit>
+<trans-unit id="s12d6dde9b30c3093">
+  <source>Dismiss</source>
+  <target>关闭</target>
+</trans-unit>
+<trans-unit id="s46b7b87d8b9a71e2">
+  <source>Dismiss notification</source>
+  <target>关闭通知</target>
+</trans-unit>
+<trans-unit id="s7440fb0edc01fa99">
+  <source>no live URL for this app</source>
+  <target>此应用没有在线 URL</target>
+</trans-unit>
+<trans-unit id="s2ec543c09d912c9d">
+  <source>Could not open live editing.</source>
+  <target>无法打开在线编辑。</target>
+</trans-unit>
+<trans-unit id="s7f1f0d11195853dd">
+  <source>Deploy an app for me.</source>
+  <target>帮我部署一个应用。</target>
+</trans-unit>
+<trans-unit id="sc45d0205b17eb6b9">
+  <source>Failed to load apps.</source>
+  <target>无法加载应用。</target>
+</trans-unit>
+<trans-unit id="sb41b2cfbbc52565b">
+  <source>Created</source>
+  <target>已创建</target>
+</trans-unit>
+<trans-unit id="s33c5166e0c903c2d">
+  <source>Uploaded</source>
+  <target>已上传</target>
+</trans-unit>
+<trans-unit id="s04dc63d9d67ab886">
+  <source>Drop files here or choose files</source>
+  <target>将文件拖放到此处或选择文件</target>
+</trans-unit>
+<trans-unit id="s764ef6aafd833853">
+  <source>Drop files</source>
+  <target>拖放文件</target>
+</trans-unit>
+<trans-unit id="s9e5661c5225f1f6e">
+  <source>Uploading…</source>
+  <target>正在上传…</target>
+</trans-unit>
+<trans-unit id="s1d4ebb09fe138f32">
+  <source>Loading files…</source>
+  <target>正在加载文件…</target>
+</trans-unit>
+<trans-unit id="sbc03e9a9f6645bf5">
+  <source>Files created, uploaded, or shared with you</source>
+  <target>你创建、上传或收到共享的文件</target>
+</trans-unit>
+<trans-unit id="s96668830629e0dfc">
+  <source>Upload</source>
+  <target>上传</target>
+</trans-unit>
+<trans-unit id="se2f1d7c82dfbdc82">
+  <source>Search files</source>
+  <target>搜索文件</target>
+</trans-unit>
+<trans-unit id="sbe1b3eb42cb58bf5">
+  <source>Search file names and types…</source>
+  <target>搜索文件名和类型…</target>
+</trans-unit>
+<trans-unit id="s663d390fd1b75d7e">
+  <source>Ownership</source>
+  <target>所有权</target>
+</trans-unit>
+<trans-unit id="s160969f3ee2f262b">
+  <source>All files</source>
+  <target>所有文件</target>
+</trans-unit>
+<trans-unit id="sd2223afb7d6b100d">
+  <source>Type</source>
+  <target>类型</target>
+</trans-unit>
+<trans-unit id="s81c540e467783095">
+  <source>All types</source>
+  <target>所有类型</target>
+</trans-unit>
+<trans-unit id="sfc8531b2fd0f31cb">
+  <source>Images</source>
+  <target>图片</target>
+</trans-unit>
+<trans-unit id="s889fce46bd2236e5">
+  <source>Documents</source>
+  <target>文档</target>
+</trans-unit>
+<trans-unit id="sc9e494c8346b7cb5">
+  <source>Other</source>
+  <target>其他</target>
+</trans-unit>
+<trans-unit id="s8a7bee24f1eeaff1">
+  <source>Sort</source>
+  <target>排序</target>
+</trans-unit>
+<trans-unit id="s74dea8806e19236b">
+  <source>Newest</source>
+  <target>最新</target>
+</trans-unit>
+<trans-unit id="sc6b5ba8e2c8c81ae">
+  <source>Oldest</source>
+  <target>最早</target>
+</trans-unit>
+<trans-unit id="s5a4233505d0e17e2">
+  <source>No files match these filters.</source>
+  <target>没有符合这些筛选条件的文件。</target>
+</trans-unit>
+<trans-unit id="sead5c5a5fa5d9897">
+  <source>No files yet. Upload one here or ask the agent to create one.</source>
+  <target>暂无文件。你可以在此上传，或让智能体创建文件。</target>
+</trans-unit>
+<trans-unit id="s7584ded3d749c75e">
+  <source>Load more</source>
+  <target>加载更多</target>
+</trans-unit>
+<trans-unit id="s43e9aef7aa01fca9">
+  <source>Unavailable</source>
+  <target>不可用</target>
+</trans-unit>
+<trans-unit id="s75b3730587b66724">
+  <source>Upload failed (<x id="0" equiv-text="${r.status}"/>)</source>
+  <target>上传失败（<x id="0" equiv-text="${r.status}"/>）</target>
+</trans-unit>
+<trans-unit id="s602aa9f5c992c62e">
+  <source>Uploading <x id="0" equiv-text="${formatNumber(picked.length)}"/> file…</source>
+  <target>正在上传 <x id="0" equiv-text="${picked.length}"/> 个文件…</target>
+</trans-unit>
+<trans-unit id="s8f58f6a528d0cde1">
+  <source>Uploading <x id="0" equiv-text="${formatNumber(picked.length)}"/> files…</source>
+  <target>正在上传 <x id="0" equiv-text="${picked.length}"/> 个文件…</target>
+</trans-unit>
+<trans-unit id="sddf117df5d93575b">
+  <source>Uploaded <x id="0" equiv-text="${formatNumber(picked.length)}"/> file.</source>
+  <target>已上传 <x id="0" equiv-text="${picked.length}"/> 个文件。</target>
+</trans-unit>
+<trans-unit id="sb494e38c01d95026">
+  <source>Uploaded <x id="0" equiv-text="${formatNumber(picked.length)}"/> files.</source>
+  <target>已上传 <x id="0" equiv-text="${picked.length}"/> 个文件。</target>
+</trans-unit>
+<trans-unit id="s5e356a702f799848">
+  <source>Uploaded <x id="0" equiv-text="${formatNumber(uploaded)}"/> of <x id="1" equiv-text="${formatNumber(picked.length)}"/>. </source>
+  <target>已上传 <x id="0" equiv-text="${uploaded}"/> / <x id="1" equiv-text="${picked.length}"/> 个文件。</target>
+</trans-unit>
+<trans-unit id="sa8df16953e45a845">
+  <source>Upload failed.</source>
+  <target>上传失败。</target>
+</trans-unit>
+<trans-unit id="s945ca9104d395623">
+  <source>Failed to load more files.</source>
+  <target>无法加载更多文件。</target>
+</trans-unit>
+<trans-unit id="sfa43b554416a62e6">
+  <source>Failed to load all matching files.</source>
+  <target>无法加载所有匹配的文件。</target>
+</trans-unit>
+<trans-unit id="s4d1999121d8aa1ba">
+  <source>Failed to load files.</source>
+  <target>无法加载文件。</target>
+</trans-unit>
+<trans-unit id="s690692a72a6267d4">
+  <source>"<x id="0" equiv-text="${root.name}"/>" has too many files (over <x id="1" equiv-text="${formatNumber(caps.maxFiles)}"/>) — zip it yourself or drop a subfolder.</source>
+  <target>“<x id="0" equiv-text="${root.name}"/>”包含的文件过多（超过 <x id="1" equiv-text="${formatNumber(caps.maxFiles)}"/> 个），请自行压缩或拖放其中的子文件夹。</target>
+</trans-unit>
+<trans-unit id="s43498306180b306b">
+  <source>"<x id="0" equiv-text="${root.name}"/>" has no files in it.</source>
+  <target>“<x id="0" equiv-text="${root.name}"/>”中没有文件。</target>
+</trans-unit>
+<trans-unit id="sfa2167096f34197e">
+  <source>You no longer have access to the original conversation.</source>
+  <target>你已无法访问原始会话。</target>
+</trans-unit>
+<trans-unit id="scc7ffbe606909d00">
+  <source>Couldn't load the original conversation's history.</source>
+  <target>无法加载原始会话的历史记录。</target>
+</trans-unit>
+<trans-unit id="s59ee77dfc8db9ce2">
+  <source>Forked from <x id="0" equiv-text="${view.title}"/></source>
+  <target>派生自 <x id="0" equiv-text="${view.title}"/></target>
+</trans-unit>
+<trans-unit id="s5e78a6ca8b5a6e98">
+  <source>· <x id="0" equiv-text="${formatNumber(view.messageCount)}"/> messages</source>
+  <target>· <x id="0" equiv-text="${view.messageCount}"/> 条消息</target>
+</trans-unit>
+<trans-unit id="s736411cc9b3aa58d">
+  <source>hide</source>
+  <target>隐藏</target>
+</trans-unit>
+<trans-unit id="s46dc5f18e28e25bc">
+  <source>show</source>
+  <target>显示</target>
+</trans-unit>
+<trans-unit id="s74aa0119e62b2b51">
+  <source>Web</source>
+  <target>网页</target>
+</trans-unit>
+<trans-unit id="s78636b92c1a3909c">
+  <source>Pending</source>
+  <target>待处理</target>
+</trans-unit>
+<trans-unit id="s85994a70cd39166c">
+  <source>Running</source>
+  <target>运行中</target>
+</trans-unit>
+<trans-unit id="s0379fc73608ab971">
+  <source>Done</source>
+  <target>已完成</target>
+</trans-unit>
+<trans-unit id="sbf9c5c5a8e5efad4">
+  <source>Failed</source>
+  <target>失败</target>
+</trans-unit>
+<trans-unit id="s5033dab8c17f05f2">
+  <source>Completed</source>
+  <target>已完成</target>
+</trans-unit>
+<trans-unit id="s592abf6242502c63">
+  <source>Refused</source>
+  <target>已拒绝</target>
+</trans-unit>
+<trans-unit id="safe975a6bb676d0f">
+  <source>Pending approval</source>
+  <target>待批准</target>
+</trans-unit>
+<trans-unit id="s3ec4da71c1a62754">
+  <source>Queued</source>
+  <target>已排队</target>
+</trans-unit>
+<trans-unit id="s41f3c5dea156cd44">
+  <source>Silent</source>
+  <target>静默</target>
+</trans-unit>
+<trans-unit id="s4b0497c667cd0b4d">
+  <source>Reacted</source>
+  <target>已回应</target>
+</trans-unit>
+<trans-unit id="s2e0c68be1fa79ae8">
+  <source>Working</source>
+  <target>工作中</target>
+</trans-unit>
+<trans-unit id="s2998563d980cf5b2">
+  <source>Awaiting approval</source>
+  <target>等待批准</target>
+</trans-unit>
+<trans-unit id="sc92905d14a9421f3">
+  <source>Idle</source>
+  <target>空闲</target>
+</trans-unit>
+<trans-unit id="s7d7ca36ecef354a5">
+  <source>In progress</source>
+  <target>进行中</target>
+</trans-unit>
+<trans-unit id="sc15ad44c7902a717">
+  <source>Skipped</source>
+  <target>已跳过</target>
+</trans-unit>
+<trans-unit id="sc5fcb9351a03ab2e">
+  <source>Stopped</source>
+  <target>已停止</target>
+</trans-unit>
+<trans-unit id="s4bfc4d609ee1ab33">
+  <source>Archived</source>
+  <target>已归档</target>
+</trans-unit>
+<trans-unit id="sd600892f7fabe04c">
+  <source>Draft</source>
+  <target>草稿</target>
+</trans-unit>
+<trans-unit id="sb89d8d8bc0c08e98">
+  <source>Reviewed</source>
+  <target>已审核</target>
+</trans-unit>
+<trans-unit id="s6d3b5b0561ba34c9">
+  <source>Published</source>
+  <target>已发布</target>
+</trans-unit>
+<trans-unit id="s955656e78a18bdcc">
+  <source>Exited</source>
+  <target>已退出</target>
+</trans-unit>
+<trans-unit id="sa45a194b58837e4f">
+  <source>Active</source>
+  <target>活跃</target>
+</trans-unit>
+<trans-unit id="sfa9d8c928d994bf5">
+  <source>Revoked</source>
+  <target>已撤销</target>
+</trans-unit>
+<trans-unit id="sa48f8bf001b8a4d0">
+  <source>Used</source>
+  <target>已使用</target>
+</trans-unit>
+<trans-unit id="sfecdd5e13f68c9ba">
+  <source>Approved</source>
+  <target>已批准</target>
+</trans-unit>
+<trans-unit id="s9b6901ac422f46a7">
+  <source>Declined</source>
+  <target>已拒绝</target>
+</trans-unit>
+<trans-unit id="sd923f95605fed7b2">
+  <source>Expired</source>
+  <target>已过期</target>
+</trans-unit>
+<trans-unit id="s965c503c3e42fdfe">
+  <source>Enabled</source>
+  <target>已启用</target>
+</trans-unit>
+<trans-unit id="s66722bc2ea775e05">
+  <source>Disabled</source>
+  <target>已禁用</target>
+</trans-unit>
+<trans-unit id="se0d1d6bd81fc1980">
+  <source>Accepted</source>
+  <target>已接受</target>
+</trans-unit>
+<trans-unit id="s82a4e28ab5b56670">
+  <source>Connected</source>
+  <target>已连接</target>
+</trans-unit>
+<trans-unit id="s8322d6590d1ec10b">
+  <source>Reconnect required</source>
+  <target>需要重新连接</target>
+</trans-unit>
+<trans-unit id="s93390561e1afc0b6">
+  <source>Denied</source>
+  <target>已拒绝</target>
+</trans-unit>
+<trans-unit id="s5f343a43e7ea9f91">
+  <source>Error</source>
+  <target>错误</target>
+</trans-unit>
+<trans-unit id="sd158a5fc0f062f18">
+  <source>Available</source>
+  <target>可用</target>
+</trans-unit>
+<trans-unit id="s214821c3c6a71c9b">
+  <source>The upload could not be verified. Try uploading it again.</source>
+  <target>无法验证上传内容。请重新上传。</target>
+</trans-unit>
+<trans-unit id="s3de0d8083760215e">
+  <source>This agent runtime is not approved for the selected project.</source>
+  <target>此智能体运行时未获准用于所选项目。</target>
+</trans-unit>
+<trans-unit id="s997770816014bb95">
+  <source>The selected model is not supported by this agent runtime.</source>
+  <target>所选模型不受此智能体运行时支持。</target>
+</trans-unit>
+<trans-unit id="s35d6e91ddb8753a6">
+  <source>The selected model is not enabled for this project.</source>
+  <target>所选模型未在此项目中启用。</target>
+</trans-unit>
+<trans-unit id="s2c47f53ed0f17f08">
+  <source>The selected reasoning effort is not supported by this model.</source>
+  <target>此模型不支持所选推理强度。</target>
+</trans-unit>
+<trans-unit id="s461ce9532eba1325">
+  <source>Fast mode is not available with the selected settings.</source>
+  <target>所选设置不支持快速模式。</target>
+</trans-unit>
+<trans-unit id="s603ff07e5af259ba">
+  <source>Connection permission was denied.</source>
+  <target>连接权限被拒绝。</target>
+</trans-unit>
+<trans-unit id="s366892e3e366a85a">
+  <source>The connection could not be completed.</source>
+  <target>无法完成连接。</target>
+</trans-unit>
+<trans-unit id="s91a535ad9d4660e1">
+  <source>This connection has not been configured by an administrator.</source>
+  <target>管理员尚未配置此连接。</target>
+</trans-unit>
+<trans-unit id="sd36cae6d06403c22">
+  <source>The connection returned to an invalid address.</source>
+  <target>连接返回了无效地址。</target>
+</trans-unit>
+<trans-unit id="sf749ce153394b9d4">
+  <source>The app could not be renamed.</source>
+  <target>无法重命名应用。</target>
+</trans-unit>
+<trans-unit id="sc7661ae90e1eafa2">
+  <source>The app name could not be updated.</source>
+  <target>无法更新应用名称。</target>
+</trans-unit>
+<trans-unit id="s41b21def35993d2c">
+  <source>The item could not be archived.</source>
+  <target>无法归档该项。</target>
+</trans-unit>
+<trans-unit id="s78ff0d36f3ff6720">
+  <source>The item could not be restored.</source>
+  <target>无法恢复该项。</target>
+</trans-unit>
+<trans-unit id="sea3e4fffd23d559b">
+  <source>Memory changed elsewhere. Refresh and try again.</source>
+  <target>内存已在其他位置发生更改。请刷新后重试。</target>
+</trans-unit>
+<trans-unit id="s83349f3d94b272a2">
+  <source>Project settings changed elsewhere. Refresh and try again.</source>
+  <target>项目设置已在其他位置发生更改。请刷新后重试。</target>
+</trans-unit>
+<trans-unit id="sbe449db247ff7bc0">
+  <source>Enter a skill name.</source>
+  <target>请输入技能名称。</target>
+</trans-unit>
+<trans-unit id="s3528054b6e5dc95d">
+  <source>Enter a skill description.</source>
+  <target>请输入技能描述。</target>
+</trans-unit>
+<trans-unit id="s768ea754b13de039">
+  <source>Enter skill instructions.</source>
+  <target>请输入技能说明。</target>
+</trans-unit>
+<trans-unit id="sc9b5320ef30ae065">
+  <source>A skill with that name already exists.</source>
+  <target>已存在同名技能。</target>
+</trans-unit>
+<trans-unit id="s8adf6a748207c14f">
+  <source>Enter a valid name.</source>
+  <target>请输入有效名称。</target>
+</trans-unit>
+<trans-unit id="s6e7bc35f2a4d270c">
+  <source>Enter a valid member.</source>
+  <target>请输入有效成员。</target>
+</trans-unit>
+<trans-unit id="s7a6f0396a9be12bc">
+  <source>Enter a message before sending.</source>
+  <target>请先输入消息再发送。</target>
+</trans-unit>
+<trans-unit id="sd9a4bd527da44248">
+  <source>Denied.</source>
+  <target>已拒绝。</target>
+</trans-unit>
+<trans-unit id="s7bb71f8e47106868">
+  <source>That approval is no longer available in this project.</source>
+  <target>此审批在该项目中已不可用。</target>
+</trans-unit>
+<trans-unit id="s86201f5ae028a997">
+  <source>You do not have access to that project.</source>
+  <target>你无权访问该项目。</target>
+</trans-unit>
+<trans-unit id="s51b4f7ad3a66e0e7">
+  <source>That conversation belongs to a different project.</source>
+  <target>该对话属于另一个项目。</target>
+</trans-unit>
+<trans-unit id="s8e6fe814da86cb93">
+  <source>Project membership changed. Refresh and try again.</source>
+  <target>项目成员关系已更改。请刷新后重试。</target>
+</trans-unit>
+<trans-unit id="sa401343b8bdd6162">
+  <source>This agent runtime is not approved.</source>
+  <target>此智能体运行时未获批准。</target>
+</trans-unit>
+<trans-unit id="s60268e501762009e">
+  <source>This conversation is busy. Try again in a moment.</source>
+  <target>此对话正忙。请稍后重试。</target>
+</trans-unit>
+<trans-unit id="sf17bf74f05cbe10e">
+  <source>Start this conversation from your own account.</source>
+  <target>请从你自己的账户发起此对话。</target>
+</trans-unit>
+<trans-unit id="sdf3fabbc512b9a21">
+  <source>That access request no longer exists.</source>
+  <target>该访问请求已不存在。</target>
+</trans-unit>
+<trans-unit id="s54f1bf2224376c9d">
+  <source>You already own this credential. Share it directly instead.</source>
+  <target>你已拥有此凭据，请改为直接共享。</target>
+</trans-unit>
+<trans-unit id="s74ccc1feafce9596">
+  <source>This credential has expired. Reconnect or replace it.</source>
+  <target>此凭据已过期。请重新连接或替换。</target>
+</trans-unit>
+<trans-unit id="sbcdf179e4abfd1bb">
+  <source>That credential no longer exists.</source>
+  <target>该凭据已不存在。</target>
+</trans-unit>
+<trans-unit id="s36998c2fd1868ee9">
+  <source>This credential grant has expired.</source>
+  <target>此凭据授权已过期。</target>
+</trans-unit>
+<trans-unit id="s6c3d3b7a5c00e121">
+  <source>That credential grant no longer exists.</source>
+  <target>该凭据授权已不存在。</target>
+</trans-unit>
+<trans-unit id="s0b6b4df9f6da31bb">
+  <source>This credential grant was revoked.</source>
+  <target>此凭据授权已被撤销。</target>
+</trans-unit>
+<trans-unit id="s7ba6401e6d6d6d18">
+  <source>This credential grant belongs to a different conversation.</source>
+  <target>此凭据授权属于另一个对话。</target>
+</trans-unit>
+<trans-unit id="s270ea4564ce26193">
+  <source>This one-time credential grant has already been used.</source>
+  <target>此一次性凭据授权已被使用。</target>
+</trans-unit>
+<trans-unit id="s974a03765e5f097d">
+  <source>The app gateway request failed.</source>
+  <target>应用网关请求失败。</target>
+</trans-unit>
+<trans-unit id="sf4cd65eb4aa3fd61">
+  <source>capture</source>
+  <target>捕获</target>
+</trans-unit>
+<trans-unit id="sb3e29472ea3def43">
+  <source>replace</source>
+  <target>替换</target>
+</trans-unit>
+<trans-unit id="sb0577b29135f0bb1">
+  <source>restore</source>
+  <target>恢复</target>
+</trans-unit>
+<trans-unit id="s16e1bead7b9c95ce">
+  <source>Memory</source>
+  <target>内存</target>
+</trans-unit>
+<trans-unit id="s97e3b71d8def576a">
+  <source>Facts the agent carries into your conversations.</source>
+  <target>智能体带入你对话中的事实。</target>
+</trans-unit>
+<trans-unit id="s8b032a3337c6a3f5">
+  <source>Facts view</source>
+  <target>事实视图</target>
+</trans-unit>
+<trans-unit id="s4c0b44cc62c4b49e">
+  <source>Edit notebook</source>
+  <target>编辑笔记本</target>
+</trans-unit>
+<trans-unit id="s58c754018ec47b5f">
+  <source>History</source>
+  <target>历史记录</target>
+</trans-unit>
+<trans-unit id="sbe5944bd079f057f">
+  <source>Refresh memory</source>
+  <target>刷新内存</target>
+</trans-unit>
+<trans-unit id="s669329d3d83ec827">
+  <source>Edit the notebook directly. Switch to Facts view to search or remove individual facts. Saves are protected if the agent remembers something new while this page is open.</source>
+  <target>直接编辑笔记本。切换到“事实”视图可搜索或删除单条事实。如果此页面打开期间智能体记住了新内容，保存操作会受到保护。</target>
+</trans-unit>
+<trans-unit id="s52f1a7db3b55e7c4">
+  <source>Search memory</source>
+  <target>搜索内存</target>
+</trans-unit>
+<trans-unit id="s4ebeca2ba91e56de">
+  <source>Search remembered facts</source>
+  <target>搜索已记住的事实</target>
+</trans-unit>
+<trans-unit id="s6cfe55454db86a89">
+  <source>Captured <x id="0" equiv-text="${fact.date}"/></source>
+  <target>捕获于 <x id="0" equiv-text="${fact.date}"/></target>
+</trans-unit>
+<trans-unit id="s0441038a5d9256fe">
+  <source>Forget this fact</source>
+  <target>忘记此事实</target>
+</trans-unit>
+<trans-unit id="s8c850f9e0a092ac0">
+  <source>No remembered facts match this search.</source>
+  <target>没有与此搜索匹配的已记住事实。</target>
+</trans-unit>
+<trans-unit id="s2e5c8dcc07a68693">
+  <source>The agent hasn’t noted any facts yet.</source>
+  <target>智能体尚未记录任何事实。</target>
+</trans-unit>
+<trans-unit id="s870f7b2f8c27e219">
+  <source>Save changes</source>
+  <target>保存更改</target>
+</trans-unit>
+<trans-unit id="s6e6e4d288ea76fc4">
+  <source>Unsaved changes</source>
+  <target>未保存的更改</target>
+</trans-unit>
+<trans-unit id="s1600d5faa59c17f0">
+  <source>Revision history</source>
+  <target>修订历史</target>
+</trans-unit>
+<trans-unit id="sab8b4cbbb1fa71fa">
+  <source>Current</source>
+  <target>当前</target>
+</trans-unit>
+<trans-unit id="s251042e83a4120a2">
+  <source>Revision <x id="0" equiv-text="${row.revision}"/></source>
+  <target>修订版 <x id="0" equiv-text="${row.revision}"/></target>
+</trans-unit>
+<trans-unit id="sbd7898b71ed6463e">
+  <source>automatic capture</source>
+  <target>自动捕获</target>
+</trans-unit>
+<trans-unit id="sb43fee9474cc797f">
+  <source>Revision history is unavailable for this memory store.</source>
+  <target>此内存存储的修订历史不可用。</target>
+</trans-unit>
+<trans-unit id="s2a0deee89b51b530">
+  <source>Discard unsaved memory changes?</source>
+  <target>放弃未保存的内存更改？</target>
+</trans-unit>
+<trans-unit id="sbb64f73485091323">
+  <source>Refreshing will replace this draft with the latest memory. Copy anything you want to keep before continuing.</source>
+  <target>刷新将使用最新内存替换此草稿。继续前请复制你想保留的内容。</target>
+</trans-unit>
+<trans-unit id="s4eb3fc15764e0b77">
+  <source>Discard and refresh</source>
+  <target>放弃并刷新</target>
+</trans-unit>
+<trans-unit id="sa3ee9bd3bae887c0">
+  <source>Failed to load memory.</source>
+  <target>加载内存失败。</target>
+</trans-unit>
+<trans-unit id="sd499b1ae8a6e988d">
+  <source>Saved ✓</source>
+  <target>已保存 ✓</target>
+</trans-unit>
+<trans-unit id="sec5f5bc2e3902838">
+  <source>Saved ✓ History could not refresh.</source>
+  <target>已保存 ✓ 无法刷新历史记录。</target>
+</trans-unit>
+<trans-unit id="s4a58f272a47fb091">
+  <source>Memory changed in another conversation. Your draft is still here; copy it if needed, then refresh to merge with the latest version.</source>
+  <target>内存已在另一个对话中更改。你的草稿仍在此处；如有需要，请先复制，再刷新以合并最新版本。</target>
+</trans-unit>
+<trans-unit id="sd541ab9f91d356e5">
+  <source>Failed to save memory.</source>
+  <target>保存内存失败。</target>
+</trans-unit>
+<trans-unit id="s5e9fa8a2f3d3b05c">
+  <source>Failed to load memory history.</source>
+  <target>加载内存历史记录失败。</target>
+</trans-unit>
+<trans-unit id="sf4a8840466161733">
+  <source>Restore memory from <x id="0" equiv-text="${fmtDate(row.at)}"/>?</source>
+  <target>从 <x id="0" equiv-text="${fmtDate(row.at)}"/> 恢复内存？</target>
+</trans-unit>
+<trans-unit id="s3b6b13945286fd67">
+  <source>The selected notebook will become current. The version you have now remains available in history.</source>
+  <target>所选笔记本将成为当前版本。你现在的版本仍会保留在历史记录中。</target>
+</trans-unit>
+<trans-unit id="s9d70b8c0ce637eb2">
+  <source>Restore revision</source>
+  <target>恢复修订版</target>
+</trans-unit>
+<trans-unit id="s460499e419a079d7">
+  <source>Revision restored ✓</source>
+  <target>修订版已恢复 ✓</target>
+</trans-unit>
+<trans-unit id="sd1debc2d2146c526">
+  <source>Revision restored ✓ History could not refresh.</source>
+  <target>修订版已恢复 ✓ 无法刷新历史记录。</target>
+</trans-unit>
+<trans-unit id="s84b751eeaf9c8853">
+  <source>Could not restore that revision.</source>
+  <target>无法恢复该修订版。</target>
+</trans-unit>
+<trans-unit id="sdb73788b3c975f16">
+  <source>Auto</source>
+  <target>自动</target>
+</trans-unit>
+<trans-unit id="s24f3a319b88552c1">
+  <source>Low</source>
+  <target>低</target>
+</trans-unit>
+<trans-unit id="sac6bdc71f750ac96">
+  <source>Medium</source>
+  <target>中</target>
+</trans-unit>
+<trans-unit id="s9deeefd89ca8a81d">
+  <source>High</source>
+  <target>高</target>
+</trans-unit>
+<trans-unit id="sde6fd3a09330012b">
+  <source>XHigh</source>
+  <target>极高</target>
+</trans-unit>
+<trans-unit id="s1e187119b5262c59">
+  <source>Max</source>
+  <target>最高</target>
+</trans-unit>
+<trans-unit id="s08220368038540c4">
+  <source>Ultracode</source>
+  <target>Ultracode</target>
+</trans-unit>
+<trans-unit id="sd55fc5f69bdfe24d">
+  <source>Personal</source>
+  <target>个人</target>
+</trans-unit>
+<trans-unit id="s63d040e37887f17e">
+  <source>Today</source>
+  <target>今天</target>
+</trans-unit>
+<trans-unit id="s5b4abc92ede53bc7">
+  <source>Yesterday</source>
+  <target>昨天</target>
+</trans-unit>
+<trans-unit id="s8def9681ae592230">
+  <source>Previous 7 days</source>
+  <target>过去 7 天</target>
+</trans-unit>
+<trans-unit id="s28b86400e364dcf6">
+  <source>Previous 30 days</source>
+  <target>过去 30 天</target>
+</trans-unit>
+<trans-unit id="sc032b109be3096a1">
+  <source>Older</source>
+  <target>更早</target>
+</trans-unit>
+<trans-unit id="sd41ec66c8cf9155d">
+  <source>Web chat</source>
+  <target>网页聊天</target>
+</trans-unit>
+<trans-unit id="sd137eebdef43fb93">
+  <source>Direct message</source>
+  <target>私信</target>
+</trans-unit>
+<trans-unit id="s44851a8adf059eef">
+  <source>Pinned</source>
+  <target>已置顶</target>
+</trans-unit>
+<trans-unit id="s9181a3a2c76d831b">
+  <source>Loading conversations...</source>
+  <target>正在加载对话...</target>
+</trans-unit>
+<trans-unit id="s152652949a45b37d">
+  <source>Slack conversations hidden.</source>
+  <target>Slack 对话已隐藏。</target>
+</trans-unit>
+<trans-unit id="s282049f502eac1de">
+  <source>Project</source>
+  <target>项目</target>
+</trans-unit>
+<trans-unit id="s8ed739c263a04570">
+  <source><x id="0" equiv-text="${name}"/> project</source>
+  <target><x id="0" equiv-text="${name}"/> 项目</target>
+</trans-unit>
+<trans-unit id="s2ee651d9516e4b94">
+  <source>Project options</source>
+  <target>项目选项</target>
+</trans-unit>
+<trans-unit id="s26f2af2d7ffa8180">
+  <source>Options for <x id="0" equiv-text="${name}"/></source>
+  <target><x id="0" equiv-text="${name}"/> 的选项</target>
+</trans-unit>
+<trans-unit id="s292813a695f66e0e">
+  <source>New chat in <x id="0" equiv-text="${name}"/></source>
+  <target>在 <x id="0" equiv-text="${name}"/> 中新建聊天</target>
+</trans-unit>
+<trans-unit id="s3e9c025477abb23d">
+  <source>View project</source>
+  <target>查看项目</target>
+</trans-unit>
+<trans-unit id="s60320a18282b2b33">
+  <source>Rename</source>
+  <target>重命名</target>
+</trans-unit>
+<trans-unit id="sa39601dd0c662be2">
+  <source>Rename project</source>
+  <target>重命名项目</target>
+</trans-unit>
+<trans-unit id="s82895c3067658bb9">
+  <source>No conversations yet — start a new chat.</source>
+  <target>尚无对话——开始新聊天吧。</target>
+</trans-unit>
+<trans-unit id="s8d734f894ea5b3fb">
+  <source>Loading conversations…</source>
+  <target>正在加载对话…</target>
+</trans-unit>
+<trans-unit id="s3482c05aa01ff133">
+  <source>No conversations match.</source>
+  <target>没有匹配的对话。</target>
+</trans-unit>
+<trans-unit id="s66dd6cdcbe0ea0c8">
+  <source>Chats</source>
+  <target>聊天</target>
+</trans-unit>
+<trans-unit id="sdc8595a68d0dfbfc">
+  <source>Search chats…</source>
+  <target>搜索聊天…</target>
+</trans-unit>
+<trans-unit id="s50337c34c03e79dc">
+  <source>Conversation status</source>
+  <target>对话状态</target>
+</trans-unit>
+<trans-unit id="s123b7254b44dd148">
+  <source>Waiting</source>
+  <target>等待中</target>
+</trans-unit>
+<trans-unit id="s3da9d815a26aea7c">
+  <source>Surface</source>
+  <target>渠道</target>
+</trans-unit>
+<trans-unit id="s9d73c4eb2a8be38c">
+  <source>All surfaces</source>
+  <target>所有渠道</target>
+</trans-unit>
+<trans-unit id="s2f5e2bcd583fbc27">
+  <source>Slack</source>
+  <target>Slack</target>
+</trans-unit>
+<trans-unit id="s4cc8ee155c7b2f1e">
+  <source><x id="0" equiv-text="${ind.background.label}"/> — click to inspect</source>
+  <target><x id="0" equiv-text="${ind.background.label}"/> — 点击查看</target>
+</trans-unit>
+<trans-unit id="sc70cb5a0fb8377ea">
+  <source>Read-only</source>
+  <target>只读</target>
+</trans-unit>
+<trans-unit id="s19172ed3838854fc">
+  <source>Copy link</source>
+  <target>复制链接</target>
+</trans-unit>
+<trans-unit id="s40074e28dc11c0fb">
+  <source>Copy link to <x id="0" equiv-text="${sessionTitle(s)}"/></source>
+  <target>复制 <x id="0" equiv-text="${sessionTitle(s)}"/> 的链接</target>
+</trans-unit>
+<trans-unit id="sbc0cd0b4dfb7dde1">
+  <source>Unpin</source>
+  <target>取消置顶</target>
+</trans-unit>
+<trans-unit id="s8db89619f41917b4">
+  <source>Pin</source>
+  <target>置顶</target>
+</trans-unit>
+<trans-unit id="sf8256ec799969cb7">
+  <source>Unpin <x id="0" equiv-text="${sessionTitle(s)}"/></source>
+  <target>取消置顶 <x id="0" equiv-text="${sessionTitle(s)}"/></target>
+</trans-unit>
+<trans-unit id="sd1fdd3cc8714d686">
+  <source>Pin <x id="0" equiv-text="${sessionTitle(s)}"/></source>
+  <target>置顶 <x id="0" equiv-text="${sessionTitle(s)}"/></target>
+</trans-unit>
+<trans-unit id="s4523c46e32c3fa9a">
+  <source>Unarchive <x id="0" equiv-text="${sessionTitle(s)}"/></source>
+  <target>取消归档 <x id="0" equiv-text="${sessionTitle(s)}"/></target>
+</trans-unit>
+<trans-unit id="s0049a82dfa3a0b93">
+  <source>Archive <x id="0" equiv-text="${sessionTitle(s)}"/></source>
+  <target>归档 <x id="0" equiv-text="${sessionTitle(s)}"/></target>
+</trans-unit>
+<trans-unit id="sa13d8f11d79ad0b1">
+  <source>agent is working</source>
+  <target>智能体正在工作</target>
+</trans-unit>
+<trans-unit id="s912361a0f9492402">
+  <source>waiting for your reply</source>
+  <target>等待你的回复</target>
+</trans-unit>
+<trans-unit id="sb86e5e28f719630a">
+  <source>read-only</source>
+  <target>只读</target>
+</trans-unit>
+<trans-unit id="s5f82477707ad620f">
+  <source>pinned</source>
+  <target>已置顶</target>
+</trans-unit>
+<trans-unit id="s8925eaf4501f5e1c">
+  <source>Conversation options</source>
+  <target>对话选项</target>
+</trans-unit>
+<trans-unit id="sca7b18d0076d836a">
+  <source>Refreshing title</source>
+  <target>正在刷新标题</target>
+</trans-unit>
+<trans-unit id="s15e57f6c91032d3a">
+  <source>Refresh title</source>
+  <target>刷新标题</target>
+</trans-unit>
+<trans-unit id="s2133a0d71e541084">
+  <source>Row color</source>
+  <target>行颜色</target>
+</trans-unit>
+<trans-unit id="s75de13526a41666e">
+  <source>Color row <x id="0" equiv-text="${c}"/></source>
+  <target>将行颜色设为 <x id="0" equiv-text="${c}"/></target>
+</trans-unit>
+<trans-unit id="sf68a705315c9902d">
+  <source>Custom color (RGB picker)</source>
+  <target>自定义颜色（RGB 选择器）</target>
+</trans-unit>
+<trans-unit id="s06de5b7f03ab8275">
+  <source>Custom row color</source>
+  <target>自定义行颜色</target>
+</trans-unit>
+<trans-unit id="s45854008d5486989">
+  <source>Clear color</source>
+  <target>清除颜色</target>
+</trans-unit>
+<trans-unit id="s5af86a0d0bf5b4f1">
+  <source>Clear row color</source>
+  <target>清除行颜色</target>
+</trans-unit>
+<trans-unit id="sb9ccdd886e9b1a02">
+  <source>Rename conversation</source>
+  <target>重命名对话</target>
+</trans-unit>
+<trans-unit id="sb17bf88f1608c853">
+  <source>Failed to load conversations.</source>
+  <target>加载对话失败。</target>
+</trans-unit>
+<trans-unit id="s459782effc3b6be1">
+  <source>Couldn't load this conversation. Check your connection and click it again.</source>
+  <target>无法加载此对话。请检查连接，然后再次点击。</target>
+</trans-unit>
+<trans-unit id="s5f59c097e12a13a0">
+  <source>Viewing the assistant as <x id="0" equiv-text="${appState.me?.user ?? &quot;&quot;}"/> — you are <x id="1" equiv-text="${by}"/></source>
+  <target>正在以 <x id="0" equiv-text="${appState.me?.user ?? &quot;&quot;}"/> 的身份查看智能体——你的身份是 <x id="1" equiv-text="${by}"/></target>
+</trans-unit>
+<trans-unit id="scbc1da0112228fe5">
+  <source>Exit impersonation</source>
+  <target>退出身份模拟</target>
+</trans-unit>
+<trans-unit id="se11871e024589802">
+  <source>Dev mode — no identity provider, signed in as <x id="0" equiv-text="${user}"/></source>
+  <target>开发模式——未配置身份提供程序，已以 <x id="0" equiv-text="${user}"/> 身份登录</target>
+</trans-unit>
+<trans-unit id="s7cfe12cd14df9950">
+  <source>Sign out</source>
+  <target>退出登录</target>
+</trans-unit>
+<trans-unit id="se0366a1991be70dc">
+  <source>DEV</source>
+  <target>DEV</target>
+</trans-unit>
+<trans-unit id="s47c3b049b14bda91">
+  <source>Sign in through the portal</source>
+  <target>通过门户登录</target>
+</trans-unit>
+<trans-unit id="sead044453ab59406">
+  <source>This surface is reached through the portal, and signing in there didn't produce a session for it. Open the portal address directly rather than this one.</source>
+  <target>此界面需要通过门户访问，但在那里登录后未能为此界面创建会话。请直接打开门户地址，而不是此地址。</target>
+</trans-unit>
+<trans-unit id="s94b00fe92399e546">
+  <source>If you opened this surface's own address, that's the cause — it can't authenticate anyone on its own.</source>
+  <target>如果你打开的是此界面自身的地址，这就是原因——它无法自行验证任何用户的身份。</target>
+</trans-unit>
+<trans-unit id="s5fb68b4b5c357012">
+  <source>Your session ended</source>
+  <target>会话已结束</target>
+</trans-unit>
+<trans-unit id="sdaaaa7d2766ae294">
+  <source>You've been signed out. Sign in again and you'll come back to this page.</source>
+  <target>你已退出登录。再次登录后会返回此页面。</target>
+</trans-unit>
+<trans-unit id="s5e27738a2e8eb763">
+  <source>Sign in</source>
+  <target>登录</target>
+</trans-unit>
+<trans-unit id="s2b2bb4b6d7521f6a">
+  <source>You don't have access</source>
+  <target>你没有访问权限</target>
+</trans-unit>
+<trans-unit id="sff644efb7facc4a5">
+  <source>Your account is signed in and verified — it just isn't allowed on this instance. Ask an administrator to add you.</source>
+  <target>你的账户已登录并通过验证，但无权访问此实例。请联系管理员将你添加进来。</target>
+</trans-unit>
+<trans-unit id="s3b71e0e4c2ba648a">
+  <source>This instance lists its principals in WEB_UI_PRINCIPALS.</source>
+  <target>此实例在 WEB_UI_PRINCIPALS 中列出了允许访问的主体。</target>
+</trans-unit>
+<trans-unit id="s8b4644d2c4fc9add">
+  <source>We couldn't reach the assistant</source>
+  <target>无法连接到智能体</target>
+</trans-unit>
+<trans-unit id="sec8b48f772666e48">
+  <source>The service didn't respond. This is usually temporary.</source>
+  <target>服务未响应。这通常只是暂时的。</target>
+</trans-unit>
+<trans-unit id="scd1dd6ff53d0d01a">
+  <source>Try again</source>
+  <target>重试</target>
+</trans-unit>
+<trans-unit id="s69da662989c14ae7">
+  <source>If this keeps happening, the core service may be down.</source>
+  <target>如果问题持续发生，核心服务可能已停止运行。</target>
+</trans-unit>
+<trans-unit id="s30cbf38ce20b2b09">
+  <source>Sign-in failed.</source>
+  <target>登录失败。</target>
+</trans-unit>
+<trans-unit id="sc8b2c4b0a59e1e27">
+  <source>Dev sign-in</source>
+  <target>开发登录</target>
+</trans-unit>
+<trans-unit id="s2be2b6a1a990e16f">
+  <source>No identity provider is configured, so this instance trusts a local cookie. Set CORE_SIGNING_SECRET and run the portal to use real sign-in.</source>
+  <target>未配置身份提供程序，因此此实例信任本地 Cookie。请设置 CORE_SIGNING_SECRET 并运行门户，以使用正式登录。</target>
+</trans-unit>
+<trans-unit id="s614b10f2e5f83cc9">
+  <source>Principal</source>
+  <target>主体</target>
+</trans-unit>
+<trans-unit id="sd297a7e157cb8301">
+  <source>you@org.com</source>
+  <target>you@org.com</target>
+</trans-unit>
+<trans-unit id="s59169c4e8fbcdccf">
+  <source>Signing in…</source>
+  <target>正在登录…</target>
+</trans-unit>
+<trans-unit id="s07e6118e838b2e23">
+  <source>Navigation</source>
+  <target>导航</target>
+</trans-unit>
+<trans-unit id="s6f2694da95709959">
+  <source>Hide sidebar</source>
+  <target>隐藏侧边栏</target>
+</trans-unit>
+<trans-unit id="s3170269aeef6cda0">
+  <source>Back to admin</source>
+  <target>返回管理后台</target>
+</trans-unit>
+<trans-unit id="sdea5a897fc6970dc">
+  <source>Color scheme: light / dark / system</source>
+  <target>配色方案：浅色 / 深色 / 跟随系统</target>
+</trans-unit>
+<trans-unit id="s382600808211cf23">
+  <source>Close sidebar</source>
+  <target>关闭侧边栏</target>
+</trans-unit>
+<trans-unit id="sc15c7d74edafb0ad">
+  <source>Resize sidebar</source>
+  <target>调整侧边栏大小</target>
+</trans-unit>
+<trans-unit id="s54d11296ee83166b">
+  <source>Drag to resize · double-click to reset</source>
+  <target>拖动以调整大小 · 双击以重置</target>
+</trans-unit>
+<trans-unit id="sdacb7b7b67d23dc6">
+  <source>Pick a conversation, or start a new chat.</source>
+  <target>选择一个对话，或开始新聊天。</target>
+</trans-unit>
+<trans-unit id="s9027f0f301703c8b">
+  <source>Hide <x id="0" equiv-text="${title}"/></source>
+  <target>隐藏 <x id="0" equiv-text="${title}"/></target>
+</trans-unit>
+<trans-unit id="s7c08c2107990421e">
+  <source>Show <x id="0" equiv-text="${title}"/></source>
+  <target>显示 <x id="0" equiv-text="${title}"/></target>
+</trans-unit>
+<trans-unit id="s99fa943a22c13e67">
+  <source>Browse</source>
+  <target>浏览</target>
+</trans-unit>
+<trans-unit id="s5c18cae48b93138c">
+  <source>Sessions</source>
+  <target>会话</target>
+</trans-unit>
+<trans-unit id="s73c8df53b3213a5d">
+  <source>Showing web chats only</source>
+  <target>仅显示网页聊天</target>
+</trans-unit>
+<trans-unit id="sde7e02a9e9059999">
+  <source>Hide non-web conversations</source>
+  <target>隐藏非网页对话</target>
+</trans-unit>
+<trans-unit id="s6e71b7d1c8fa1a3d">
+  <source>Web only</source>
+  <target>仅网页</target>
+</trans-unit>
+<trans-unit id="s4b05ac1126ccd6c0">
+  <source>Show sidebar</source>
+  <target>显示侧边栏</target>
+</trans-unit>
+<trans-unit id="sd6c97da910774f86">
+  <source>Refresh <x id="0" equiv-text="${title.toLowerCase()}"/></source>
+  <target>刷新 <x id="0" equiv-text="${title.toLowerCase()}"/></target>
+</trans-unit>
+<trans-unit id="s720d1c61ade2fc67">
+  <source>Update my deployed app "<x id="0" equiv-text="${slug}"/>": </source>
+  <target>更新我已部署的应用“<x id="0" equiv-text="${slug}"/>”： </target>
+</trans-unit>
+<trans-unit id="s1260423464922082">
+  <source>This edit link is missing a valid app name.</source>
+  <target>此编辑链接缺少有效的应用名称。</target>
+</trans-unit>
+<trans-unit id="s0c39e95f4daf4155">
+  <source>That conversation wasn't found, or you don't have access to it.</source>
+  <target>找不到该对话，或你无权访问。</target>
+</trans-unit>
+<trans-unit id="sfde8ae40e024c8ac">
+  <source>only you</source>
+  <target>仅你</target>
+</trans-unit>
+<trans-unit id="s17912307df35039a">
+  <source>this context</source>
+  <target>此上下文</target>
+</trans-unit>
+<trans-unit id="s85d1a2ac12360483">
+  <source>Loading skill instructions…</source>
+  <target>正在加载技能说明…</target>
+</trans-unit>
+<trans-unit id="seae1195f86cfbb6a">
+  <source>Failed to load skill details.</source>
+  <target>加载技能详情失败。</target>
+</trans-unit>
+<trans-unit id="s638d0e6e6f1bde7a">
+  <source>Pack <x id="0" equiv-text="${s.pack.upstreamName}"/></source>
+  <target>包 <x id="0" equiv-text="${s.pack.upstreamName}"/></target>
+</trans-unit>
+<trans-unit id="s4e2dfb204e7abf45">
+  <source>Pack source</source>
+  <target>包来源</target>
+</trans-unit>
+<trans-unit id="sff986185e7f4bc57">
+  <source>Created here</source>
+  <target>在此创建</target>
+</trans-unit>
+<trans-unit id="sd3694076fa49680b">
+  <source><x id="0" equiv-text="${scopeLabel(s.scope)}"/> · v<x id="1" equiv-text="${s.version ?? 1}"/> · <x id="2" equiv-text="${source}"/></source>
+  <target><x id="0" equiv-text="${scopeLabel(s.scope)}"/> · v<x id="1" equiv-text="${s.version ?? 1}"/> · <x id="2" equiv-text="${source}"/></target>
+</trans-unit>
+<trans-unit id="s8494c9efe9c2aa82">
+  <source>Scope variant</source>
+  <target>范围变体</target>
+</trans-unit>
+<trans-unit id="s1ea86c781f5b6052">
+  <source> · <x id="0" equiv-text="${formatNumber(s.assetCount)}"/> asset</source>
+  <target> · <x id="0" equiv-text="${s.assetCount}"/> 个资源</target>
+</trans-unit>
+<trans-unit id="s7390711d48445813">
+  <source> · <x id="0" equiv-text="${formatNumber(s.assetCount)}"/> assets</source>
+  <target> · <x id="0" equiv-text="${s.assetCount}"/> 个资源</target>
+</trans-unit>
+<trans-unit id="s355b21b89ce5d9c5">
+  <source>Details</source>
+  <target>详情</target>
+</trans-unit>
+<trans-unit id="s694017afa8d626ff">
+  <source>Capabilities</source>
+  <target>能力</target>
+</trans-unit>
+<trans-unit id="sa3281f62d3d25bdc">
+  <source>None required</source>
+  <target>无需任何能力</target>
+</trans-unit>
+<trans-unit id="sf9c773221f25f635">
+  <source><x id="0" equiv-text="${formatNumber(skills.length)}"/> variants</source>
+  <target><x id="0" equiv-text="${skills.length}"/> 个变体</target>
+</trans-unit>
+<trans-unit id="s9036b5f994a7eaa3">
+  <source>Narrower scope takes precedence where both apply</source>
+  <target>两者同时适用时，范围更窄的优先</target>
+</trans-unit>
+<trans-unit id="s5676e8ecdfaf9d8b">
+  <source>Back to skills</source>
+  <target>返回技能</target>
+</trans-unit>
+<trans-unit id="sf3a6825ece5f36ee">
+  <source>Edit /<x id="0" equiv-text="${editingTarget?.name ?? msg(&quot;skill&quot;)}"/></source>
+  <target>编辑 /<x id="0" equiv-text="${editingTarget?.name ?? msg(&quot;skill&quot;)}"/></target>
+</trans-unit>
+<trans-unit id="sa452f941ef87d736">
+  <source>skill</source>
+  <target>技能</target>
+</trans-unit>
+<trans-unit id="sb6d896989f1ebcf0">
+  <source>Instructions unavailable.</source>
+  <target>说明不可用。</target>
+</trans-unit>
+<trans-unit id="s315b0451c0690216">
+  <source>Loading instructions…</source>
+  <target>正在加载说明…</target>
+</trans-unit>
+<trans-unit id="se79d163bce9615b0">
+  <source>Publish change</source>
+  <target>发布更改</target>
+</trans-unit>
+<trans-unit id="s47de468a51d83c57">
+  <source>Available to <x id="0" equiv-text="${editAudience(e.scopeId)}"/></source>
+  <target>可用于 <x id="0" equiv-text="${editAudience(e.scopeId)}"/></target>
+</trans-unit>
+<trans-unit id="s05c44a5db696fcaf">
+  <source>Editing</source>
+  <target>编辑中</target>
+</trans-unit>
+<trans-unit id="s63d894b1ddb06289">
+  <source>Description</source>
+  <target>描述</target>
+</trans-unit>
+<trans-unit id="s34bc4cc9fb5b7aa4">
+  <source>Instructions</source>
+  <target>说明</target>
+</trans-unit>
+<trans-unit id="s6481635ca7568d94">
+  <source>Publish this change to <x id="0" equiv-text="${scopeTitle(e.scopeId ?? null)}"/>?</source>
+  <target>将此更改发布到 <x id="0" equiv-text="${scopeTitle(e.scopeId ?? null)}"/>？</target>
+</trans-unit>
+<trans-unit id="s99c0f42a7685e371">
+  <source>Everyone in this context can invoke the updated instructions. Description <x id="0" equiv-text="${e.description === e.originalDescription ? msg(&quot;unchanged&quot;) : msg(&quot;changed&quot;)}"/>; instructions <x id="1" equiv-text="${e.body === e.originalBody ? msg(&quot;unchanged&quot;) : msg(&quot;changed&quot;)}"/>.</source>
+  <target>此上下文中的所有人都可以调用更新后的说明。描述：<x id="0" equiv-text="${e.description === e.originalDescription ? msg(&quot;unchanged&quot;) : msg(&quot;changed&quot;)}"/>；说明：<x id="1" equiv-text="${e.body === e.originalBody ? msg(&quot;unchanged&quot;) : msg(&quot;changed&quot;)}"/>。</target>
+</trans-unit>
+<trans-unit id="s53c99f45fd3c7a3e">
+  <source>unchanged</source>
+  <target>未更改</target>
+</trans-unit>
+<trans-unit id="sdf38879af614707b">
+  <source>changed</source>
+  <target>已更改</target>
+</trans-unit>
+<trans-unit id="s6e7e402508b0cd89">
+  <source>Review again</source>
+  <target>再次审核</target>
+</trans-unit>
+<trans-unit id="s6bb9174d8ab3dbec">
+  <source>Create skill</source>
+  <target>创建技能</target>
+</trans-unit>
+<trans-unit id="sdfc6ee09d248fc85">
+  <source>Publish skill</source>
+  <target>发布技能</target>
+</trans-unit>
+<trans-unit id="sea0cf30553bad4f0">
+  <source>New skill</source>
+  <target>新技能</target>
+</trans-unit>
+<trans-unit id="sb51354aa3c0295d0">
+  <source>Create a reusable procedure for yourself or a shared context.</source>
+  <target>为你自己或共享上下文创建可复用的流程。</target>
+</trans-unit>
+<trans-unit id="s3741f519c32ac391">
+  <source>New</source>
+  <target>新建</target>
+</trans-unit>
+<trans-unit id="s66ed2497a8191441">
+  <source>Available to</source>
+  <target>可用于</target>
+</trans-unit>
+<trans-unit id="sf1b786dbf03517f6">
+  <source>Everyone in a shared context can invoke and edit this skill.</source>
+  <target>共享上下文中的所有人都可以调用和编辑此技能。</target>
+</trans-unit>
+<trans-unit id="s2b2a07a84db0b91b">
+  <source>One line: what it does / when to use it</source>
+  <target>一句话说明：它的用途 / 何时使用</target>
+</trans-unit>
+<trans-unit id="s103d684d85b5bf6e">
+  <source>The SKILL.md contents — the steps to follow when this skill is used.</source>
+  <target>SKILL.md 的内容——使用此技能时要遵循的步骤。</target>
+</trans-unit>
+<trans-unit id="sd35602240cd7b3f9">
+  <source>Publish /<x id="0" equiv-text="${c.name.trim()}"/> to <x id="1" equiv-text="${scopeTitle(c.scopeId)}"/>?</source>
+  <target>将 /<x id="0" equiv-text="${c.name.trim()}"/> 发布到 <x id="1" equiv-text="${scopeTitle(c.scopeId)}"/>？</target>
+</trans-unit>
+<trans-unit id="s43f178c689d930d9">
+  <source>Everyone in this context can invoke and edit these instructions.</source>
+  <target>此上下文中的所有人都可以调用和编辑这些说明。</target>
+</trans-unit>
+<trans-unit id="s0a20866dd07eeb81">
+  <source>No skills available yet.</source>
+  <target>暂无可用技能。</target>
+</trans-unit>
+<trans-unit id="s92eaa04e68beb815">
+  <source>No skills match these filters.</source>
+  <target>没有与这些筛选条件匹配的技能。</target>
+</trans-unit>
+<trans-unit id="se253299d8c90f409">
+  <source>Clear filters</source>
+  <target>清除筛选条件</target>
+</trans-unit>
+<trans-unit id="s1c2016547b44d565">
+  <source>Search skills…</source>
+  <target>搜索技能…</target>
+</trans-unit>
+<trans-unit id="sa9f63df9093cbf85">
+  <source>Filter by skill status</source>
+  <target>按技能状态筛选</target>
+</trans-unit>
+<trans-unit id="sf993bb199fefbe04">
+  <source>All</source>
+  <target>全部</target>
+</trans-unit>
+<trans-unit id="s2796aad4990d8270">
+  <source>Filter skills by scope</source>
+  <target>按范围筛选技能</target>
+</trans-unit>
+<trans-unit id="s8345be751cc0b421">
+  <source>All scopes</source>
+  <target>所有范围</target>
+</trans-unit>
+<trans-unit id="sa34a0dd54d2f1524">
+  <source>Project / group</source>
+  <target>项目 / 群组</target>
+</trans-unit>
+<trans-unit id="s5f43af3669b1e098">
+  <source>Source</source>
+  <target>来源</target>
+</trans-unit>
+<trans-unit id="s998c2dc304319051">
+  <source>Filter skills by source</source>
+  <target>按来源筛选技能</target>
+</trans-unit>
+<trans-unit id="sa3dc4615bf71a27e">
+  <source>All sources</source>
+  <target>所有来源</target>
+</trans-unit>
+<trans-unit id="sf9833a6bb8acb5c8">
+  <source>Skill packs</source>
+  <target>技能包</target>
+</trans-unit>
+<trans-unit id="sbf988d3aa932ce4a">
+  <source>Overrides</source>
+  <target>覆盖项</target>
+</trans-unit>
+<trans-unit id="sec28bc761f8ebd42">
+  <source><x id="0" equiv-text="${formatNumber(filtered.length)}"/> skill in <x id="1" equiv-text="${formatNumber(groups.length)}"/> group</source>
+  <target><x id="0" equiv-text="${filtered.length}"/> 个技能，位于 <x id="1" equiv-text="${groups.length}"/> 个群组中</target>
+</trans-unit>
+<trans-unit id="sd7f56db79f8b7a43">
+  <source><x id="0" equiv-text="${formatNumber(filtered.length)}"/> skill in <x id="1" equiv-text="${formatNumber(groups.length)}"/> groups</source>
+  <target><x id="0" equiv-text="${filtered.length}"/> 个技能，位于 <x id="1" equiv-text="${groups.length}"/> 个群组中</target>
+</trans-unit>
+<trans-unit id="sa3aeb9d980117379">
+  <source><x id="0" equiv-text="${formatNumber(filtered.length)}"/> skills in <x id="1" equiv-text="${formatNumber(groups.length)}"/> group</source>
+  <target><x id="0" equiv-text="${filtered.length}"/> 个技能，位于 <x id="1" equiv-text="${groups.length}"/> 个群组中</target>
+</trans-unit>
+<trans-unit id="s3358d6949da679fe">
+  <source><x id="0" equiv-text="${formatNumber(filtered.length)}"/> skills in <x id="1" equiv-text="${formatNumber(groups.length)}"/> groups</source>
+  <target><x id="0" equiv-text="${filtered.length}"/> 个技能，位于 <x id="1" equiv-text="${groups.length}"/> 个群组中</target>
+</trans-unit>
+<trans-unit id="sb5617c19799ea15c">
+  <source>you</source>
+  <target>你</target>
+</trans-unit>
+<trans-unit id="s1857863fbab37ae1">
+  <source>everyone in <x id="0" equiv-text="${scopeTitle(skill.scopeId)}"/></source>
+  <target><x id="0" equiv-text="${scopeTitle(skill.scopeId)}"/> 中的所有人</target>
+</trans-unit>
+<trans-unit id="s67071acfb2d060f7">
+  <source>everyone in this <x id="0" equiv-text="${scopeLabel(skill.scope)}"/></source>
+  <target>此 <x id="0" equiv-text="${scopeLabel(skill.scope)}"/> 中的所有人</target>
+</trans-unit>
+<trans-unit id="s5c562eb24f47602f">
+  <source>Archive /<x id="0" equiv-text="${skill.name}"/>?</source>
+  <target>归档 /<x id="0" equiv-text="${skill.name}"/>？</target>
+</trans-unit>
+<trans-unit id="sd70cc34d86580ca3">
+  <source>This version will stop being available to <x id="0" equiv-text="${audience}"/>. If it overrides a broader /<x id="1" equiv-text="${skill.name}"/>, that version becomes effective. Its history and assets are kept, and you can restore it later.</source>
+  <target>此版本将不再对 <x id="0" equiv-text="${audience}"/> 可用。如果它覆盖了范围更广的 /<x id="1" equiv-text="${skill.name}"/>，该版本将生效。其历史记录和资源会保留，你可以稍后恢复。</target>
+</trans-unit>
+<trans-unit id="sd9f7df4307971a88">
+  <source>Archiving…</source>
+  <target>正在归档…</target>
+</trans-unit>
+<trans-unit id="sb8ec32d71b3e1f14">
+  <source>Archive skill</source>
+  <target>归档技能</target>
+</trans-unit>
+<trans-unit id="s83b1a3fe96e6de9b">
+  <source>Failed to save skill.</source>
+  <target>保存技能失败。</target>
+</trans-unit>
+<trans-unit id="s1d9a13924a302202">
+  <source>Name, description, and instructions are all required.</source>
+  <target>名称、描述和说明均为必填项。</target>
+</trans-unit>
+<trans-unit id="s1d4694d1778aa118">
+  <source>Failed to create skill.</source>
+  <target>创建技能失败。</target>
+</trans-unit>
+<trans-unit id="sd9b995ee27e4a338">
+  <source>Failed to restore skill.</source>
+  <target>恢复技能失败。</target>
+</trans-unit>
+<trans-unit id="sc72baeebb324c040">
+  <source>Failed to archive skill.</source>
+  <target>归档技能失败。</target>
+</trans-unit>
+<trans-unit id="s6ac0e87f35c59cc6">
+  <source>Personal — only you</source>
+  <target>个人——仅你</target>
+</trans-unit>
+<trans-unit id="sc7ae17cb01f1bf63">
+  <source>Failed to load skills.</source>
+  <target>加载技能失败。</target>
+</trans-unit>
+<trans-unit id="s41b4752c216d0b66">
+  <source>Conversation</source>
+  <target>对话</target>
+</trans-unit>
+<trans-unit id="s47e699a5378f8e6d">
+  <source>New session</source>
+  <target>新会话</target>
+</trans-unit>
+<trans-unit id="s39f8122d711c3e47">
+  <source>Already open in a pane</source>
+  <target>已在窗格中打开</target>
+</trans-unit>
+<trans-unit id="s93864a07530d051c">
+  <source><x id="0" equiv-text="${formatNumber(MAX_PANES)}"/> conversations is all one canvas holds — close one first</source>
+  <target>一个画布最多容纳 <x id="0" equiv-text="${MAX_PANES}"/> 个对话——请先关闭一个</target>
+</trans-unit>
+<trans-unit id="s6c5105da82fec2db">
+  <source><x id="0" equiv-text="${formatNumber(MAX_TILES)}"/> tiles is the limit — opened as a tab</source>
+  <target>最多 <x id="0" equiv-text="${MAX_TILES}"/> 个图块——已作为标签页打开</target>
+</trans-unit>
+<trans-unit id="sf27017d89e6a55bd">
+  <source>Start the chat first, then open it full screen</source>
+  <target>请先开始聊天，然后再全屏打开</target>
+</trans-unit>
+<trans-unit id="s1e6f4d26f91fcffa">
+  <source>Still syncing this conversation — try again in a moment</source>
+  <target>此对话仍在同步——请稍后重试</target>
+</trans-unit>
+<trans-unit id="sc74233f38ab72b95">
+  <source>Open here</source>
+  <target>在此打开</target>
+</trans-unit>
+<trans-unit id="s4aa6ed4831340e14">
+  <source>Split left</source>
+  <target>向左拆分</target>
+</trans-unit>
+<trans-unit id="sffbe79635256fba1">
+  <source>Split right</source>
+  <target>向右拆分</target>
+</trans-unit>
+<trans-unit id="s20f6dee68e6541dc">
+  <source>Split up</source>
+  <target>向上拆分</target>
+</trans-unit>
+<trans-unit id="s52595f89c4d83ba9">
+  <source>Split down</source>
+  <target>向下拆分</target>
+</trans-unit>
+<trans-unit id="s683abdf40d497311">
+  <source>Agent is working</source>
+  <target>智能体正在工作</target>
+</trans-unit>
+<trans-unit id="sb2d38aa9202cd6e2">
+  <source>Waiting for your reply</source>
+  <target>等待你的回复</target>
+</trans-unit>
+<trans-unit id="scd2701057cebb4ef">
+  <source>Close pane</source>
+  <target>关闭窗格</target>
+</trans-unit>
+<trans-unit id="s748231c950fc2986">
+  <source>Split this pane with a new session</source>
+  <target>拆分此窗格并新建会话</target>
+</trans-unit>
+<trans-unit id="s0490e0cd6843c896">
+  <source>Restore to grid (Esc)</source>
+  <target>恢复为网格（Esc）</target>
+</trans-unit>
+<trans-unit id="s4e94689d186884e2">
+  <source>Focus this pane over the grid</source>
+  <target>聚焦此窗格并覆盖网格</target>
+</trans-unit>
+<trans-unit id="se6251e9d063f7f1e">
+  <source>Open full screen</source>
+  <target>全屏打开</target>
+</trans-unit>
+<trans-unit id="sf4de3bfbfaca12e5">
+  <source>Copied</source>
+  <target>已复制</target>
+</trans-unit>
+<trans-unit id="sdb5f55820dbaf50d">
+  <source>(no action)</source>
+  <target>（无操作）</target>
+</trans-unit>
+<trans-unit id="sfe9c244ab16fc322">
+  <source>The selected model provider is not configured on this deployment.</source>
+  <target>此部署尚未配置所选模型提供商。</target>
+</trans-unit>
+<trans-unit id="sefcf950b3cc4fc3b">
+  <source>Language</source>
+  <target>语言</target>
+</trans-unit>
+<trans-unit id="s4caed5b7a7e5d89b">
+  <source>English</source>
+  <target>英语</target>
+</trans-unit>
+<trans-unit id="sd86746758dbd9024">
+  <source>Simplified Chinese</source>
+  <target>简体中文</target>
+</trans-unit>
+<trans-unit id="sfc55b17a48178000">
+  <source>No active run to signal.</source>
+  <target>当前没有可发送信号的运行任务。</target>
+</trans-unit>
+<trans-unit id="s4f013b4c82c08809">
+  <source>Copy code</source>
+  <target>复制代码</target>
+</trans-unit>
+<trans-unit id="sdfb2b12b255de30c">
+  <source>Copied!</source>
+  <target>已复制！</target>
+</trans-unit>
+<trans-unit id="sa63e1f38e850dd39">
+  <source>The server returned an invalid response.</source>
+  <target>服务器返回了无效响应。</target>
+</trans-unit>
+<trans-unit id="s52486884d876d3a7">
+  <source>The service is temporarily unavailable.</source>
+  <target>服务暂时不可用。</target>
+</trans-unit>
+<trans-unit id="s4cc36c4dfd310b82">
+  <source>You do not have permission to do that.</source>
+  <target>你无权执行此操作。</target>
+</trans-unit>
+<trans-unit id="s5aea83e7fff2af2d">
+  <source>You do not have access to that conversation.</source>
+  <target>你无权访问该会话。</target>
+</trans-unit>
+<trans-unit id="s100710b0085d9474">
+  <source>This feature is not available in this build.</source>
+  <target>此版本不提供该功能。</target>
+</trans-unit>
+<trans-unit id="s64e8b884c29f69bb">
+  <source>The requested item was not found.</source>
+  <target>未找到请求的项目。</target>
+</trans-unit>
+<trans-unit id="sd0e2d445858b29f7">
+  <source>Too many requests. Try again later.</source>
+  <target>请求过多，请稍后再试。</target>
+</trans-unit>
+<trans-unit id="sc9ca08c646a92d3b">
+  <source>This workspace is limited to internal members.</source>
+  <target>此工作区仅限内部成员使用。</target>
+</trans-unit>
+<trans-unit id="s9dfdc6157c4b78b2">
+  <source>This request was blocked by the workspace security policy.</source>
+  <target>此请求已被工作区安全策略拦截。</target>
+</trans-unit>
+<trans-unit id="sbd78ac42b50be307">
+  <source>Pasted text · <x id="0" equiv-text="${count}"/> character</source>
+  <target>粘贴文本 · <x id="0" equiv-text="${count}"/> 个字符</target>
+</trans-unit>
+<trans-unit id="sfff02959a3337e1c">
+  <source>Pasted text · <x id="0" equiv-text="${count}"/> characters</source>
+  <target>粘贴文本 · <x id="0" equiv-text="${count}"/> 个字符</target>
+</trans-unit>
+<trans-unit id="sf56f0b5b13a9869b">
+  <source><x id="0" equiv-text="${count}"/> background job running</source>
+  <target><x id="0" equiv-text="${count}"/> 个后台任务正在运行</target>
+</trans-unit>
+<trans-unit id="s42593e5c489b4d8e">
+  <source><x id="0" equiv-text="${count}"/> background jobs running</source>
+  <target><x id="0" equiv-text="${count}"/> 个后台任务正在运行</target>
+</trans-unit>
+<trans-unit id="sd02c2f93d4da9b99">
+  <source><x id="0" equiv-text="${count}"/> watch armed</source>
+  <target><x id="0" equiv-text="${count}"/> 个监视任务已启用</target>
+</trans-unit>
+<trans-unit id="s23d9d2eff15b6e79">
+  <source><x id="0" equiv-text="${count}"/> watches armed</source>
+  <target><x id="0" equiv-text="${count}"/> 个监视任务已启用</target>
+</trans-unit>
+<trans-unit id="sadd69bb5d4ef8fc1">
+  <source>Change color scheme</source>
+  <target>切换配色方案</target>
+</trans-unit>
+<trans-unit id="s08b1b356d37f29f4">
+  <source>Tab into <x id="0" equiv-text="${target}"/></source>
+  <target>移入 <x id="0" equiv-text="${target}"/> 作为标签页</target>
+</trans-unit>
+<trans-unit id="saf9f73c7b913390b">
+  <source>Split to the left of <x id="0" equiv-text="${target}"/></source>
+  <target>拆分到 <x id="0" equiv-text="${target}"/> 左侧</target>
+</trans-unit>
+<trans-unit id="s4d1608679d98c384">
+  <source>Split to the right of <x id="0" equiv-text="${target}"/></source>
+  <target>拆分到 <x id="0" equiv-text="${target}"/> 右侧</target>
+</trans-unit>
+<trans-unit id="sa7df63d33ff7df2c">
+  <source>Split above <x id="0" equiv-text="${target}"/></source>
+  <target>拆分到 <x id="0" equiv-text="${target}"/> 上方</target>
+</trans-unit>
+<trans-unit id="s8edb90e68a3b27cc">
+  <source>Split below <x id="0" equiv-text="${target}"/></source>
+  <target>拆分到 <x id="0" equiv-text="${target}"/> 下方</target>
+</trans-unit>
+<trans-unit id="s9056c1f3ea2a1e80">
+  <source><x id="0" equiv-text="${source}"/> moved into <x id="1" equiv-text="${target}"/> as a tab.</source>
+  <target><x id="0" equiv-text="${source}"/> 已作为标签页移入 <x id="1" equiv-text="${target}"/>。</target>
+</trans-unit>
+<trans-unit id="sf582e2dc32880046">
+  <source><x id="0" equiv-text="${source}"/> moved to the left of <x id="1" equiv-text="${target}"/>.</source>
+  <target><x id="0" equiv-text="${source}"/> 已移到 <x id="1" equiv-text="${target}"/> 左侧。</target>
+</trans-unit>
+<trans-unit id="s1bdb51af6f9d06e5">
+  <source><x id="0" equiv-text="${source}"/> moved to the right of <x id="1" equiv-text="${target}"/>.</source>
+  <target><x id="0" equiv-text="${source}"/> 已移到 <x id="1" equiv-text="${target}"/> 右侧。</target>
+</trans-unit>
+<trans-unit id="s6ae7f0b9d09c0af5">
+  <source><x id="0" equiv-text="${source}"/> moved above <x id="1" equiv-text="${target}"/>.</source>
+  <target><x id="0" equiv-text="${source}"/> 已移到 <x id="1" equiv-text="${target}"/> 上方。</target>
+</trans-unit>
+<trans-unit id="s11f26572dceee711">
+  <source><x id="0" equiv-text="${source}"/> moved below <x id="1" equiv-text="${target}"/>.</source>
+  <target><x id="0" equiv-text="${source}"/> 已移到 <x id="1" equiv-text="${target}"/> 下方。</target>
+</trans-unit>
+<trans-unit id="sa0ea77f5d631fa7e">
+  <source><x id="0" equiv-text="${title}"/> opened</source>
+  <target><x id="0" equiv-text="${title}"/> 已打开</target>
+</trans-unit>
+<trans-unit id="s3506997fbaca6357">
+  <source><x id="0" equiv-text="${title}"/> closed</source>
+  <target><x id="0" equiv-text="${title}"/> 已关闭</target>
+</trans-unit>
+<trans-unit id="s18408660016a8407">
+  <source><x id="0" equiv-text="${title}"/> maximized</source>
+  <target><x id="0" equiv-text="${title}"/> 已最大化</target>
+</trans-unit>
+<trans-unit id="sf5dbbb0e57b9ba05">
+  <source><x id="0" equiv-text="${title}"/> restored</source>
+  <target><x id="0" equiv-text="${title}"/> 已还原</target>
+</trans-unit>
+<trans-unit id="s42d702c93a367c36">
+  <source><x id="0" equiv-text="${title}"/> floated</source>
+  <target><x id="0" equiv-text="${title}"/> 已浮动</target>
+</trans-unit>
+<trans-unit id="sce30dc98ac63f8e5">
+  <source><x id="0" equiv-text="${title}"/> docked</source>
+  <target><x id="0" equiv-text="${title}"/> 已停靠</target>
+</trans-unit>
+<trans-unit id="se1e5c75169f3d0d4">
+  <source><x id="0" equiv-text="${title}"/> opened in a new window</source>
+  <target><x id="0" equiv-text="${title}"/> 已在新窗口中打开</target>
+</trans-unit>
+<trans-unit id="s8066f1dbe427db89">
+  <source>Moving <x id="0" equiv-text="${source}"/>. Target <x id="1" equiv-text="${target}"/>, <x id="2" equiv-text="${formatNumber(current)}"/> of <x id="3" equiv-text="${formatNumber(total)}"/>. Press Enter to choose a position or Escape to cancel.</source>
+  <target>正在移动 <x id="0" equiv-text="${source}"/>。目标为 <x id="1" equiv-text="${target}"/>，第 <x id="2" equiv-text="${formatNumber(current)}"/> 个，共 <x id="3" equiv-text="${formatNumber(total)}"/> 个。按 Enter 选择位置，或按 Escape 取消。</target>
+</trans-unit>
+<trans-unit id="scc2e0c5a69b05335">
+  <source><x id="0" equiv-text="${dockPlacement(position, target)}"/>. Use arrow keys to change, Enter to confirm, or Escape to go back.</source>
+  <target><x id="0" equiv-text="${dockPlacement(position, target)}"/>。使用方向键更改，按 Enter 确认，或按 Escape 返回。</target>
+</trans-unit>
+<trans-unit id="sa6a0b22737a5dcdb">
+  <source>Move cancelled.</source>
+  <target>已取消移动。</target>
+</trans-unit>
+<trans-unit id="s523486c68d565614">
+  <source>That move is not allowed.</source>
+  <target>不允许执行该移动。</target>
+</trans-unit>
+<trans-unit id="sc6821569690b3fff">
+  <source><x id="0" equiv-text="${formatNumber(MAX_TILES)}"/> tiles is the limit — drop it on a tab strip instead</source>
+  <target>最多只能使用 <x id="0" equiv-text="${formatNumber(MAX_TILES)}"/> 个窗格，请改为拖放到标签栏</target>
+</trans-unit>
+<trans-unit id="sd2cdeb54ba909b86">
+  <source>"<x id="0" equiv-text="${root.name}"/>" is too big (over <x id="1" equiv-text="${formatByteCount(caps.maxBytes)}"/>) — zip it yourself or drop a subfolder.</source>
+  <target>“<x id="0" equiv-text="${root.name}"/>”太大（超过 <x id="1" equiv-text="${formatByteCount(caps.maxBytes)}"/>），请自行压缩或拖放子文件夹。</target>
+</trans-unit>
+<trans-unit id="sc8d5564404f90bd8">
+  <source>Too many requests. Try again in <x id="0" equiv-text="${delay}"/>.</source>
+  <target>请求过多，请在 <x id="0" equiv-text="${delay}"/> 后重试。</target>
+</trans-unit>
+<trans-unit id="sb0ae7378b72c76a3">
+  <source>This account is not allowed on this instance. Ask an administrator to add it.</source>
+  <target>此账户无权使用该实例。请联系管理员将其添加到允许列表。</target>
+</trans-unit>
+<trans-unit id="sec918228a0320a52">
+  <source>This feature has not been configured.</source>
+  <target>此功能尚未配置。</target>
+</trans-unit>
+<trans-unit id="s08515bc66d10ee32">
+  <source>This credential is unavailable.</source>
+  <target>此凭据当前不可用。</target>
+</trans-unit>
+<trans-unit id="s1e3f68cc40d60f94">
+  <source>The request is too large.</source>
+  <target>请求内容过大。</target>
+</trans-unit>
+<trans-unit id="s66c0141b30dc3dc8">
+  <source>That access request is no longer available.</source>
+  <target>该访问请求已不可用。</target>
+</trans-unit>
+<trans-unit id="s2ff3f77629354a01">
+  <source>The usage budget has been reached (<x id="0" equiv-text="${spent}"/> of <x id="1" equiv-text="${limit}"/>). Try again later.</source>
+  <target>用量预算已用尽（已用 <x id="0" equiv-text="${spent}"/>，上限 <x id="1" equiv-text="${limit}"/>），请稍后再试。</target>
+</trans-unit>
+<trans-unit id="s4014c8da042c9d41">
+  <source>The usage budget has been reached. Try again later.</source>
+  <target>用量预算已用尽，请稍后再试。</target>
+</trans-unit>
+</body>
+</file>
+</xliff>

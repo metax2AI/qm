@@ -18,7 +18,7 @@ test("recurring schedule detail shows first run before the first fire", () => {
     ...baseCron,
     schedule: { everyMs: 86_400_000, firstFireAt: Date.UTC(2026, 0, 2, 9) },
   });
-  assert.match(detail, /^Every 1d - first run /);
+  assert.match(detail, /^Every 1 day - first run /);
 });
 
 test("recurring schedule detail stops showing stale first run after firing", () => {
@@ -28,7 +28,7 @@ test("recurring schedule detail stops showing stale first run after firing", () 
       schedule: { everyMs: 86_400_000, firstFireAt: Date.UTC(2026, 0, 2, 9) },
       lastFiredAt: Date.UTC(2026, 0, 3, 9),
     }),
-    "Every 1d",
+    "Every 1 day",
   );
 });
 

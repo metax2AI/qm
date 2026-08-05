@@ -9,10 +9,13 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run localize:build && vite build",
+    "localize:extract": "node scripts/localization.ts extract",
+    "localize:build": "node scripts/localization.ts build",
+    "localize:check": "node scripts/localization.ts check",
     "serve": "node --env-file-if-exists=.env server/index.ts",
     "start": "npm run build && npm run serve",
-    "test": "NODE_ENV=test ALLOW_UNSIGNED_TEST_IDENTITY=1 node --test \"test/**/*.test.ts\"",
+    "test": "npm run localize:check && NODE_ENV=test ALLOW_UNSIGNED_TEST_IDENTITY=1 node --test \"test/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
@@ -20,6 +23,7 @@
     "@earendil-works/pi-agent-core": "0.77.0",
     "@earendil-works/pi-ai": "0.77.0",
     "@earendil-works/pi-web-ui": "0.75.3",
+    "@lit/localize": "^0.12.2",
     "@mariozechner/mini-lit": "^0.2.0",
     "date-fns": "^4.4.0",
     "dockview-core": "^7.0.4",
@@ -31,6 +35,7 @@
     "marked": "^18.0.5"
   },
   "devDependencies": {
+    "@lit/localize-tools": "^0.8.2",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^24.0.0",
     "jsdom": "^29.1.1",

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
+import { mintPortalIdentity, PORTAL_IDENTITY_HEADER } from "../../chassis/src/portal-identity.ts";
 
 function isNoncedCoreCall(url: string, pathname: string): boolean {
   const u = new URL(url, "http://core");
@@ -28,8 +29,15 @@ const core = createServer((req: IncomingMessage, res) => {
     if (!(req.url ?? "").startsWith("/v1/surface-config")) {
       calls.push({ method: req.method ?? "GET", url: req.url ?? "", body });
     }
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ policy }));
+    const conflict = body.baseUpdatedAt === 41;
+    res.writeHead(conflict ? 409 : 200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify(
+        conflict
+          ? { error: "context_policy_conflict", message: "this channel's policy changed since you loaded it" }
+          : { policy },
+      ),
+    );
   });
 });
 await new Promise<void>((resolve) => core.listen(0, resolve));
@@ -42,7 +50,13 @@ const { handler } = await import("../server/index.ts");
 const surface = createServer((req, res) => void handler(req, res));
 await new Promise<void>((resolve) => surface.listen(0, resolve));
 const base = `http://localhost:${(surface.address() as AddressInfo).port}`;
-const headers = { cookie: "webuiuser=alice", "content-type": "application/json" };
+const headers = {
+  [PORTAL_IDENTITY_HEADER]: mintPortalIdentity(
+    { p: "alice", exp: Date.now() + 60_000 },
+    "ambient-policy-web-route-test",
+  ),
+  "content-type": "application/json",
+};
 
 test.after(() => {
   surface.close();
@@ -84,4 +98,14 @@ test("PUT relays orders, bots, and the conflict snapshot under the signed-in pri
   assert.equal(call.body.orders, "watch deploys");
   assert.deepEqual(call.body.bots, { "General Agent": { mode: "rollup", rollupHours: 4 } });
   assert.equal(call.body.baseUpdatedAt, 42);
+});
+
+test("PUT relays the stable conflict code", async () => {
+  const r = await fetch(`${base}/api/contexts/${encodeURIComponent("channel:C1")}/ambient-policy`, {
+    method: "PUT",
+    headers,
+    body: JSON.stringify({ orders: "stale", bots: {}, baseUpdatedAt: 41 }),
+  });
+  assert.equal(r.status, 409);
+  assert.equal(((await r.json()) as { error: string }).error, "context_policy_conflict");
 });

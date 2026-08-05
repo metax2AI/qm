@@ -58,6 +58,14 @@ test("a completed approval resume resolves quietly", async () => {
 });
 
 test("a denied approval's refusal is a clean outcome, not an error", async () => {
-  stubTurn({ status: "refused", reason: "approval denied for git push --force" });
+  stubTurn({ status: "refused", reasonCode: "approval_denied", reason: "approval denied" });
   await runApprovalTurn("web:u:t", fakeAgent(), { requestId: "a-1", approved: false }, undefined, undefined);
+});
+
+test("a denied approval does not hide a different structured refusal", async () => {
+  stubTurn({ status: "refused", reasonCode: "session_busy", reason: "another turn is running" });
+  await assert.rejects(
+    runApprovalTurn("web:u:t", fakeAgent(), { requestId: "a-1", approved: false }, undefined, undefined),
+    /This conversation is busy/,
+  );
 });

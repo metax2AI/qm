@@ -1,5 +1,7 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { ChevronDown, createElement, type IconNode } from "lucide";
+import { msg } from "@lit/localize";
+import { formatByteCount, formatRelativeTime } from "./localization.ts";
 
 export function brandName(): string {
   if (typeof document === "undefined") return "QM";
@@ -60,17 +62,11 @@ export function initials(s: string): string {
 }
 
 export function relTime(ms: number): string {
-  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  return formatRelativeTime(ms);
 }
 
 export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  return formatByteCount(bytes);
 }
 
 const RENDERABLE_IMAGE_TYPES = new Set([
@@ -102,7 +98,7 @@ export async function copyText(text: string, btn?: HTMLButtonElement): Promise<v
       const active = copyFeedback.get(btn);
       if (active) clearTimeout(active.timer);
       const html = active?.html ?? btn.innerHTML;
-      btn.textContent = "Copied";
+      btn.textContent = msg("Copied");
       const timer = setTimeout(() => {
         btn.innerHTML = html;
         copyFeedback.delete(btn);
@@ -116,7 +112,7 @@ export async function copyText(text: string, btn?: HTMLButtonElement): Promise<v
 
 export function actionSnippet(action: string): string {
   const s = action.trim().replace(/\s+/g, " ");
-  return s.length > 48 ? `${s.slice(0, 47)}…` : s || "(no action)";
+  return s.length > 48 ? `${s.slice(0, 47)}…` : s || msg("(no action)");
 }
 
 export function closeFormMenus(): boolean {
