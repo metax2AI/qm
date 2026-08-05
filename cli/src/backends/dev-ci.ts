@@ -1,5 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
+import { isModelProvider, MODEL_PROVIDER_KEYS, MODEL_PROVIDERS, type ModelProvider } from "../config.ts";
 import { die, note, ok } from "../log.ts";
 import { envNum, gitTopLevel, spawnBackground, stopPid, tail, waitForLog, which } from "../util.ts";
 import { serviceDef } from "../services.ts";
@@ -28,19 +29,36 @@ async function startTunnel(port: number, dir: string): Promise<string | undefine
   return readFileSync(logFile, "utf8").match(url)?.[0];
 }
 
-function requireEnv(): void {
+export function devCiModelProvider(env: NodeJS.ProcessEnv): ModelProvider {
+  const explicit = env.MODEL_PROVIDER?.trim();
+  const explicitProvider = isModelProvider(explicit) ? explicit : undefined;
+  if (explicit && !explicitProvider) {
+    die(`MODEL_PROVIDER must be one of ${MODEL_PROVIDERS.join(", ")}`);
+  }
+  const configured = MODEL_PROVIDERS.filter((provider) => Boolean(env[MODEL_PROVIDER_KEYS[provider]]?.trim()));
+  if (explicitProvider) {
+    const key = MODEL_PROVIDER_KEYS[explicitProvider];
+    if (!env[key]?.trim()) die(`${key} required when MODEL_PROVIDER=${explicitProvider}`);
+    return explicitProvider;
+  }
+  if (configured.includes("anthropic")) return "anthropic";
+  if (configured.length === 1) return configured[0]!;
+  if (configured.length > 1) die("MODEL_PROVIDER required when multiple non-Anthropic provider keys are set");
+  die(
+    "a model provider key required (ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY — live turns are the point of this instance)",
+  );
+}
+
+function requireEnv(): ModelProvider {
   const bot = process.env.SLACK_BOT_TOKEN ?? "";
   const app = process.env.SLACK_APP_TOKEN ?? "";
   if (!bot.startsWith("xoxb-")) die("SLACK_BOT_TOKEN (xoxb-…) required");
   if (process.env.SLACK_EVENTS_MODE === "http") {
     if (!process.env.SLACK_SIGNING_SECRET) die("SLACK_SIGNING_SECRET required in http events mode");
   } else if (!app.startsWith("xapp-")) die("SLACK_APP_TOKEN (xapp-…) required");
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY && !process.env.OPENROUTER_API_KEY) {
-    die(
-      "a model provider key required (ANTHROPIC_API_KEY, OPENAI_API_KEY, or OPENROUTER_API_KEY — live turns are the point of this instance)",
-    );
-  }
+  const modelProvider = devCiModelProvider(process.env);
   if (!process.env.CORE_SIGNING_SECRET) die("CORE_SIGNING_SECRET required");
+  return modelProvider;
 }
 
 function requireDeps(root: string): void {
@@ -56,7 +74,7 @@ async function dieWithTail(logFile: string, msg: string): Promise<never> {
 
 export async function devCiUp(): Promise<void> {
   const root = gitTopLevel();
-  requireEnv();
+  const modelProvider = requireEnv();
   requireDeps(root);
 
   const dir = ciDir(root);
@@ -64,7 +82,10 @@ export async function devCiUp(): Promise<void> {
   for (const f of ["core.log", "tunnel.log"]) writeFileSync(join(dir, f), "");
   const port = ciPort();
 
-  const overlay: Record<string, string> = { HARNESS: process.env.HARNESS ?? "pi" };
+  const overlay: Record<string, string> = {
+    HARNESS: process.env.HARNESS ?? "pi",
+    MODEL_PROVIDER: modelProvider,
+  };
   if (process.env.SLACK_EVENTS_MODE === "http" && !process.env.SLACK_EVENTS_PORT) {
     overlay.SLACK_EVENTS_PORT = String(port + 1);
   }

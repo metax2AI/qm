@@ -17,6 +17,7 @@ import {
   defaultModelForProvider,
   isModelProvider,
   onlyProvider,
+  resolveModel,
   type ModelProvider,
   type ModelProviderAvailability,
 } from "./model/pi-models.ts";
@@ -48,6 +49,7 @@ export interface Config {
   titleModelId?: string;
   judgeModelId?: string;
   anthropicApiKey?: string;
+  deepseekApiKey?: string;
   openaiApiKey?: string;
   openrouterApiKey?: string;
   modelProvider?: ModelProvider;
@@ -155,6 +157,7 @@ export function configuredModelForHarness(config: Config, harness: string): stri
 export function providerKeysPresent(config: Config): ModelProviderAvailability {
   return {
     anthropic: Boolean(config.anthropicApiKey),
+    deepseek: Boolean(config.deepseekApiKey),
     openai: Boolean(config.openaiApiKey),
     openrouter: Boolean(config.openrouterApiKey),
   };
@@ -549,6 +552,25 @@ function modelProviderEnvStrict(env: NodeJS.ProcessEnv): ModelProvider | undefin
       `MODEL_PROVIDER=${declared} cannot serve a base model on HARNESS=${harness} — that harness runs no ${declared} model, so every turn would be refused.`,
     );
   }
+  let configuredName = "PI_MODEL";
+  let configuredValue = env.PI_MODEL;
+  if (harness === "opencode" && env.OPENCODE_MODEL) {
+    configuredName = "OPENCODE_MODEL";
+    configuredValue = env.OPENCODE_MODEL;
+  } else if (harness === "codex") {
+    configuredName = "CODEX_MODEL";
+    configuredValue = env.CODEX_MODEL;
+  } else if (harness === "claude") {
+    configuredName = "CLAUDE_MODEL";
+    configuredValue = env.CLAUDE_MODEL;
+  }
+  const configured = configuredValue?.trim();
+  if (configured) {
+    const provider = resolveModel(configured)?.provider;
+    if (provider && provider !== declared) {
+      throw new Error(`${configuredName}=${configured} uses ${provider}, not MODEL_PROVIDER=${declared}.`);
+    }
+  }
   return declared;
 }
 
@@ -728,6 +750,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ...(env.PI_TITLE_MODEL ? { titleModelId: env.PI_TITLE_MODEL } : {}),
     ...(env.PI_JUDGE_MODEL ? { judgeModelId: env.PI_JUDGE_MODEL } : {}),
     ...(env.ANTHROPIC_API_KEY ? { anthropicApiKey: env.ANTHROPIC_API_KEY } : {}),
+    ...(env.DEEPSEEK_API_KEY ? { deepseekApiKey: env.DEEPSEEK_API_KEY } : {}),
     ...(env.OPENAI_API_KEY ? { openaiApiKey: env.OPENAI_API_KEY } : {}),
     ...(env.OPENROUTER_API_KEY ? { openrouterApiKey: env.OPENROUTER_API_KEY } : {}),
     ...(modelProvider ? { modelProvider } : {}),

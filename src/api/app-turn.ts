@@ -189,7 +189,7 @@ export function createTurnMethods(
           };
         }
         const configuredKeys = deps.providerKeys ??
-          deps.modelProviders ?? { anthropic: false, openai: false, openrouter: false };
+          deps.modelProviders ?? { anthropic: false, deepseek: false, openai: false, openrouter: false };
         let providers = deps.modelProviders;
         if (deps.modelCredentials) {
           providers = modelProviderAvailabilityFor(

@@ -132,6 +132,23 @@ test("init scaffolds a loadable config, generated local secrets, and a valid san
   }
 });
 
+test("init scaffolds DeepSeek as the required model provider", () => {
+  const dir = mkdtempSync(join(tmpdir(), "qm-init-deepseek-"));
+  try {
+    quiet(() => runInit({ dir, org: "acme", target: "docker", modelProvider: "deepseek" }));
+    assert.equal(loadConfigInDir(dir).config.modelProvider, "deepseek");
+    for (const name of [".env.example", ".env"]) {
+      const lines = readFileSync(join(dir, name), "utf8").split("\n");
+      assert.ok(lines.includes("DEEPSEEK_API_KEY="));
+      assert.ok(lines.includes("# ANTHROPIC_API_KEY=  # optional"));
+      assert.ok(lines.includes("# OPENROUTER_API_KEY=  # optional"));
+      assert.ok(!lines.includes("ANTHROPIC_API_KEY="));
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("init --target fly scaffolds the full hosted topology and both Slack apps", () => {
   const dir = mkdtempSync(join(tmpdir(), "qm-init-fly-"));
   try {

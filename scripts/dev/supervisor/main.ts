@@ -316,7 +316,9 @@ async function assembleAndPrepare(spec: BootSpec): Promise<SpecInputs> {
   for (const w of assembled.warnings) phase("env", "warn", w);
   harness = assembled.harness;
   let harnessDetail = `live ${assembled.harness} turns (anthropic key from ${assembled.anthropicKeySource})`;
-  if (assembled.harness === "mock") harnessDetail = "mock turns";
+  if (assembled.harness === "pi" && assembled.env.MODEL_PROVIDER === "deepseek") {
+    harnessDetail = `live pi turns (deepseek key from ${assembled.deepseekKeySource || "the environment"})`;
+  } else if (assembled.harness === "mock") harnessDetail = "mock turns";
   else if (assembled.harness === "codex") {
     harnessDetail = `live codex turns (openai key from ${assembled.openaiKeySource || "the environment"})`;
   } else if (assembled.harness === "claude") harnessDetail = "live claude turns (native CLI authentication)";

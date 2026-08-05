@@ -38,6 +38,14 @@ const MODEL_CATALOG: Record<string, ModelMeta> = {
     label: "Fable 5",
     buttonLabel: "Fable 5",
   },
+  "deepseek-v4-flash": {
+    label: "DeepSeek V4 Flash",
+    buttonLabel: "V4 Flash",
+  },
+  "deepseek-v4-pro": {
+    label: "DeepSeek V4 Pro",
+    buttonLabel: "V4 Pro",
+  },
   "gpt-5.6-sol": {
     label: "GPT-5.6 Sol",
     buttonLabel: "5.6 Sol",

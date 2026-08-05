@@ -1,4 +1,4 @@
-import { modelSupportedByHarness, resolveModel, SELECTABLE_BASE_MODELS } from "./pi-models.ts";
+import { isModelProvider, modelSupportedByHarness, resolveModel, SELECTABLE_BASE_MODELS } from "./pi-models.ts";
 import { customModelCatalog, customProvidersVersion } from "./custom-providers.ts";
 
 export interface ModelCatalogEntry {
@@ -27,9 +27,7 @@ const cache = new WeakMap<typeof fetch, CacheEntry>();
 export function builtInModelCatalog(): ModelCatalogEntry[] {
   const builtIns = SELECTABLE_BASE_MODELS.flatMap((model) => {
     const provider = resolveModel(model.id)?.provider;
-    return provider === "anthropic" || provider === "openai" || provider === "openrouter"
-      ? [{ ...model, provider: provider as string }]
-      : [];
+    return isModelProvider(provider) ? [{ ...model, provider }] : [];
   });
   const known = new Set(builtIns.map((model) => model.id));
   return [...builtIns, ...customModelCatalog().filter((model) => !known.has(model.id))];

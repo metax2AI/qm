@@ -122,6 +122,62 @@ test("model utilities resolve provider credentials for every call", async () => 
   assert.equal(resolutions, 2);
 });
 
+test("text-only DeepSeek turns keep image files available without sending unsupported inline image bytes", async () => {
+  const harness = createPiHarness({
+    defaultModelId: "deepseek-v4-flash",
+    deepseekApiKey: "sk-deepseek-test",
+  });
+  const realFetch = globalThis.fetch;
+  const requests: Array<{ url: string; authorization: string; body: string }> = [];
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    requests.push({
+      url: String(input),
+      authorization: new Headers(init?.headers).get("authorization") ?? "",
+      body: String(init?.body ?? ""),
+    });
+    const chunks = [
+      {
+        id: "chatcmpl-deepseek-test",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "deepseek-v4-flash",
+        choices: [{ index: 0, delta: { role: "assistant", content: "handled" }, finish_reason: null }],
+      },
+      {
+        id: "chatcmpl-deepseek-test",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "deepseek-v4-flash",
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        usage: { prompt_tokens: 2, completion_tokens: 1, total_tokens: 3 },
+      },
+    ];
+    return new Response(`${chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("")}data: [DONE]\n\n`, {
+      headers: { "content-type": "text/event-stream" },
+    });
+  }) as typeof globalThis.fetch;
+  try {
+    const turn = recordingTurn("BASE", [], "deepseek-image");
+    turn.environment = "Attached files are available at /workspace/inbox/chart.png";
+    turn.attachments = [{ name: "chart.png", mimetype: "image/png", sizeBytes: 18, direction: "in" }];
+    turn.images = [{ mimeType: "image/png", dataBase64: "SECRET_IMAGE_BYTES", artifactId: "artifact-1" }];
+    assert.equal((await harness.turns.runTurn(turn)).reply, "handled");
+    assert.equal(requests.length, 1);
+    for (const request of requests) {
+      assert.equal(request.url, "https://api.deepseek.com/chat/completions");
+      assert.equal(request.authorization, "Bearer sk-deepseek-test");
+      assert.doesNotMatch(request.body, /SECRET_IMAGE_BYTES/);
+      const payload = JSON.parse(request.body) as { messages: Array<{ role: string; content: unknown }> };
+      const user = payload.messages.findLast((message) => message.role === "user");
+      assert.equal(typeof user?.content, "string");
+      assert.match(String(user?.content), /image omitted/i);
+      assert.match(String(user?.content), /\/workspace\/inbox\/chart\.png/);
+    }
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("prior-turn bootstrap is taped as a retry-idempotent import before the first prompt", async () => {
   const harness = createPiHarness();
   const records: Array<{ kind: string; payload: unknown }> = [];

@@ -44,6 +44,7 @@ test("AWS deployment app domains reject a missing or placeholder gate secret", (
 test("a declared base model provider is enforced at boot, not just at deploy time", () => {
   for (const [provider, key] of [
     ["anthropic", "ANTHROPIC_API_KEY"],
+    ["deepseek", "DEEPSEEK_API_KEY"],
     ["openai", "OPENAI_API_KEY"],
     ["openrouter", "OPENROUTER_API_KEY"],
   ] as const) {

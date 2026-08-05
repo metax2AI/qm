@@ -115,6 +115,7 @@ test("playbooks substitute the manifest names", () => {
   assert.ok(sso.includes(`${config.publicUrl}/auth/callback`));
   assert.doesNotMatch(sso, /Slack/);
   assert.match(playbookFor("ADMIN_GRANTS", config).join("\n"), /:org_admin/);
+  assert.match(playbookFor("DEEPSEEK_API_KEY", config).join("\n"), /https:\/\/platform\.deepseek\.com\/api_keys/);
   assert.deepEqual(playbookFor("NO_SUCH_SECRET", config), []);
 });
 

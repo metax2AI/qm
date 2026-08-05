@@ -84,6 +84,7 @@ export interface PiHarnessOptions {
   titleModelId?: string;
   judgeModelId?: string;
   apiKey?: string;
+  deepseekApiKey?: string;
   openaiApiKey?: string;
   openrouterApiKey?: string;
   resolveProviderKeys?: () => Promise<ProviderKeys>;
@@ -109,6 +110,7 @@ export function piHarnessConfigOptions(config: Config): PiHarnessOptions {
     ...(config.titleModelId ? { titleModelId: config.titleModelId } : {}),
     ...(config.judgeModelId ? { judgeModelId: config.judgeModelId } : {}),
     ...(config.anthropicApiKey ? { apiKey: config.anthropicApiKey } : {}),
+    ...(config.deepseekApiKey ? { deepseekApiKey: config.deepseekApiKey } : {}),
     ...(config.openaiApiKey ? { openaiApiKey: config.openaiApiKey } : {}),
     ...(config.openrouterApiKey ? { openrouterApiKey: config.openrouterApiKey } : {}),
     captureRequests: config.piCaptureRequests,
@@ -589,6 +591,28 @@ interface PiAgentWithPayloadHook {
   ) => Promise<{ terminate?: boolean } | undefined> | { terminate?: boolean } | undefined;
 }
 
+function normalizeProviderPayload(payload: unknown, model: unknown): unknown {
+  const provider = model && typeof model === "object" ? (model as { provider?: unknown }).provider : undefined;
+  if (provider !== "deepseek" || !payload || typeof payload !== "object") return payload;
+  const request = payload as { messages?: unknown };
+  if (!Array.isArray(request.messages)) return payload;
+  return {
+    ...request,
+    messages: request.messages.map((message) => {
+      if (!message || typeof message !== "object") return message;
+      const shaped = message as { role?: unknown; content?: unknown };
+      if (shaped.role !== "user" || !Array.isArray(shaped.content)) return message;
+      const text = shaped.content.map((part) =>
+        part && typeof part === "object" && (part as { type?: unknown }).type === "text"
+          ? (part as { text?: unknown }).text
+          : undefined,
+      );
+      if (text.some((part) => typeof part !== "string")) return message;
+      return { ...shaped, content: text.join("\n\n") };
+    }),
+  };
+}
+
 interface PiSeedTarget {
   agent?: { state?: { messages?: unknown[] } };
   sessionManager?: { appendMessage?: (message: unknown) => unknown };
@@ -974,6 +998,7 @@ function removeIsolatedDirs(dirs: { cwd: string; agentDir: string }): void {
 
 export interface ProviderKeys {
   anthropic?: string;
+  deepseek?: string;
   openai?: string;
   openrouter?: string;
   /** Admin-registered custom providers, keyed by provider slug. */
@@ -1034,6 +1059,14 @@ export async function oneShot(
       cwd,
       agentDir,
     });
+    const agent = (session as unknown as { agent?: PiAgentWithPayloadHook }).agent;
+    if (agent) {
+      const prior = agent.onPayload;
+      agent.onPayload = async (payload, model) => {
+        const result = prior ? await prior(payload, model) : payload;
+        return normalizeProviderPayload(result ?? payload, model);
+      };
+    }
     const messagesBefore = session.messages.length;
     if (opts?.signal?.aborted) return undefined;
     const onAbort = () => {
@@ -1225,6 +1258,7 @@ export function createPiHarness(opts?: PiHarnessOptions): Harness {
     ? {}
     : {
         ...(opts?.apiKey ? { anthropic: opts.apiKey } : {}),
+        ...(opts?.deepseekApiKey ? { deepseek: opts.deepseekApiKey } : {}),
         ...(opts?.openaiApiKey ? { openai: opts.openaiApiKey } : {}),
         ...(opts?.openrouterApiKey ? { openrouter: opts.openrouterApiKey } : {}),
       };
@@ -1384,7 +1418,7 @@ export function createPiHarness(opts?: PiHarnessOptions): Harness {
             );
           }
           const result = prior ? await prior(payload, model) : payload;
-          let finalPayload = result ?? payload;
+          let finalPayload = normalizeProviderPayload(result ?? payload, model);
           try {
             finalPayload = trimPayloadToByteBudget(finalPayload);
           } catch (e) {

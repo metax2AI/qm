@@ -405,6 +405,7 @@ export function buildApp(
     keyMaterial: config.connectorSecretKey ?? randomBytes(32),
     fallback: {
       ...(config.anthropicApiKey ? { anthropic: config.anthropicApiKey } : {}),
+      ...(config.deepseekApiKey ? { deepseek: config.deepseekApiKey } : {}),
       ...(config.openaiApiKey ? { openai: config.openaiApiKey } : {}),
       ...(config.openrouterApiKey ? { openrouter: config.openrouterApiKey } : {}),
     },
@@ -698,8 +699,9 @@ export function buildApp(
     console.error("[wiring] custom provider hydration failed:", errMessage(e)),
   );
   const resolveModelProviderKeys = async () => {
-    const [anthropic, openai, openrouter, enabledCustom] = await Promise.all([
+    const [anthropic, deepseek, openai, openrouter, enabledCustom] = await Promise.all([
       modelCredentials.resolve("anthropic"),
+      modelCredentials.resolve("deepseek"),
       modelCredentials.resolve("openai"),
       modelCredentials.resolve("openrouter"),
       customProviders.enabled(),
@@ -722,6 +724,7 @@ export function buildApp(
     );
     return {
       ...(anthropic ? { anthropic } : {}),
+      ...(deepseek ? { deepseek } : {}),
       ...(openai ? { openai } : {}),
       ...(openrouter ? { openrouter } : {}),
       ...customKeys,

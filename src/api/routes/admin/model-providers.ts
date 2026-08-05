@@ -14,6 +14,11 @@ const VALIDATION_REQUESTS: Record<
     path: "/v1/models",
     headers: (apiKey) => ({ "x-api-key": apiKey, "anthropic-version": "2023-06-01" }),
   },
+  deepseek: {
+    baseUrl: "https://api.deepseek.com",
+    path: "/models",
+    headers: (apiKey) => ({ authorization: `Bearer ${apiKey}` }),
+  },
   openai: {
     baseUrl: "https://api.openai.com/v1",
     path: "/models",

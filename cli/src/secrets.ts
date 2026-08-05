@@ -1,5 +1,5 @@
 import { isVirtualService, type DeclaredServiceName } from "./services.ts";
-import type { ModelProvider, QmConfig } from "./config.ts";
+import { effectiveModelProvider, type ModelProvider, type QmConfig } from "./config.ts";
 
 type SecretCondition =
   | { kind: "env-equals"; service: DeclaredServiceName; name: string; value: string }
@@ -45,6 +45,13 @@ export const FIRST_PARTY_SECRET_SPECS: readonly SecretSpec[] = [
     required: { when: { kind: "model-provider", provider: "anthropic" }, optionalOtherwise: true },
     description:
       'Anthropic API key: bills the base model when modelProvider is "anthropic", an optional deployment fallback otherwise.',
+  },
+  {
+    name: "DEEPSEEK_API_KEY",
+    service: "core",
+    required: { when: { kind: "model-provider", provider: "deepseek" }, optionalOtherwise: true },
+    description:
+      'DeepSeek API key: bills the base model when modelProvider is "deepseek", an optional deployment fallback otherwise.',
   },
   {
     name: "OPENROUTER_API_KEY",
@@ -372,7 +379,7 @@ function conditionMatches(config: QmConfig, condition: SecretCondition): boolean
   if (condition.kind === "all") return condition.conditions.every((nested) => conditionMatches(config, nested));
   if (condition.kind === "any") return condition.conditions.some((nested) => conditionMatches(config, nested));
   if (condition.kind === "target") return config.target === condition.target;
-  if (condition.kind === "model-provider") return config.modelProvider === condition.provider;
+  if (condition.kind === "model-provider") return effectiveModelProvider(config) === condition.provider;
   if (condition.kind === "env-all-absent") {
     return condition.names.every((name) => !config.env[condition.service]?.[name]?.trim());
   }

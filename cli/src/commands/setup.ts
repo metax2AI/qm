@@ -33,6 +33,10 @@ const PLAYBOOKS: Readonly<Record<string, readonly string[]>> = {
     "(any workspace works; the key starts with sk-ant-).",
     "Only one provider key is needed — set the one whose model you want as the base model.",
   ],
+  DEEPSEEK_API_KEY: [
+    "Create an API key at https://platform.deepseek.com/api_keys",
+    "Only one provider key is needed — set the one whose model you want as the base model.",
+  ],
   OPENAI_API_KEY: [
     "Create an API key at https://platform.openai.com/api-keys",
     "(the key starts with sk-).",
@@ -115,6 +119,7 @@ const PLAYBOOKS: Readonly<Record<string, readonly string[]>> = {
 
 const FORMAT_HINTS: Readonly<Record<string, { prefix: string; label: string }>> = {
   ANTHROPIC_API_KEY: { prefix: "sk-ant-", label: "Anthropic keys usually start with sk-ant-" },
+  DEEPSEEK_API_KEY: { prefix: "sk-", label: "DeepSeek keys usually start with sk-" },
   OPENAI_API_KEY: { prefix: "sk-", label: "OpenAI keys usually start with sk-" },
   OPENROUTER_API_KEY: { prefix: "sk-or-", label: "OpenRouter keys usually start with sk-or-" },
   SLACK_BOT_TOKEN: { prefix: "xoxb-", label: "bot tokens start with xoxb-" },
