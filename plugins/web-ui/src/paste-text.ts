@@ -24,11 +24,8 @@ export function base64ToText(content: string): string {
 }
 
 export function pasteChipLabel(charCount: number): string {
-  const k = charCount / 1000;
-  let count = `${Math.round(k)}k`;
-  if (charCount < 1000) count = `${charCount}`;
-  else if (k < 9.95) count = `${k.toFixed(1)}k`;
-  return `Pasted text · ${count} chars`;
+  const count = formatNumber(charCount, { notation: "compact", maximumFractionDigits: charCount < 9950 ? 1 : 0 });
+  return charCount === 1 ? msg(str`Pasted text · ${count} character`) : msg(str`Pasted text · ${count} characters`);
 }
 
 export function insertIntoDraft(draft: string, text: string, cursor: number | null): { draft: string; cursor: number } {
@@ -40,3 +37,5 @@ export function insertIntoDraft(draft: string, text: string, cursor: number | nu
   const caret = before.length + lead.length + text.length;
   return { draft: before + lead + text + trail + after, cursor: caret };
 }
+import { msg, str } from "@lit/localize";
+import { formatNumber } from "./localization.ts";

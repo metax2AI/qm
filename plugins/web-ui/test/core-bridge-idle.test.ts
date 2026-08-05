@@ -339,7 +339,11 @@ test("approval denial is rendered as a normal status, not a stream error", async
 
   const streamFn = makeRunResumeStreamFn("run-denied", {
     status: "done",
-    result: { status: "refused", reason: "approval denied for git push --force origin main" },
+    result: {
+      status: "refused",
+      reasonCode: "approval_denied",
+      reason: "approval denied for git push --force origin main",
+    },
     partial: "",
     activity: [
       {

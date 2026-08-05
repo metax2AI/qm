@@ -1,4 +1,5 @@
 import { html, nothing, render, type TemplateResult } from "lit";
+import { msg, str } from "@lit/localize";
 import {
   ArrowLeft,
   Box,
@@ -8,6 +9,7 @@ import {
   Files,
   Folder,
   KeyRound,
+  Languages,
   LogOut,
   MessageSquare,
   PanelLeft,
@@ -65,6 +67,7 @@ import { renderSkills } from "./skills";
 import { contextsState, ensureContexts, renderContexts, resetContextsState, resolveProjectScope } from "./contexts";
 import { appState, isView, type AuthMode, type Me, type View } from "./shell-state";
 import { trapDialogFocus } from "./dialog-focus";
+import { activeLocale, saveLocale, syncMiniLitLocalization } from "./localization.ts";
 export { appState, can, type Me, type View } from "./shell-state";
 
 let authMode: AuthMode = "portal";
@@ -232,8 +235,8 @@ export async function exitImpersonation(): Promise<void> {
 function impersonationBanner(by: string) {
   return html`
     <div class="top-banner" role="status">
-      <span>Viewing the assistant as <b>${appState.me?.user ?? ""}</b> — you are <b>${by}</b></span>
-      <button class="top-banner-action" type="button" @click=${exitImpersonation}>Exit impersonation</button>
+      <span>${msg(str`Viewing the assistant as ${appState.me?.user ?? ""} — you are ${by}`)}</span>
+      <button class="top-banner-action" type="button" @click=${exitImpersonation}>${msg("Exit impersonation")}</button>
     </div>
   `;
 }
@@ -241,8 +244,8 @@ function impersonationBanner(by: string) {
 function devBanner(user: string) {
   return html`
     <div class="top-banner dev" role="status">
-      <span><b>Dev mode</b> — no identity provider, signed in as ${user}</span>
-      <button class="top-banner-action" type="button" @click=${signOut}>Sign out</button>
+      <span>${msg(str`Dev mode — no identity provider, signed in as ${user}`)}</span>
+      <button class="top-banner-action" type="button" @click=${signOut}>${msg("Sign out")}</button>
     </div>
   `;
 }
@@ -253,7 +256,7 @@ function gateShell(body: unknown) {
       <div class="signin-panel">
         <div class="signin-brand">
           ${brandMark()}<span>${brandName()}</span>
-          ${authMode === "dev" ? html`<span class="dev-chip">DEV</span>` : nothing}
+          ${authMode === "dev" ? html`<span class="dev-chip">${msg("DEV")}</span>` : nothing}
         </div>
         ${body}
       </div>
@@ -294,32 +297,35 @@ function clearPortalAttempt(): void {
 function portalGate() {
   if (portalAttemptedRecently())
     return gateShell(html`
-      <h1>Sign in through the portal</h1>
+      <h1>${msg("Sign in through the portal")}</h1>
       <p class="signin-body">
-        This surface is reached through the portal, and signing in there didn't produce a session for it. Open the
-        portal address directly rather than this one.
+        ${msg(
+          "This surface is reached through the portal, and signing in there didn't produce a session for it. Open the portal address directly rather than this one.",
+        )}
       </p>
       <div class="hint">
-        If you opened this surface's own address, that's the cause — it can't authenticate anyone on its own.
+        ${msg("If you opened this surface's own address, that's the cause — it can't authenticate anyone on its own.")}
       </div>
     `);
   return gateShell(html`
-    <h1>Your session ended</h1>
-    <p class="signin-body">You've been signed out. Sign in again and you'll come back to this page.</p>
-    <button class="btn primary" type="button" @click=${signInWithPortal}>Sign in</button>
+    <h1>${msg("Your session ended")}</h1>
+    <p class="signin-body">${msg("You've been signed out. Sign in again and you'll come back to this page.")}</p>
+    <button class="btn primary" type="button" @click=${signInWithPortal}>${msg("Sign in")}</button>
   `);
 }
 
 function deniedGate() {
   return gateShell(html`
-    <h1>You don't have access</h1>
+    <h1>${msg("You don't have access")}</h1>
     <p class="signin-body">
-      Your account is signed in and verified — it just isn't allowed on this instance. Ask an administrator to add you.
+      ${msg(
+        "Your account is signed in and verified — it just isn't allowed on this instance. Ask an administrator to add you.",
+      )}
     </p>
-    <button class="btn" type="button" @click=${signOut}>Sign out</button>
+    <button class="btn" type="button" @click=${signOut}>${msg("Sign out")}</button>
     ${
       authMode === "dev"
-        ? html`<div class="hint">This instance lists its principals in <b>WEB_UI_PRINCIPALS</b>.</div>`
+        ? html`<div class="hint">${msg("This instance lists its principals in WEB_UI_PRINCIPALS.")}</div>`
         : nothing
     }
   `);
@@ -331,10 +337,10 @@ function retryBoot(): void {
 
 function unreachableGate() {
   return gateShell(html`
-    <h1>We couldn't reach the assistant</h1>
-    <p class="signin-body">The service didn't respond. This is usually temporary.</p>
-    <button class="btn primary" type="button" @click=${retryBoot}>Try again</button>
-    <div class="hint">If this keeps happening, the core service may be down.</div>
+    <h1>${msg("We couldn't reach the assistant")}</h1>
+    <p class="signin-body">${msg("The service didn't respond. This is usually temporary.")}</p>
+    <button class="btn primary" type="button" @click=${retryBoot}>${msg("Try again")}</button>
+    <div class="hint">${msg("If this keeps happening, the core service may be down.")}</div>
   `);
 }
 
@@ -343,7 +349,7 @@ async function submitDevSignin(user: string): Promise<void> {
   try {
     await api("/signin", { method: "POST", body: JSON.stringify({ user }) });
   } catch (err) {
-    renderAuthGate({ kind: "dev", value: user, error: errMessage(err, "Sign-in failed.") });
+    renderAuthGate({ kind: "dev", value: user, error: errMessage(err, msg("Sign-in failed.")) });
     return;
   }
   await bootSafely();
@@ -360,12 +366,13 @@ function devGate(gate: { value?: string; error?: string; pending?: boolean }) {
         if (user) void submitDevSignin(user);
       }}
     >
-      <h1>Dev sign-in</h1>
+      <h1>${msg("Dev sign-in")}</h1>
       <p class="signin-body">
-        No identity provider is configured, so this instance trusts a local cookie. Set
-        <b>CORE_SIGNING_SECRET</b> and run the portal to use real sign-in.
+        ${msg(
+          "No identity provider is configured, so this instance trusts a local cookie. Set CORE_SIGNING_SECRET and run the portal to use real sign-in.",
+        )}
       </p>
-      <label for="dev-principal">Principal</label>
+      <label for="dev-principal">${msg("Principal")}</label>
       <input
         id="dev-principal"
         name="principal"
@@ -375,12 +382,12 @@ function devGate(gate: { value?: string; error?: string; pending?: boolean }) {
         spellcheck="false"
         required
         autofocus
-        placeholder="you@org.com"
+        placeholder=${msg("you@org.com")}
         .value=${gate.value ?? ""}
         ?disabled=${gate.pending === true}
       />
       <button class="btn primary" type="submit" ?disabled=${gate.pending === true}>
-        ${gate.pending ? "Signing in…" : "Continue"}
+        ${gate.pending ? msg("Signing in…") : msg("Continue")}
       </button>
       ${gate.error ? html`<div class="hint error" role="alert">${gate.error}</div>` : nothing}
     </form>
@@ -415,6 +422,19 @@ function gateFor(mode: AuthMode, reason: "unauthenticated" | "not_allowed" | und
   return mode === "dev" ? { kind: "dev" } : { kind: "portal" };
 }
 
+function labelThemeToggle(toggle: Element | null): void {
+  if (!toggle) return;
+  const updateComplete =
+    (toggle as Element & { updateComplete?: Promise<unknown> }).updateComplete ?? Promise.resolve();
+  void updateComplete.then(() => {
+    const button = toggle.querySelector("button");
+    if (!button) return;
+    const label = msg("Change color scheme");
+    button.setAttribute("aria-label", label);
+    button.setAttribute("title", label);
+  });
+}
+
 export function mountShell(): void {
   applySavedSidebarWidth();
   const impersonatedBy = appState.me?.impersonatedBy ?? null;
@@ -425,14 +445,14 @@ export function mountShell(): void {
     html`
       ${banner ?? nothing}
       <div class="layout ${sidebarOpen ? "" : "sidebar-closed"} ${banner ? "bannered" : ""}">
-        <aside class="sidebar" aria-label="Navigation" @keydown=${onSidebarKeydown}>
+        <aside class="sidebar" aria-label=${msg("Navigation")} @keydown=${onSidebarKeydown}>
           <div class="brand">
             <div class="brand-lockup">${brandMark()}<span class="brand-name">${brandName()}</span></div>
             <button
               class="icon-btn subtle sidebar-toggle sidebar-collapse-toggle"
               type="button"
-              title="Hide sidebar"
-              aria-label="Hide sidebar"
+              title=${msg("Hide sidebar")}
+              aria-label=${msg("Hide sidebar")}
               @click=${toggleSidebar}
             >
               ${icon(PanelLeft, 17)}
@@ -445,27 +465,46 @@ export function mountShell(): void {
               <span class="avatar">${initials(appState.me?.user ?? "?")}</span>
               <span class="user-name">${appState.me?.user ?? ""}</span>
             </div>
-            <a class="icon-btn subtle" href=${ADMIN_HOME_URL} title="Back to admin" aria-label="Back to admin"
+            <a
+              class="icon-btn subtle"
+              href=${ADMIN_HOME_URL}
+              title=${msg("Back to admin")}
+              aria-label=${msg("Back to admin")}
               >${icon(ArrowLeft, 17)}</a
             >
-            <theme-toggle .includeSystem=${true} title="Color scheme: light / dark / system"></theme-toggle>
-            <button class="icon-btn subtle" title="Sign out" aria-label="Sign out" @click=${signOut}>
+            <label class="icon-btn subtle locale-picker" title=${msg("Language")}>
+              ${icon(Languages, 17)}
+              <select
+                aria-label=${msg("Language")}
+                .value=${activeLocale()}
+                @change=${(event: Event) => saveLocale((event.currentTarget as HTMLSelectElement).value)}
+              >
+                <option value="en">${msg("English")}</option>
+                <option value="zh-Hans">${msg("Simplified Chinese")}</option>
+              </select>
+            </label>
+            <theme-toggle
+              .includeSystem=${true}
+              title=${msg("Color scheme: light / dark / system")}
+              @click=${(event: Event) => labelThemeToggle(event.currentTarget as Element)}
+            ></theme-toggle>
+            <button class="icon-btn subtle" title=${msg("Sign out")} aria-label=${msg("Sign out")} @click=${signOut}>
               ${icon(LogOut, 17)}
             </button>
           </div>
         </aside>
-        <button class="sidebar-scrim" type="button" aria-label="Close sidebar" @click=${toggleSidebar}></button>
+        <button class="sidebar-scrim" type="button" aria-label=${msg("Close sidebar")} @click=${toggleSidebar}></button>
         <div
           class="sidebar-resize-handle"
           role="separator"
           aria-orientation="vertical"
-          aria-label="Resize sidebar"
-          title="Drag to resize · double-click to reset"
+          aria-label=${msg("Resize sidebar")}
+          title=${msg("Drag to resize · double-click to reset")}
           @pointerdown=${startSidebarResize}
           @dblclick=${resetSidebarWidth}
         ></div>
         <section class="main" id="main" tabindex="-1">
-          <div class="empty">Pick a conversation, or start a new chat.</div>
+          <div class="empty">${msg("Pick a conversation, or start a new chat.")}</div>
         </section>
       </div>
     `,
@@ -474,6 +513,7 @@ export function mountShell(): void {
   appState.topEl = (appEl as HTMLElement).querySelector("#sidebar-top");
   appState.listEl = (appEl as HTMLElement).querySelector("#sidebar-body");
   appState.mainEl = (appEl as HTMLElement).querySelector("#main");
+  labelThemeToggle((appEl as HTMLElement).querySelector("theme-toggle"));
   renderSidebarTop();
   updateSidebarToggleLabels();
   syncSidebarAccessibility(false);
@@ -497,7 +537,7 @@ export function renderSidebarTop(): void {
       type="button"
       aria-expanded=${open ? "true" : "false"}
       aria-controls=${id}
-      title=${open ? `Hide ${title}` : `Show ${title}`}
+      title=${open ? msg(str`Hide ${title}`) : msg(str`Show ${title}`)}
       @click=${toggle}
     >
       <span>${title}</span>
@@ -511,25 +551,25 @@ export function renderSidebarTop(): void {
     html`
       <button
         class="new-chat"
-        title=${splitState.active ? "New session" : "New chat"}
+        title=${splitState.active ? msg("New session") : msg("New chat")}
         @click=${() => {
           closeSidebarOnNarrowView();
           if (!addBlankPane()) mainConversation().newChat();
         }}
       >
-        ${icon(ICON.newChat, 17)}<span>${splitState.active ? "New session" : "New chat"}</span>
+        ${icon(ICON.newChat, 17)}<span>${splitState.active ? msg("New session") : msg("New chat")}</span>
       </button>
       <nav class="nav" @click=${onNavClick}>
         ${navGroup(
           "nav-workspace",
-          "Browse",
+          msg("Browse"),
           navWorkspaceOpen,
           toggleNavWorkspace,
           html`
-            ${navRow("contexts", ICON.contexts, "Projects")} ${navRow("chats", ICON.chats, "Chats")}
-            ${navRow("files", ICON.files, "Files")} ${navRow("crons", ICON.crons, "Crons")}
-            ${navRow("keychain", ICON.keychain, "Keychain")} ${navRow("deploys", ICON.deploys, "Apps")}
-            ${navRow("memory", ICON.memory, "Memory")} ${navRow("skills", ICON.skills, "Skills")}
+            ${navRow("contexts", ICON.contexts, msg("Projects"))} ${navRow("chats", ICON.chats, msg("Chats"))}
+            ${navRow("files", ICON.files, msg("Files"))} ${navRow("crons", ICON.crons, msg("Crons"))}
+            ${navRow("keychain", ICON.keychain, msg("Keychain"))} ${navRow("deploys", ICON.deploys, msg("Apps"))}
+            ${navRow("memory", ICON.memory, msg("Memory"))} ${navRow("skills", ICON.skills, msg("Skills"))}
           `,
         )}
       </nav>
@@ -537,16 +577,16 @@ export function renderSidebarTop(): void {
         appState.currentView === "chats"
           ? html`
               <div class="section-label recents-label">
-                <span>Sessions</span>
+                <span>${msg("Sessions")}</span>
                 <button
                   class="web-only-toggle ${sessionsState.webOnly ? "on" : ""}"
                   type="button"
                   role="switch"
                   aria-checked=${sessionsState.webOnly ? "true" : "false"}
-                  title=${sessionsState.webOnly ? "Showing web chats only" : "Hide non-web conversations"}
+                  title=${sessionsState.webOnly ? msg("Showing web chats only") : msg("Hide non-web conversations")}
                   @click=${toggleWebOnly}
                 >
-                  <span>Web only</span><span class="mini-switch"><span class="mini-knob"></span></span>
+                  <span>${msg("Web only")}</span><span class="mini-switch"><span class="mini-knob"></span></span>
                 </button>
               </div>
             `
@@ -706,7 +746,7 @@ function onSidebarKeydown(event: KeyboardEvent): void {
 }
 
 function updateSidebarToggleLabels(): void {
-  const collapseLabel = sidebarOpen ? "Hide sidebar" : "Show sidebar";
+  const collapseLabel = sidebarOpen ? msg("Hide sidebar") : msg("Show sidebar");
   (appEl as HTMLElement).querySelectorAll<HTMLButtonElement>(".sidebar-toggle").forEach((btn) => {
     btn.setAttribute("aria-expanded", sidebarOpen ? "true" : "false");
     btn.setAttribute("title", collapseLabel);
@@ -722,7 +762,7 @@ export function renderPane(
   controls: unknown = "",
 ): void {
   if (!appState.mainEl) return;
-  const refreshLabel = `Refresh ${title.toLowerCase()}`;
+  const refreshLabel = msg(str`Refresh ${title.toLowerCase()}`);
   const host = document.createElement("div");
   host.className = "pane";
   render(
@@ -769,7 +809,8 @@ window.addEventListener("focus", () => {
 });
 
 function warmDeferredChunks(): void {
-  const warm = (): void => void import("@earendil-works/pi-web-ui").catch(() => {});
+  const warm = (): void =>
+    void import("@earendil-works/pi-web-ui").then(() => syncMiniLitLocalization()).catch(() => {});
   const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback;
   if (ric) ric(warm);
   else setTimeout(warm, 1500);
@@ -783,7 +824,7 @@ function openAppEditChat(slug: string): void {
     void openSession(existing);
     return;
   }
-  if (!storedDraft(threadRef)) saveDraft(threadRef, `Update my deployed app "${slug}": `);
+  if (!storedDraft(threadRef)) saveDraft(threadRef, msg(str`Update my deployed app "${slug}": `));
   mainConversation().mountContinuable(threadRef, null, null, []);
   renderList();
 }
@@ -860,7 +901,7 @@ export async function boot(): Promise<void> {
       openAppEditChat(slug);
       return;
     }
-    showMainEmpty("This edit link is missing a valid app name.");
+    showMainEmpty(msg("This edit link is missing a valid app name."));
     return;
   }
 
@@ -883,10 +924,10 @@ export async function boot(): Promise<void> {
       exitSplitIfActive();
       await openSession(match, entriesPrefetch ?? undefined);
     } else if (mountRestoredCanvas()) {
-      canvasToast("That conversation wasn't found, or you don't have access to it.");
+      canvasToast(msg("That conversation wasn't found, or you don't have access to it."));
       syncUrlFromState();
     } else {
-      showMainEmpty("That conversation wasn't found, or you don't have access to it.");
+      showMainEmpty(msg("That conversation wasn't found, or you don't have access to it."));
       renderList();
     }
   } else if (connectedProvider && sessionsState.list.length) {

@@ -101,3 +101,21 @@ test("project routes bind the signed-in principal and relay canonical scope and 
     },
   );
 });
+
+test("project routes return stable validation codes before calling core", async () => {
+  const invalidName = await fetch(`${base}/api/projects`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ name: "   " }),
+  });
+  assert.equal(invalidName.status, 400);
+  assert.equal(((await invalidName.json()) as { error: string }).error, "invalid_name");
+
+  const invalidMember = await fetch(`${base}/api/projects/p1/members`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ memberId: "   " }),
+  });
+  assert.equal(invalidMember.status, 400);
+  assert.equal(((await invalidMember.json()) as { error: string }).error, "invalid_member");
+});

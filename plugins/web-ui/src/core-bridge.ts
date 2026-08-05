@@ -1,10 +1,12 @@
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
 import type { Api, AssistantMessage, AssistantMessageEventStream, Context, Model, Usage } from "@earendil-works/pi-ai";
 import type { Agent, AgentMessage, StreamFn } from "@earendil-works/pi-agent-core";
+import { msg } from "@lit/localize";
 import { swallow } from "../../chassis/src/errors.ts";
 import { groupDmText } from "./group-dm-label.ts";
 import { base64ToBytes } from "./paste-text.ts";
 import { defaultEffortForModel, harnessSupportsEffort } from "./model-options.ts";
+import { localizedError } from "./localization.ts";
 
 const BASE_URL = ((import.meta as unknown as { env?: { BASE_URL?: string } }).env?.BASE_URL ?? "/").replace(/\/$/, "");
 
@@ -93,7 +95,7 @@ export function forkOriginDetails(
   if (!session.forkedFrom || session.forkBoundarySeq === undefined) return null;
   return {
     sessionId: session.forkedFrom.sessionId,
-    title: session.forkedFrom.title?.trim() || "another conversation",
+    title: session.forkedFrom.title?.trim() || msg("another conversation"),
     ...(inheritedCount > 0 ? { messageCount: inheritedCount } : {}),
   };
 }
@@ -176,8 +178,8 @@ export function slackThreadUrl(workspaceUrl: string | null, threadRef: string): 
 
 export function sharedContextLabel(scopeId: string | null, name: string | null): string | null {
   if (!scopeId) return null;
-  if (scopeId.startsWith("channel:")) return name ? `#${name.replace(/^#/, "")}` : "Shared channel";
-  if (scopeId.startsWith("group:")) return groupDmText(name) ?? name ?? "Group";
+  if (scopeId.startsWith("channel:")) return name ? `#${name.replace(/^#/, "")}` : msg("Shared channel");
+  if (scopeId.startsWith("group:")) return groupDmText(name) ?? name ?? msg("Group");
   return null;
 }
 
@@ -323,6 +325,10 @@ export interface RunPoll {
     status: string;
     reply?: string;
     reason?: string;
+    reasonCode?: string;
+    refusalKind?: "security_quarantine";
+    retryAfterMs?: number;
+    budget?: { spentUsd: number; limitUsd: number };
     stopped?: boolean;
     pendingApprovals?: PendingApproval[];
     attachments?: Array<{ name: string; mimetype?: string; sizeBytes?: number; artifactId?: string }>;
@@ -416,8 +422,9 @@ async function toCoreAttachment(a: PiAttachment): Promise<CoreAttachment> {
     body: bytes as unknown as BodyInit,
   });
   if (!r.ok) {
-    if (r.status === 401) reportSigninRequired(await r.json().catch(() => ({})));
-    throw new ApiError(`attachment upload failed: HTTP ${r.status}`, r.status);
+    const body = (await r.json().catch(() => ({}))) as { error?: string; message?: string };
+    if (r.status === 401) reportSigninRequired(body as SigninRequired);
+    throw new ApiError(apiErrorMessage(body, r.status), r.status, body);
   }
   const { blobId, sizeBytes } = (await r.json()) as { blobId: string; sizeBytes: number };
   return { name: a.fileName, mimetype: a.mimeType, sizeBytes: sizeBytes ?? a.size, blobId };
@@ -449,6 +456,28 @@ export function reportSigninRequired(detail: SigninRequired): void {
   onSigninRequired?.(detail);
 }
 
+export function apiErrorMessage(body: unknown, status: number): string {
+  const detail = body as {
+    error?: unknown;
+    message?: unknown;
+    reasonCode?: unknown;
+    refusalKind?: unknown;
+    reason?: unknown;
+    retryAfterMs?: unknown;
+    budget?: { spentUsd?: unknown; limitUsd?: unknown };
+  };
+  let code: string | null = null;
+  if (typeof detail?.error === "string") code = detail.error;
+  else if (typeof detail?.reasonCode === "string") code = detail.reasonCode;
+  else if (typeof detail?.refusalKind === "string") code = detail.refusalKind;
+  const translated = code ? localizedError(code, detail) : null;
+  if (translated) return translated;
+  if (typeof detail?.message === "string" && detail.message) return detail.message;
+  if (typeof detail?.reason === "string" && detail.reason) return detail.reason;
+  if (code) return code;
+  return `HTTP ${status}`;
+}
+
 export async function api<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const r = await fetch(withBase(path), { headers: { "content-type": "application/json" }, ...init });
   const text = await r.text();
@@ -460,11 +489,7 @@ export async function api<T = unknown>(path: string, init?: RequestInit): Promis
   }
   if (!r.ok) {
     if (r.status === 401 && path !== "/signin") reportSigninRequired(body as SigninRequired);
-    const msg =
-      (body as { error?: string; message?: string })?.message ??
-      (body as { error?: string })?.error ??
-      `HTTP ${r.status}`;
-    throw new ApiError(msg, r.status, body);
+    throw new ApiError(apiErrorMessage(body, r.status), r.status, body);
   }
   return body as T;
 }
@@ -533,7 +558,7 @@ export type SignalOutcome = { ok: true } | { ok: false; reason: string; replayed
 
 export async function signalLiveRun(slot: RunSlot, kind: "abort" | "steer", text?: string): Promise<SignalOutcome> {
   const run = slot.runId !== null ? { runId: slot.runId } : null;
-  if (!run) throw new Error("No active run to signal.");
+  if (!run) throw new Error(msg("No active run to signal."));
   try {
     await api(runPath(run.runId, "/signal"), {
       method: "POST",
@@ -612,7 +637,7 @@ export async function runApprovalTurn(
   const stream = createAssistantMessageEventStream();
   await drive(stream, agent.state.model, threadRef, agent, getTurnOptions, signal, onWork, decision, false, slot);
   const outcome = await stream.result();
-  if (outcome.stopReason === "error") throw new Error(outcome.errorMessage || "Could not send the approval.");
+  if (outcome.stopReason === "error") throw new Error(outcome.errorMessage || msg("Could not send the approval."));
 }
 
 export function makeOpenerStreamFn(
@@ -843,7 +868,8 @@ function applyRun(
   }
   const approvals = res?.pendingApprovals ?? [];
   const paused = approvals.length > 0;
-  const approvalDenied = approvalDeniedMessage(res?.reason);
+  const reasonCode = res?.reasonCode ?? res?.refusalKind;
+  const approvalDenied = approvalDeniedMessage(reasonCode);
   const quiet = res?.status === "silent" || res?.status === "react";
   if (work) {
     work.finishedAt = typeof run.finishedAt === "number" ? run.finishedAt : Date.now();
@@ -869,7 +895,13 @@ function applyRun(
     return "terminal";
   }
   if (!paused && !quiet && (run.status === "failed" || (res && res.status !== "ok"))) {
-    fail(stream, partial, res?.reason ?? "The agent run failed.");
+    fail(
+      stream,
+      partial,
+      reasonCode
+        ? (localizedError(reasonCode, res ?? undefined) ?? res?.reason ?? reasonCode)
+        : (res?.reason ?? msg("The agent run failed.")),
+    );
     return "terminal";
   }
   finish(stream, partial, st, st.acc);
@@ -895,7 +927,7 @@ export async function pollRun(
       if (e instanceof ApiError && e.status >= 400 && e.status < 500) return fail(stream, partial, e.message);
       consecutiveFailures++;
       if (now() - st.lastProgressAt > RUN_IDLE_MS)
-        return fail(stream, partial, "Timed out waiting for the agent to respond.");
+        return fail(stream, partial, msg("Timed out waiting for the agent to respond."));
       await sleep(Math.min(POLL_MS * 2 ** Math.min(consecutiveFailures, 4), POLL_RETRY_MAX_MS));
       continue;
     }
@@ -905,7 +937,7 @@ export async function pollRun(
     if (run.alive === true || (st.staleSince !== undefined && now() - st.staleSince < STALE_GRACE_MS))
       st.lastProgressAt = now();
     if (now() - st.lastProgressAt > RUN_IDLE_MS)
-      return fail(stream, partial, "Timed out waiting for the agent to respond.");
+      return fail(stream, partial, msg("Timed out waiting for the agent to respond."));
     await sleep(POLL_MS);
   }
 }
@@ -1105,11 +1137,8 @@ function deliveredFilesFromAttachments(
     }));
 }
 
-function approvalDeniedMessage(reason?: string): string | null {
-  const trimmed = reason?.trim();
-  if (!trimmed) return null;
-  if (trimmed === "approval denied") return "Denied.";
-  return trimmed.startsWith("approval denied for ") ? "Denied." : null;
+function approvalDeniedMessage(reasonCode?: string): string | null {
+  return reasonCode === "approval_denied" ? localizedError(reasonCode) : null;
 }
 
 function sleep(ms: number): Promise<void> {

@@ -122,7 +122,11 @@ async function oauthCallback(ctx: BaseCtx): Promise<void> {
   const code = url.searchParams.get("code") ?? "";
   const stateParam = url.searchParams.get("state") ?? "";
   const providerError = url.searchParams.get("error");
-  if (providerError) return sendJson(res, 400, { error: "oauth_denied", message: providerError });
+  if (providerError)
+    return sendJson(res, 400, {
+      error: providerError === "access_denied" ? "oauth_denied" : "oauth_callback_failed",
+      message: providerError,
+    });
   if (!code || !stateParam) return sendJson(res, 400, { error: "bad_request", message: "code and state required" });
   let state;
   try {

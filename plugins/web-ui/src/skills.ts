@@ -1,4 +1,5 @@
 import { html, nothing, render, type TemplateResult } from "lit";
+import { msg, str } from "@lit/localize";
 import { Box } from "lucide";
 import { api, type CoreContext } from "./core-bridge";
 import type { SkillItem } from "./composer";
@@ -27,6 +28,7 @@ import { scopeTitle } from "./contexts";
 import { focusDialogCancel, restoreDialogFocus, trapDialogFocus } from "./dialog-focus";
 import { SkillsRefreshSequence } from "./skills-refresh";
 import { SkillsMutationSequence } from "./skills-mutation";
+import { formatNumber } from "./localization.ts";
 
 let skillRows: SkillItem[] = [];
 let skillsNotice = "";
@@ -70,12 +72,17 @@ let flowFocusTarget: HTMLElement | null = null;
 let archiveFocusTarget: HTMLElement | null = null;
 
 function scopeLabel(scope: string): string {
-  return scope ? scope.charAt(0).toUpperCase() + scope.slice(1) : "";
+  if (scope === "personal") return msg("Personal");
+  if (scope === "channel") return msg("Channel");
+  if (scope === "group") return msg("Group");
+  if (scope === "team") return msg("Team");
+  if (scope === "org") return msg("Organization");
+  return scope;
 }
 
 function editAudience(scopeId: string | undefined): string {
-  if (scopeId?.startsWith("personal:")) return "only you";
-  return scopeId ? scopeTitle(scopeId) : "this context";
+  if (scopeId?.startsWith("personal:")) return msg("only you");
+  return scopeId ? scopeTitle(scopeId) : msg("this context");
 }
 
 async function startEdit(s: SkillItem): Promise<void> {
@@ -87,7 +94,7 @@ async function startEdit(s: SkillItem): Promise<void> {
   editing = null;
   editingTarget = s;
   editError = "";
-  skillsNotice = "Loading skill instructions…";
+  skillsNotice = msg("Loading skill instructions…");
   drawSkills();
   queueMicrotask(() => skillsPageHost?.querySelector<HTMLElement>(".context-back")?.focus());
   try {
@@ -107,7 +114,7 @@ async function startEdit(s: SkillItem): Promise<void> {
     skillsNotice = "";
   } catch (e) {
     if (request !== editRequestSeq) return;
-    editError = errMessage(e, "Failed to load skill details.");
+    editError = errMessage(e, msg("Failed to load skill details."));
     skillsNotice = "";
   }
   drawSkills();
@@ -167,45 +174,50 @@ function startCreate(): void {
 }
 
 function skillMeta(s: SkillItem): string {
-  const source = s.source === "pack" ? `Pack ${s.pack?.upstreamName ?? "source"}` : "Created here";
-  return `${scopeLabel(s.scope)} · v${s.version ?? 1} · ${source}`;
+  let source = msg("Created here");
+  if (s.source === "pack") {
+    source = msg("Pack source");
+    if (s.pack?.upstreamName) source = msg(str`Pack ${s.pack.upstreamName}`);
+  }
+  return msg(str`${scopeLabel(s.scope)} · v${s.version ?? 1} · ${source}`);
 }
 
 function skillVariant(s: SkillItem, hasScopeVariants: boolean): TemplateResult {
   const actions = skillActions(s);
   const archived = isArchivedSkill(s);
-  let state = "Active";
-  if (archived) state = "Archived";
-  else if (hasScopeVariants) state = "Scope variant";
-  let archiveLabel = "Archive";
-  if (deleting === s.id) archiveLabel = "Working…";
-  else if (archived) archiveLabel = "Restore";
+  let state = msg("Active");
+  if (archived) state = msg("Archived");
+  else if (hasScopeVariants) state = msg("Scope variant");
+  let archiveLabel = msg("Archive");
+  if (deleting === s.id) archiveLabel = msg("Working…");
+  else if (archived) archiveLabel = msg("Restore");
+  let assetSummary = "";
+  if (s.assetCount === 1) assetSummary = msg(str` · ${formatNumber(s.assetCount)} asset`);
+  else if (s.assetCount) assetSummary = msg(str` · ${formatNumber(s.assetCount)} assets`);
   return html`
     <div class="skill-variant ${archived ? "archived" : ""}">
       <span class="skill-variant-icon">${icon(Box, 16)}</span>
       <div class="skill-variant-copy">
         <div class="skill-variant-description" title=${s.description}>${s.description}</div>
-        <div class="skill-variant-meta">
-          ${skillMeta(s)}${s.assetCount ? ` · ${s.assetCount} asset${s.assetCount === 1 ? "" : "s"}` : ""}
-        </div>
+        <div class="skill-variant-meta">${skillMeta(s)}${assetSummary}</div>
         <details class="skill-variant-details">
-          <summary>Details</summary>
+          <summary>${msg("Details")}</summary>
           <p>${s.description}</p>
           <dl>
             <div>
-              <dt>Scope</dt>
+              <dt>${msg("Scope")}</dt>
               <dd>${s.scopeId ? scopeTitle(s.scopeId) : scopeLabel(s.scope)}</dd>
             </div>
             <div>
-              <dt>Capabilities</dt>
-              <dd>${s.requiredCapabilities?.length ? s.requiredCapabilities.join(", ") : "None required"}</dd>
+              <dt>${msg("Capabilities")}</dt>
+              <dd>${s.requiredCapabilities?.length ? s.requiredCapabilities.join(", ") : msg("None required")}</dd>
             </div>
           </dl>
         </details>
       </div>
       <div class="skill-variant-state">
         <span class="badge ${archived ? "" : "skill-active"}">${state}</span>
-        ${actions.edit && !archived ? html`<button class="btn skill-edit-trigger" data-skill-id=${s.id ?? ""} type="button" ?disabled=${deleting === s.id} @click=${() => void startEdit(s)}>Edit</button>` : nothing}
+        ${actions.edit && !archived ? html`<button class="btn skill-edit-trigger" data-skill-id=${s.id ?? ""} type="button" ?disabled=${deleting === s.id} @click=${() => void startEdit(s)}>${msg("Edit")}</button>` : nothing}
         ${
           actions.delete
             ? html`<button
@@ -230,9 +242,10 @@ function skillGroup(name: string, skills: SkillItem[]): TemplateResult {
   return html`<section class="skill-group">
     <div class="skill-group-head">
       <h2 class="skill-group-name">
-        <code>/${name}</code>${skills.length > 1 ? html`<span>${skills.length} variants</span>` : nothing}
+        <code>/${name}</code
+        >${skills.length > 1 ? html`<span>${msg(str`${formatNumber(skills.length)} variants`)}</span>` : nothing}
       </h2>
-      ${hasScopeVariants ? html`<span class="skill-precedence">Narrower scope takes precedence where both apply</span>` : nothing}
+      ${hasScopeVariants ? html`<span class="skill-precedence">${msg("Narrower scope takes precedence where both apply")}</span>` : nothing}
     </div>
     ${skills.map((skill) => skillVariant(skill, hasScopeVariants))}
   </section>`;
@@ -242,20 +255,20 @@ function editorPane() {
   const e = editing;
   if (!e) {
     return html`<section class="skill-form-page">
-      ${listBackLink("Back to skills", closeFocusedFlow)}
+      ${listBackLink(msg("Back to skills"), closeFocusedFlow)}
       <div class="skill-form-heading">
         <div>
-          <h1 class="pane-title">Edit /${editingTarget?.name ?? "skill"}</h1>
-          <p>${editError ? "Instructions unavailable." : "Loading instructions…"}</p>
+          <h1 class="pane-title">${msg(str`Edit /${editingTarget?.name ?? msg("skill")}`)}</h1>
+          <p>${editError ? msg("Instructions unavailable.") : msg("Loading instructions…")}</p>
         </div>
       </div>
       ${editError ? html`<div class="form-error" role="alert">${editError}</div>` : nothing}
     </section>`;
   }
   const reviewed = reviewMatches(e.review, e.description, e.body);
-  let saveLabel = "Save";
-  if (saving) saveLabel = "Saving…";
-  else if (reviewed) saveLabel = "Publish change";
+  let saveLabel = msg("Save");
+  if (saving) saveLabel = msg("Saving…");
+  else if (reviewed) saveLabel = msg("Publish change");
   return html`
     <form
       class="skill-form-page"
@@ -264,16 +277,16 @@ function editorPane() {
         void saveEdit();
       }}
     >
-      ${listBackLink("Back to skills", closeFocusedFlow)}
+      ${listBackLink(msg("Back to skills"), closeFocusedFlow)}
       <div class="skill-form-heading">
         <div>
-          <h1 class="pane-title">Edit /${e.name}</h1>
-          <p>Available to ${editAudience(e.scopeId)}</p>
+          <h1 class="pane-title">${msg(str`Edit /${e.name}`)}</h1>
+          <p>${msg(str`Available to ${editAudience(e.scopeId)}`)}</p>
         </div>
-        <span class="badge">Editing</span>
+        <span class="badge">${msg("Editing")}</span>
       </div>
       <label class="skill-field">
-        <span>Description</span>
+        <span>${msg("Description")}</span>
         <input
           id="skill-edit-description"
           class="skill-desc-input"
@@ -288,7 +301,7 @@ function editorPane() {
         />
       </label>
       <label class="skill-field">
-        <span>Instructions</span>
+        <span>${msg("Instructions")}</span>
         <textarea
           class="skill-body-input"
           spellcheck="false"
@@ -305,11 +318,13 @@ function editorPane() {
       ${
         reviewed
           ? html`<div class="skill-impact" role="alert">
-              <strong>Publish this change to ${scopeTitle(e.scopeId ?? null)}?</strong>
+              <strong>${msg(str`Publish this change to ${scopeTitle(e.scopeId ?? null)}?`)}</strong>
               <div class="card-meta">
-                Everyone in this context can invoke the updated instructions. Description
-                ${e.description === e.originalDescription ? "unchanged" : "changed"}; instructions
-                ${e.body === e.originalBody ? "unchanged" : "changed"}.
+                ${msg(
+                  str`Everyone in this context can invoke the updated instructions. Description ${
+                    e.description === e.originalDescription ? msg("unchanged") : msg("changed")
+                  }; instructions ${e.body === e.originalBody ? msg("unchanged") : msg("changed")}.`,
+                )}
               </div>
             </div>`
           : nothing
@@ -336,11 +351,11 @@ function editorPane() {
                   drawSkills();
                 }}
               >
-                Review again
+                ${msg("Review again")}
               </button>`
             : nothing
         }
-        <button class="btn" type="button" ?disabled=${saving} @click=${closeFocusedFlow}>Cancel</button>
+        <button class="btn" type="button" ?disabled=${saving} @click=${closeFocusedFlow}>${msg("Cancel")}</button>
       </div>
     </form>
   `;
@@ -350,9 +365,9 @@ function creatorPane() {
   const c = creating!;
   const ready = c.name.trim() !== "" && c.description.trim() !== "" && c.body.trim() !== "";
   const reviewed = createReviewMatches(c.review, c.name.trim(), c.description.trim(), c.body.trim(), c.scopeId);
-  let createLabel = "Create skill";
-  if (creatingSaving) createLabel = "Saving…";
-  else if (reviewed) createLabel = "Publish skill";
+  let createLabel = msg("Create skill");
+  if (creatingSaving) createLabel = msg("Saving…");
+  else if (reviewed) createLabel = msg("Publish skill");
   return html`
     <form
       class="skill-form-page"
@@ -361,16 +376,16 @@ function creatorPane() {
         void saveCreate();
       }}
     >
-      ${listBackLink("Back to skills", closeFocusedFlow)}
+      ${listBackLink(msg("Back to skills"), closeFocusedFlow)}
       <div class="skill-form-heading">
         <div>
-          <h1 class="pane-title">New skill</h1>
-          <p>Create a reusable procedure for yourself or a shared context.</p>
+          <h1 class="pane-title">${msg("New skill")}</h1>
+          <p>${msg("Create a reusable procedure for yourself or a shared context.")}</p>
         </div>
-        <span class="badge">New</span>
+        <span class="badge">${msg("New")}</span>
       </div>
       <label class="skill-field">
-        <span>Name</span>
+        <span>${msg("Name")}</span>
         <input
           id="skill-create-name"
           class="skill-desc-input"
@@ -386,7 +401,7 @@ function creatorPane() {
         />
       </label>
       <label class="skill-field">
-        <span>Available to</span>
+        <span>${msg("Available to")}</span>
         ${fieldSelect({
           className: "skill-scope-select",
           value: c.scopeId,
@@ -398,14 +413,14 @@ function creatorPane() {
           },
           options: createScopes.map((scope) => html`<option value=${scope.scopeId}>${scope.name}</option>`),
         })}
-        <small class="card-meta">Everyone in a shared context can invoke and edit this skill.</small>
+        <small class="card-meta">${msg("Everyone in a shared context can invoke and edit this skill.")}</small>
       </label>
       <label class="skill-field">
-        <span>Description</span>
+        <span>${msg("Description")}</span>
         <input
           class="skill-desc-input"
           type="text"
-          placeholder="One line: what it does / when to use it"
+          placeholder=${msg("One line: what it does / when to use it")}
           data-focus-key="skill-create-description"
           .value=${c.description}
           ?disabled=${creatingSaving}
@@ -416,11 +431,11 @@ function creatorPane() {
         />
       </label>
       <label class="skill-field">
-        <span>Instructions</span>
+        <span>${msg("Instructions")}</span>
         <textarea
           class="skill-body-input"
           spellcheck="false"
-          placeholder="The SKILL.md contents — the steps to follow when this skill is used."
+          placeholder=${msg("The SKILL.md contents — the steps to follow when this skill is used.")}
           data-focus-key="skill-create-body"
           ?disabled=${creatingSaving}
           @input=${(ev: Event) => {
@@ -434,8 +449,8 @@ function creatorPane() {
       ${
         reviewed
           ? html`<div class="skill-impact" role="alert">
-              <strong>Publish /${c.name.trim()} to ${scopeTitle(c.scopeId)}?</strong>
-              <div class="card-meta">Everyone in this context can invoke and edit these instructions.</div>
+              <strong>${msg(str`Publish /${c.name.trim()} to ${scopeTitle(c.scopeId)}?`)}</strong>
+              <div class="card-meta">${msg("Everyone in this context can invoke and edit these instructions.")}</div>
             </div>`
           : nothing
       }
@@ -461,11 +476,13 @@ function creatorPane() {
                   drawSkills();
                 }}
               >
-                Review again
+                ${msg("Review again")}
               </button>`
             : nothing
         }
-        <button class="btn" type="button" ?disabled=${creatingSaving} @click=${closeFocusedFlow}>Cancel</button>
+        <button class="btn" type="button" ?disabled=${creatingSaving} @click=${closeFocusedFlow}>
+          ${msg("Cancel")}
+        </button>
       </div>
     </form>
   `;
@@ -495,35 +512,45 @@ function drawSkills(loading = false): void {
     drawSkills();
   };
   const emptyState = skillEmptyState(skillRows.length, filtered.length, loading);
-  let empty: string | TemplateResult = "No skills available yet.";
+  let empty: string | TemplateResult = msg("No skills available yet.");
   if (emptyState === "filtered") {
     empty = html`<div class="skill-empty">
-      <span>No skills match these filters.</span
-      ><button class="btn" type="button" @click=${clearFilters}>Clear filters</button>
+      <span>${msg("No skills match these filters.")}</span
+      ><button class="btn" type="button" @click=${clearFilters}>${msg("Clear filters")}</button>
     </div>`;
   } else if (emptyState === "loading") {
-    empty = "Loading skills…";
+    empty = msg("Loading skills…");
+  }
+  let resultCount = msg("Loading…");
+  if (!loading && filtered.length === 1 && groups.length === 1) {
+    resultCount = msg(str`${formatNumber(filtered.length)} skill in ${formatNumber(groups.length)} group`);
+  } else if (!loading && filtered.length === 1) {
+    resultCount = msg(str`${formatNumber(filtered.length)} skill in ${formatNumber(groups.length)} groups`);
+  } else if (!loading && groups.length === 1) {
+    resultCount = msg(str`${formatNumber(filtered.length)} skills in ${formatNumber(groups.length)} group`);
+  } else if (!loading) {
+    resultCount = msg(str`${formatNumber(filtered.length)} skills in ${formatNumber(groups.length)} groups`);
   }
   render(
     html`${listPageTpl({
-      title: "Skills",
+      title: msg("Skills"),
       onRefresh: () => void renderSkills(),
-      action: { label: "New skill", onClick: startCreate },
+      action: { label: msg("New skill"), onClick: startCreate },
       search: {
         value: skillSearch,
-        placeholder: "Search skills…",
+        placeholder: msg("Search skills…"),
         onInput: (value) => {
           skillSearch = value;
           drawSkills();
         },
       },
       filters: html`<div class="skill-registry-controls">
-          <div class="resource-tabs" role="group" aria-label="Filter by skill status">
+          <div class="resource-tabs" role="group" aria-label=${msg("Filter by skill status")}>
             ${(
               [
-                ["active", "Active", counts.active],
-                ["archived", "Archived", counts.archived],
-                ["all", "All", counts.all],
+                ["active", msg("Active"), counts.active],
+                ["archived", msg("Archived"), counts.archived],
+                ["all", msg("All"), counts.all],
               ] as const
             ).map(
               ([value, label, count]) =>
@@ -536,52 +563,50 @@ function drawSkills(loading = false): void {
                     drawSkills();
                   }}
                 >
-                  ${label}<span>${count}</span>
+                  ${label}<span>${formatNumber(count)}</span>
                 </button>`,
             )}
           </div>
           <div class="skill-filter-fields">
             <label class="list-select"
-              ><span>Scope</span>${fieldSelect({
+              ><span>${msg("Scope")}</span>${fieldSelect({
                 compact: true,
-                ariaLabel: "Filter skills by scope",
+                ariaLabel: msg("Filter skills by scope"),
                 value: scopeFilter,
                 onChange: (value) => {
                   scopeFilter = value;
                   drawSkills();
                 },
                 options: [
-                  html`<option value="all">All scopes</option>`,
-                  html`<option value="personal">Personal</option>`,
-                  html`<option value="channel">Channel</option>`,
-                  html`<option value="group">Project / group</option>`,
-                  html`<option value="team">Team</option>`,
-                  html`<option value="org">Organization</option>`,
+                  html`<option value="all">${msg("All scopes")}</option>`,
+                  html`<option value="personal">${msg("Personal")}</option>`,
+                  html`<option value="channel">${msg("Channel")}</option>`,
+                  html`<option value="group">${msg("Project / group")}</option>`,
+                  html`<option value="team">${msg("Team")}</option>`,
+                  html`<option value="org">${msg("Organization")}</option>`,
                 ],
               })}</label
             >
             <label class="list-select"
-              ><span>Source</span>${fieldSelect({
+              ><span>${msg("Source")}</span>${fieldSelect({
                 compact: true,
-                ariaLabel: "Filter skills by source",
+                ariaLabel: msg("Filter skills by source"),
                 value: sourceFilter,
                 onChange: (value) => {
                   sourceFilter = value;
                   drawSkills();
                 },
                 options: [
-                  html`<option value="all">All sources</option>`,
-                  html`<option value="native">Created here</option>`,
-                  html`<option value="pack">Skill packs</option>`,
-                  html`<option value="overrides">Overrides</option>`,
+                  html`<option value="all">${msg("All sources")}</option>`,
+                  html`<option value="native">${msg("Created here")}</option>`,
+                  html`<option value="pack">${msg("Skill packs")}</option>`,
+                  html`<option value="overrides">${msg("Overrides")}</option>`,
                 ],
               })}</label
             >
           </div>
         </div>
-        <div class="skill-result-count" aria-live="polite">
-          ${loading ? "Loading…" : `${filtered.length} skill${filtered.length === 1 ? "" : "s"} in ${groups.length} ${groups.length === 1 ? "group" : "groups"}`}
-        </div>
+        <div class="skill-result-count" aria-live="polite">${resultCount}</div>
         ${skillsNotice ? html`<div class="status">${skillsNotice}</div>` : nothing}`,
       rows,
       empty,
@@ -615,10 +640,9 @@ function closeArchiveDialog(): void {
 }
 
 function archiveDialog(skill: SkillItem): TemplateResult {
-  const audience =
-    skill.scope === "personal"
-      ? "you"
-      : `everyone in ${skill.scopeId ? scopeTitle(skill.scopeId) : `this ${skill.scope}`}`;
+  let audience = msg(str`everyone in this ${scopeLabel(skill.scope)}`);
+  if (skill.scope === "personal") audience = msg("you");
+  else if (skill.scopeId) audience = msg(str`everyone in ${scopeTitle(skill.scopeId)}`);
   return html`<div
     class="project-dialog-backdrop"
     @click=${(event: MouseEvent) => event.target === event.currentTarget && closeArchiveDialog()}
@@ -632,11 +656,12 @@ function archiveDialog(skill: SkillItem): TemplateResult {
       @keydown=${(event: KeyboardEvent) => trapDialogFocus(event, closeArchiveDialog)}
     >
       <div class="project-dialog-head">
-        <div><h2 id="skill-archive-title">Archive /${skill.name}?</h2></div>
+        <div><h2 id="skill-archive-title">${msg(str`Archive /${skill.name}?`)}</h2></div>
       </div>
       <p id="skill-archive-impact">
-        This version will stop being available to ${audience}. If it overrides a broader /${skill.name}, that version
-        becomes effective. Its history and assets are kept, and you can restore it later.
+        ${msg(
+          str`This version will stop being available to ${audience}. If it overrides a broader /${skill.name}, that version becomes effective. Its history and assets are kept, and you can restore it later.`,
+        )}
       </p>
       <div class="project-dialog-actions actions">
         <button
@@ -646,14 +671,14 @@ function archiveDialog(skill: SkillItem): TemplateResult {
           ?disabled=${deleting === skill.id}
           @click=${closeArchiveDialog}
         >
-          Cancel</button
+          ${msg("Cancel")}</button
         ><button
           class="btn danger skill-archive-confirm"
           type="button"
           ?disabled=${deleting === skill.id}
           @click=${() => void performArchive(skill)}
         >
-          ${deleting === skill.id ? "Archiving…" : "Archive skill"}
+          ${deleting === skill.id ? msg("Archiving…") : msg("Archive skill")}
         </button>
       </div>
     </div>
@@ -689,7 +714,7 @@ async function saveEdit(): Promise<void> {
     restoreFocusedFlow(returnTarget);
   } catch (e) {
     if (!skillMutations.isCurrent(operation)) return;
-    editError = errMessage(e, "Failed to save skill.");
+    editError = errMessage(e, msg("Failed to save skill."));
     saving = false;
     drawSkills();
   }
@@ -701,7 +726,7 @@ async function saveCreate(): Promise<void> {
   const description = creating.description.trim();
   const body = creating.body.trim();
   if (!name || !description || !body) {
-    createError = "Name, description, and instructions are all required.";
+    createError = msg("Name, description, and instructions are all required.");
     drawSkills();
     return;
   }
@@ -734,7 +759,7 @@ async function saveCreate(): Promise<void> {
     restoreFocusedFlow(returnTarget);
   } catch (e) {
     if (!skillMutations.isCurrent(operation)) return;
-    createError = errMessage(e, "Failed to create skill.");
+    createError = errMessage(e, msg("Failed to create skill."));
     creatingSaving = false;
     drawSkills();
   }
@@ -750,7 +775,7 @@ async function deleteSkill(s: SkillItem, trigger?: HTMLElement): Promise<void> {
       return void renderSkills();
     } catch (e) {
       deleting = null;
-      skillsNotice = errMessage(e, "Failed to restore skill.");
+      skillsNotice = errMessage(e, msg("Failed to restore skill."));
       return drawSkills();
     }
   }
@@ -785,7 +810,7 @@ async function performArchive(s: SkillItem): Promise<void> {
     await renderSkills();
   } catch (e) {
     deleting = null;
-    skillsNotice = errMessage(e, "Failed to archive skill.");
+    skillsNotice = errMessage(e, msg("Failed to archive skill."));
     drawSkills();
     requestAnimationFrame(() => {
       const fallback = focusTarget?.dataset.skillId
@@ -822,7 +847,7 @@ export async function renderSkills(): Promise<void> {
     skillRows = (r.skills ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
     const personal = appState.me ? `personal:${appState.me.user}` : "";
     createScopes = [
-      { scopeId: personal, name: "Personal — only you" },
+      { scopeId: personal, name: msg("Personal — only you") },
       ...(contexts.contexts ?? [])
         .filter(
           (context) =>
@@ -834,7 +859,7 @@ export async function renderSkills(): Promise<void> {
   } catch (e) {
     if (!skillsRefreshes.isCurrent(request) || seq !== appState.viewRenderSeq || appState.currentView !== "skills")
       return;
-    skillsNotice = errMessage(e, "Failed to load skills.");
+    skillsNotice = errMessage(e, msg("Failed to load skills."));
   }
   if (skillsRefreshes.isCurrent(request)) drawSkills(false);
 }

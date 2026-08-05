@@ -1,4 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
+import { msg } from "@lit/localize";
 import { live } from "lit/directives/live.js";
 import { ArrowLeft, Plus, RefreshCw, Search } from "lucide";
 import { icon } from "./ui";
@@ -34,8 +35,8 @@ export function listPageTpl(o: ListPageOpts): TemplateResult {
             ? html`<button
                 class="pane-refresh"
                 type="button"
-                title="Refresh"
-                aria-label="Refresh"
+                title=${msg("Refresh")}
+                aria-label=${msg("Refresh")}
                 @click=${o.onRefresh}
               >
                 ${icon(RefreshCw, 17)}

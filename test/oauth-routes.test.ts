@@ -173,6 +173,24 @@ test("OAuth callback rejects forged state even without source-auth", async () =>
   }
 });
 
+test("OAuth callback distinguishes an explicit denial from a provider failure", async () => {
+  const srv = start(async () => {
+    throw new Error("provider errors must not attempt a token exchange");
+  });
+  try {
+    for (const [providerError, expected] of [
+      ["access_denied", "oauth_denied"],
+      ["temporarily_unavailable", "oauth_callback_failed"],
+    ] as const) {
+      const res = await fetch(`${srv.base}/v1/connectors/oauth/google/callback?error=${providerError}`);
+      assert.equal(res.status, 400);
+      assert.equal(((await res.json()) as { error: string }).error, expected);
+    }
+  } finally {
+    await srv.close();
+  }
+});
+
 test("connector token route normalizes expiry seconds before storing", async () => {
   const srv = start(async () => {
     throw new Error("token route must not call OAuth exchange");

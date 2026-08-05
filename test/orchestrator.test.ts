@@ -384,6 +384,7 @@ test("a guest actor is refused (internal-only, input side)", async () => {
     text: "hi",
   });
   assert.equal(res.status, "refused");
+  assert.equal(res.reasonCode, "internal_access_denied");
   assert.match(res.reason ?? "", /internal-only/);
 });
 
@@ -401,7 +402,18 @@ test("a channel with a non-internal audience member is refused (internal-only, o
     text: "hello channel",
   });
   assert.equal(res.status, "refused");
+  assert.equal(res.reasonCode, "internal_access_denied");
   assert.match(res.reason ?? "", /internal-only/);
+});
+
+test("rate-limit refusals expose a stable code and structured retry delay", async () => {
+  const { app } = freshApp({ rateLimitPerWindow: 1, rateLimitWindowMs: 17_000 });
+  assert.equal((await app.turn(dm("first"))).status, "ok");
+  const refused = await app.turn(dm("second"));
+  assert.equal(refused.status, "refused");
+  assert.equal(refused.reasonCode, "rate_limited");
+  assert.ok((refused.retryAfterMs ?? 0) > 0);
+  assert.ok((refused.retryAfterMs ?? 0) <= 17_000);
 });
 
 test("execute runs in the sandbox via the primitive", async () => {
@@ -1894,6 +1906,7 @@ test("disabling a grant mode suspends existing grants until it is re-enabled", a
     }),
   );
   assert.equal(denied.status, "refused", "clear the parked approval so the next turn isn't waiting on it");
+  assert.equal(denied.reasonCode, "approval_denied");
 
   await config.setApprovalGrantModes(org, { session: true, always: true });
   const restored = await app.turn(dm("!run git push --force origin release"));
@@ -1980,6 +1993,7 @@ test("Auto quarantines suspicious data-bearing turns but leaves benign data-bear
     }),
   );
   assert.equal(blocked.status, "refused");
+  assert.equal(blocked.reasonCode, "security_quarantine");
   assert.equal(blocked.refusalKind, "security_quarantine");
   assert.match(blocked.reason ?? "", /quarantined/);
   assert.equal(riskyProvisioning.provisioned, 0);
@@ -2552,6 +2566,7 @@ test("'session busy' does not consume the one-shot approval (a retry click still
   assert.ok(lease, "hold the session lease so the approval turn lands on a busy session");
   const busy = await app.turn(dm(`!run ${command}`, { approval: { requestId: pending.requestId, approved: true } }));
   assert.equal(busy.status, "refused");
+  assert.equal(busy.reasonCode, "session_busy");
   assert.match(busy.reason ?? "", /session busy/);
   await sessions.releaseLease(lease!);
 
@@ -2583,6 +2598,7 @@ test("a 'session busy' refusal is recorded durably with the holder's remaining l
   assert.ok(lease, "hold the lease so the next turn lands on a busy session");
   const busy = await app.turn(dm("are you there?"));
   assert.equal(busy.status, "refused");
+  assert.equal(busy.reasonCode, "session_busy");
   assert.match(busy.reason ?? "", /session busy/);
 
   const d = await busyDiagnostic(built, first.sessionId!);
@@ -2631,6 +2647,7 @@ test("a quarantined input refused as 'session busy' is recorded durably too", as
     }),
   );
   assert.equal(busy.status, "refused");
+  assert.equal(busy.reasonCode, "session_busy");
   assert.match(busy.reason ?? "", /session busy/, "the busy lease wins over the quarantine refusal");
 
   const d = await busyDiagnostic(built, first.sessionId!);
@@ -2689,6 +2706,7 @@ test("denying a pending approval clears it and does not run the command", async 
     }),
   );
   assert.equal(denied.status, "refused");
+  assert.equal(denied.reasonCode, "approval_denied");
   assert.match(denied.reason ?? "", /approval denied/);
 });
 
@@ -2968,7 +2986,7 @@ test("a failure before the harness records the user message back-fills it — no
   const t1 = await app.turn(dm("hello"));
   assert.equal(t1.status, "ok");
 
-  await assert.rejects(app.turn(dm("use the fancy model", { model: "not-a-real-model" })), /not approved/);
+  await assert.rejects(app.turn(dm("use the fancy model", { model: "not-a-real-model" })), /not supported/);
 
   const found = await app.getSession(t1.sessionId!);
   const failureIdx = found!.entries.findIndex((e) => turnFailure(e));

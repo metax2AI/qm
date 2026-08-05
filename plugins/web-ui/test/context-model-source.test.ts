@@ -22,7 +22,7 @@ test("the panel offers inheriting the org default and names what is serving now"
 });
 
 test("the panel is labelled, focus-keyed, and disabled while saving", () => {
-  assert.match(panel, /ariaLabel: "Default model for this project"/);
+  assert.match(panel, /ariaLabel: msg\("Default model for this project"\)/);
   assert.match(panel, /focusKey: "context-model"/);
   assert.match(panel, /disabled: contextModelState\.saving/);
   assert.match(panel, /aria-live="polite"/);

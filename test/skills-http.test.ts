@@ -375,7 +375,7 @@ test("POST /v1/skills rejects a duplicate name in the caller's personal scope wi
     });
     assert.equal(res.status, 409);
     const err = (await res.json()) as { error: string };
-    assert.equal(err.error, "exists");
+    assert.equal(err.error, "skill_already_exists");
   } finally {
     await srv.close();
   }
@@ -384,18 +384,26 @@ test("POST /v1/skills rejects a duplicate name in the caller's personal scope wi
 test("POST /v1/skills is a 400 when a required field is missing or blank", async () => {
   const srv = start();
   try {
-    for (const bad of [
-      { principalId: "U1", name: "x", description: "d" },
-      { principalId: "U1", name: "  ", description: "d", body: "b" },
-      { name: "x", description: "d", body: "b" },
-    ]) {
+    for (const [bad, error] of [
+      [{ principalId: "U1", description: "d", body: "b" }, "skill_name_required"],
+      [{ principalId: "U1", name: "x", body: "b" }, "skill_description_required"],
+      [{ principalId: "U1", name: "x", description: "d" }, "skill_body_required"],
+    ] as const) {
       const res = await fetch(`${srv.base}/v1/skills`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(bad),
       });
       assert.equal(res.status, 400, `expected 400 for ${JSON.stringify(bad)}`);
+      assert.equal(((await res.json()) as { error: string }).error, error);
     }
+
+    const missingPrincipal = await fetch(`${srv.base}/v1/skills`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "x", description: "d", body: "b" }),
+    });
+    assert.equal(missingPrincipal.status, 400);
   } finally {
     await srv.close();
   }

@@ -102,7 +102,8 @@ ${inputs}
 
 async function mintDrop(ctx: ApiCtx): Promise<void> {
   const { res, deps, body, capability, secret } = ctx;
-  if (!deps.keychain || !deps.secretDrops) return sendJson(res, 404, { error: "not_found" });
+  if (!deps.keychain || !deps.secretDrops)
+    return sendJson(res, 503, { error: "not_configured", message: "credential drops not configured" });
   if (!capability)
     return sendJson(res, 401, {
       error: "unauthorized",
@@ -203,7 +204,8 @@ async function dropForm(ctx: ApiCtx): Promise<void> {
 
 async function redeemDrop(ctx: ApiCtx): Promise<void> {
   const { res, deps, body, params, req } = ctx;
-  if (!deps.keychain || !deps.secretDrops) return sendJson(res, 404, { error: "not_found" });
+  if (!deps.keychain || !deps.secretDrops)
+    return sendJson(res, 503, { error: "not_configured", message: "credential drops not configured" });
   const { secret, values } = body as { secret?: unknown; values?: unknown };
   const peeked = await deps.secretDrops.peek(params.id!);
   if (!peeked.ok) {
@@ -303,7 +305,7 @@ async function redeemDrop(ctx: ApiCtx): Promise<void> {
     }
     return sendJson(res, 200, { ok: true, credential: meta });
   } catch (e) {
-    if (e instanceof KeychainError) return sendJson(res, e.status, { error: "keychain", message: e.message });
+    if (e instanceof KeychainError) return sendJson(res, e.status, { error: e.code, message: e.message });
     throw e;
   }
 }

@@ -32,10 +32,10 @@ test("base64ToBytes strips a data-URL prefix", () => {
 });
 
 test("pasteChipLabel formats character counts", () => {
-  assert.equal(pasteChipLabel(950), "Pasted text · 950 chars");
-  assert.equal(pasteChipLabel(4200), "Pasted text · 4.2k chars");
-  assert.equal(pasteChipLabel(9980), "Pasted text · 10k chars");
-  assert.equal(pasteChipLabel(123_456), "Pasted text · 123k chars");
+  assert.equal(pasteChipLabel(950), "Pasted text · 950 characters");
+  assert.equal(pasteChipLabel(4200), "Pasted text · 4.2K characters");
+  assert.equal(pasteChipLabel(9980), "Pasted text · 10K characters");
+  assert.equal(pasteChipLabel(123_456), "Pasted text · 123K characters");
 });
 
 test("insertIntoDraft appends to an empty draft without padding", () => {

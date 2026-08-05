@@ -25,8 +25,8 @@ async function createProject(ctx: ApiCtx): Promise<void> {
   const principalId = capabilityPrincipal(ctx, requested);
   if (principalId === null) return;
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  if (!principalId || !name)
-    return sendJson(ctx.res, 400, { error: "bad_request", message: "principalId and name required" });
+  if (!principalId) return sendJson(ctx.res, 400, { error: "bad_request", message: "principalId required" });
+  if (!name) return sendJson(ctx.res, 400, { error: "invalid_name", message: "name required" });
   const project = await ctx.app.createProject(principalId, name);
   return project ? sendJson(ctx.res, 201, { project }) : sendJson(ctx.res, 403, { error: "forbidden" });
 }
@@ -50,8 +50,8 @@ async function addProjectMember(ctx: ApiCtx): Promise<void> {
   const principalId = capabilityPrincipal(ctx, requested);
   if (principalId === null) return;
   const memberId = typeof body.memberId === "string" ? body.memberId.trim() : "";
-  if (!principalId || !memberId)
-    return sendJson(ctx.res, 400, { error: "bad_request", message: "principalId and memberId required" });
+  if (!principalId) return sendJson(ctx.res, 400, { error: "bad_request", message: "principalId required" });
+  if (!memberId) return sendJson(ctx.res, 400, { error: "invalid_member", message: "memberId required" });
   return mutationResponse(ctx, await ctx.app.addProjectMember(ctx.params.id!, principalId, memberId));
 }
 
@@ -61,8 +61,8 @@ async function renameProject(ctx: ApiCtx): Promise<void> {
   const principalId = capabilityPrincipal(ctx, requested);
   if (principalId === null) return;
   const name = typeof body.name === "string" ? body.name.trim() : "";
-  if (!principalId || !name)
-    return sendJson(ctx.res, 400, { error: "bad_request", message: "principalId and name required" });
+  if (!principalId) return sendJson(ctx.res, 400, { error: "bad_request", message: "principalId required" });
+  if (!name) return sendJson(ctx.res, 400, { error: "invalid_name", message: "name required" });
   return mutationResponse(ctx, await ctx.app.renameProject(ctx.params.id!, principalId, name));
 }
 
@@ -72,8 +72,8 @@ async function removeProjectMember(ctx: ApiCtx): Promise<void> {
   const principalId = capabilityPrincipal(ctx, requested);
   if (principalId === null) return;
   const memberId = ctx.params.memberId?.trim() ?? "";
-  if (!principalId || !memberId)
-    return sendJson(ctx.res, 400, { error: "bad_request", message: "principalId and memberId required" });
+  if (!principalId) return sendJson(ctx.res, 400, { error: "bad_request", message: "principalId required" });
+  if (!memberId) return sendJson(ctx.res, 400, { error: "invalid_member", message: "memberId required" });
   return mutationResponse(ctx, await ctx.app.removeProjectMember(ctx.params.id!, principalId, memberId));
 }
 

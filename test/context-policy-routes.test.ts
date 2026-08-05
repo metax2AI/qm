@@ -69,6 +69,26 @@ test("context policy read requires membership and a Slack-backed scope", async (
   assert.equal(personal.out.status, 400);
 });
 
+test("context policy distinguishes an unconfigured deployment from a missing scope", async () => {
+  const read = makeCtx({
+    url: "http://x/v1/contexts/policy?principalId=alice&scope=channel:C1",
+    contexts: ["channel:C1"],
+  });
+  delete read.ctx.deps.channelPolicy;
+  await getContextPolicy(read.ctx);
+  assert.equal(read.out.status, 503);
+  assert.equal((read.out.body as { error: string }).error, "not_configured");
+
+  const write = makeCtx({
+    contexts: ["channel:C1"],
+    body: { principalId: "alice", scope: "channel:C1", orders: "", bots: {} },
+  });
+  delete write.ctx.deps.channelPolicy;
+  await setContextPolicy(write.ctx);
+  assert.equal(write.out.status, 503);
+  assert.equal((write.out.body as { error: string }).error, "not_configured");
+});
+
 test("context policy write validates the ledger, persists, and audits", async () => {
   const { ctx, out, store } = makeCtx({
     contexts: ["channel:C2"],
@@ -161,6 +181,7 @@ test("a stale baseUpdatedAt bounces instead of reverting a concurrent edit", asy
   });
   await setContextPolicy(stale.ctx);
   assert.equal(stale.out.status, 409);
+  assert.equal((stale.out.body as { error: string }).error, "context_policy_conflict");
   assert.equal((await store.get("C3"))?.orders, "v1");
 
   const fresh = makeCtx({

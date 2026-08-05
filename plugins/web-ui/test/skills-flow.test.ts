@@ -23,8 +23,15 @@ test("focused create/edit flows leave list search and filters untouched on open 
 });
 
 test("closing a focused flow clears an unfinished edit loading notice", () => {
-  assert.match(bodyOf("startEdit"), /skillsNotice = "Loading skill instructions…"/);
+  assert.match(bodyOf("startEdit"), /skillsNotice = msg\("Loading skill instructions…"\)/);
   assert.match(bodyOf("closeFocusedFlow"), /skillsNotice = ""/);
+});
+
+test("create failures flow through the shared API error contract without matching server prose", () => {
+  const create = bodyOf("saveCreate");
+  assert.match(create, /await api\("\/api\/skills"/);
+  assert.match(create, /createError = errMessage\(e, msg\("Failed to create skill\."\)\)/);
+  assert.doesNotMatch(create, /already exists|e\.message|\.includes\(/);
 });
 
 test("entering Skills clears archive overlay state from an earlier visit", () => {
@@ -68,7 +75,10 @@ test("edit loading and successful saves always move focus to a surviving control
     bodyOf("restoreFocusedFlow"),
     /skillId\s*\?\s*\(?matchingEdit \?\? search \?\? create\)?\s*:\s*\(?create \?\? search\)?/,
   );
-  assert.match(bodyOf("editorPane"), /editError \? "Instructions unavailable\." : "Loading instructions…"/);
+  assert.match(
+    bodyOf("editorPane"),
+    /editError \? msg\("Instructions unavailable\."\) : msg\("Loading instructions…"\)/,
+  );
   assert.equal(source.match(/shouldBlockRepeatedPublishClick\(reviewed, event\.detail\)/g)?.length, 2);
 });
 

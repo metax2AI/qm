@@ -309,7 +309,10 @@ describe("connectors are grantable like any keychain record", () => {
       mode: "once",
       purpose: "p",
     });
-    await assert.rejects(k2.materialize(g2.id, G1, "carol@x"), (e: KeychainError) => e.status === 410);
+    await assert.rejects(
+      k2.materialize(g2.id, G1, "carol@x"),
+      (e: KeychainError) => e.status === 410 && e.code === "credential_expired",
+    );
   });
 
   it("a still-valid token within the refresh margin is refreshed; one with ample life is reused", async () => {
@@ -1089,6 +1092,31 @@ describe("/v1/keychain routes (capability-authed)", () => {
     assert.notEqual(res.status, 200);
   });
 
+  it("missing keychain resources return stable domain codes", async () => {
+    const deleted = await fetch(`${base}/v1/keychain/credentials/missing`, {
+      method: "DELETE",
+      headers: { "x-agent-capability": await capFor("MISSING") },
+    });
+    assert.equal(deleted.status, 404);
+    assert.equal(((await deleted.json()) as { error: string }).error, "credential_not_found");
+
+    const revoked = await post(
+      "/v1/keychain/grants/missing/revoke",
+      {},
+      await capFor("MISSING", scopeId("channel", "C_MISSING")),
+    );
+    assert.equal(revoked.status, 404);
+    assert.equal(((await revoked.json()) as { error: string }).error, "grant_not_found");
+
+    const asked = await post(
+      "/v1/keychain/asks",
+      { credential: "missing", purpose: "test the stable error contract" },
+      await capFor("MISSING", scopeId("channel", "C_MISSING")),
+    );
+    assert.equal(asked.status, 404);
+    assert.equal(((await asked.json()) as { error: string }).error, "credential_not_found");
+  });
+
   it("grant: only mintable on the OWNER's own turn; use is scope-bound and returns sourceable env text", async () => {
     const { credential } = (await (
       await post(
@@ -1117,13 +1145,16 @@ describe("/v1/keychain routes (capability-authed)", () => {
 
     const elsewhere = await post("/v1/keychain/use", { grant: g.grant.id }, await capFor("U3", "channel:OTHER"));
     assert.equal(elsewhere.status, 403);
+    assert.equal(((await elsewhere.json()) as { error: string }).error, "grant_scope_mismatch");
 
     const used = await post("/v1/keychain/use", { grant: g.grant.id }, await capFor("U3", "channel:C7"));
     assert.equal(used.status, 200);
     assert.match(used.headers.get("content-type") ?? "", /text\/plain/);
     assert.equal(await used.text(), "export GH_GRANT='ghp_grant'\n");
 
-    assert.equal((await post("/v1/keychain/use", { grant: g.grant.id }, await capFor("U3", "channel:C7"))).status, 410);
+    const reused = await post("/v1/keychain/use", { grant: g.grant.id }, await capFor("U3", "channel:C7"));
+    assert.equal(reused.status, 410);
+    assert.equal(((await reused.json()) as { error: string }).error, "grant_used");
 
     const usage = await built.credentialUsage.list({});
     assert.ok(

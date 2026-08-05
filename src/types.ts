@@ -476,6 +476,25 @@ export interface TurnResult {
   reply?: string;
   reactions?: string[];
   reason?: string;
+  retryAfterMs?: number;
+  budget?: { spentUsd: number; limitUsd: number };
+  reasonCode?:
+    | "approval_denied"
+    | "approval_not_visible"
+    | "context_access_denied"
+    | "conversation_context_mismatch"
+    | "budget_exceeded"
+    | "effort_not_supported"
+    | "internal_access_denied"
+    | "model_not_enabled"
+    | "model_provider_unavailable"
+    | "model_not_supported"
+    | "project_membership_changed"
+    | "rate_limited"
+    | "runtime_not_approved"
+    | "security_quarantine"
+    | "session_busy"
+    | "thread_owner_mismatch";
   refusalKind?: "security_quarantine";
   adminUrl?: string;
   runId?: string;
