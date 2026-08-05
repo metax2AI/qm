@@ -7,7 +7,7 @@ import { listBackLink, listPageTpl } from "./list-page";
 import { ensureContexts, scopeChip } from "./contexts";
 import { appState } from "./shell";
 import { mainConversation } from "./conversations";
-import { deepLinkPath, UI_BASE } from "./deep-link";
+import { deepLinkPath, isPlainLeftClick, UI_BASE } from "./deep-link";
 import {
   cronNextFire,
   cronRunSummary,
@@ -162,8 +162,7 @@ function cronPreview(c: CronView): string {
 function cronScopeLabel(c: CronView): string {
   const sep = c.ownerScopeId.indexOf(":");
   const kind = sep === -1 ? c.ownerScopeId : c.ownerScopeId.slice(0, sep);
-  const ref = sep === -1 ? "" : c.ownerScopeId.slice(sep + 1);
-  if (kind === "channel") return `#${c.scopeName ?? ref}`;
+  if (kind === "channel") return c.scopeName ? `#${c.scopeName}` : "a Slack channel";
   if (kind === "org") return "org-wide";
   if (kind === "group") return "group";
   return c.owner;
@@ -340,7 +339,7 @@ function cronPageRow(c: CronView, mine: boolean): TemplateResult {
         class="cron-row-main"
         href=${deepLinkPath(UI_BASE, "crons", null, null, c.id)}
         @click=${(event: MouseEvent) => {
-          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+          if (!isPlainLeftClick(event)) return;
           event.preventDefault();
           openCron(c, { push: true });
         }}

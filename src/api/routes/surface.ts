@@ -11,6 +11,7 @@ import {
   serviceableModelIds,
   ALL_PROVIDERS_AVAILABLE,
   FAST_MODE_MODEL_IDS,
+  THINKING_LEVELS,
   type HarnessId,
 } from "../../model/pi-models.ts";
 import { builtInModelCatalog, selectableCatalogForHarness, selectableModelCatalog } from "../../model/model-catalog.ts";
@@ -75,6 +76,47 @@ async function forkSession(ctx: ApiCtx): Promise<void> {
   const out = await app.forkSession(id, b.principalId, b.upToSeq !== undefined ? { upToSeq: b.upToSeq } : undefined);
   if (!out) return sendJson(res, 404, { error: "not_found" });
   return sendJson(res, 200, out);
+}
+
+async function spawnAgentConversation(ctx: ApiCtx): Promise<void> {
+  const { res, app, body, capability } = ctx;
+  if (!capability) {
+    return sendJson(res, 401, { error: "capability_required", message: "this endpoint is for the agent self-API" });
+  }
+  if (!livePersonCapability(capability)) {
+    return sendJson(res, 403, {
+      error: "human_attended_only",
+      message:
+        "starting a fresh conversation requires a turn a person is attending — not a cron, trigger, or other automation",
+    });
+  }
+  const b = isObj(body) ? body : {};
+  if (typeof b.text !== "string" || !b.text.trim()) {
+    return sendJson(res, 400, { error: "bad_request", message: "text required — the new session's first message" });
+  }
+  if (b.title !== undefined && typeof b.title !== "string") {
+    return sendJson(res, 400, { error: "bad_request", message: "title must be a string" });
+  }
+  const out = await app.spawnSession(capability.actorId, {
+    scopeId: capability.scopeId,
+    ...(typeof b.title === "string" ? { title: b.title } : {}),
+  });
+  if (!out) return sendJson(res, 404, { error: "not_found", message: "cannot start a session in this scope" });
+  const session = out.session;
+  const turn = await app.turn({
+    surface: session.surface ?? "web",
+    actor: { externalId: capability.actorId },
+    conversation: {
+      kind: session.type,
+      threadRef: session.threadRef,
+      ...(session.channelName ? { channelName: session.channelName } : {}),
+    },
+    text: b.text,
+    spawned: true,
+    async: true,
+  });
+  const runId = (turn as { runId?: string }).runId;
+  return sendJson(res, 202, { session, turn: { status: turn.status, ...(runId ? { runId } : {}) } });
 }
 
 async function forkAgentConversation(ctx: ApiCtx): Promise<void> {
@@ -1044,14 +1086,26 @@ async function runtimeConfigBody(ctx: ApiCtx, scope: ScopeId): Promise<Record<st
       : builtInModelCatalog();
   const orgStored = await config.getRuntimeSelectionDurable(org);
   const orgLegacyModel = orgStored ? null : await config.getBaseModelOwnDurable(org);
-  let orgDefault = { ...safeFallback, revision: orgStored?.revision ?? 0 };
+  let orgDefault: {
+    harnessId: HarnessId;
+    modelId: string;
+    effortLevel?: string;
+    fastMode?: boolean;
+    revision: number;
+  } = { ...safeFallback, revision: orgStored?.revision ?? 0 };
   if (
     orgStored &&
     isHarnessId(orgStored.harnessId) &&
     approvedHarnesses.includes(orgStored.harnessId) &&
     modelSupportedByHarness(orgStored.modelId, orgStored.harnessId)
   ) {
-    orgDefault = { harnessId: orgStored.harnessId, modelId: orgStored.modelId, revision: orgStored.revision ?? 0 };
+    orgDefault = {
+      harnessId: orgStored.harnessId,
+      modelId: orgStored.modelId,
+      ...(orgStored.effortLevel ? { effortLevel: orgStored.effortLevel } : {}),
+      ...(typeof orgStored.fastMode === "boolean" ? { fastMode: orgStored.fastMode } : {}),
+      revision: orgStored.revision ?? 0,
+    };
   } else if (
     orgLegacyModel &&
     approvedHarnesses.includes(fallback.harnessId) &&
@@ -1061,14 +1115,26 @@ async function runtimeConfigBody(ctx: ApiCtx, scope: ScopeId): Promise<Record<st
   }
   const stored = scope === org ? orgStored : await config.getRuntimeSelectionDurable(scope);
   const legacyModel = scope === org ? null : await config.getBaseModelOwnDurable(scope);
-  let scopeOverride: { harnessId: HarnessId; modelId: string; orgRevision?: number } | null = null;
+  let scopeOverride: {
+    harnessId: HarnessId;
+    modelId: string;
+    effortLevel?: string;
+    fastMode?: boolean;
+    orgRevision?: number;
+  } | null = null;
   if (
     stored &&
     isHarnessId(stored.harnessId) &&
     approvedHarnesses.includes(stored.harnessId) &&
     modelSupportedByHarness(stored.modelId, stored.harnessId)
   ) {
-    scopeOverride = { harnessId: stored.harnessId, modelId: stored.modelId, orgRevision: stored.orgRevision };
+    scopeOverride = {
+      harnessId: stored.harnessId,
+      modelId: stored.modelId,
+      ...(stored.effortLevel ? { effortLevel: stored.effortLevel } : {}),
+      ...(typeof stored.fastMode === "boolean" ? { fastMode: stored.fastMode } : {}),
+      orgRevision: stored.orgRevision,
+    };
   } else if (
     legacyModel &&
     approvedHarnesses.includes(fallback.harnessId) &&
@@ -1111,7 +1177,12 @@ async function runtimeConfigBody(ctx: ApiCtx, scope: ScopeId): Promise<Record<st
     modelCatalog,
     orgDefault,
     scopeOverride,
-    effective: { harnessId: effective.harnessId, modelId: effective.modelId },
+    effective: {
+      harnessId: effective.harnessId,
+      modelId: effective.modelId,
+      ...(effective.effortLevel ? { effortLevel: effective.effortLevel } : {}),
+      ...(typeof effective.fastMode === "boolean" ? { fastMode: effective.fastMode } : {}),
+    },
     upgradeAvailable: Boolean(scopeOverride && scopeOverride.orgRevision !== orgDefault.revision),
     fastModeModelIds: FAST_MODE_MODEL_IDS,
     interactiveFastMode: await config.getInteractiveFastModeDurable(),
@@ -1169,7 +1240,17 @@ async function putRuntimeConfig(ctx: ApiCtx): Promise<void> {
     if (typeof modelId !== "string" || !modelSupportedByHarness(modelId, harnessId))
       return sendJson(ctx.res, 400, { error: "model_not_supported" });
     if (!(await webuiModelEnabled(ctx, modelId))) return sendJson(ctx.res, 400, { error: "model_not_enabled" });
-    await config.setRuntimeSelectionLatest(target.scope, { harnessId, modelId });
+    const effortLevel = ctx.body.effortLevel ?? "auto";
+    if (typeof effortLevel !== "string" || !(THINKING_LEVELS as readonly string[]).includes(effortLevel))
+      return sendJson(ctx.res, 400, { error: "effort_not_supported" });
+    const fastMode = ctx.body.fastMode ?? false;
+    if (typeof fastMode !== "boolean") return sendJson(ctx.res, 400, { error: "fast_mode_invalid" });
+    await config.setRuntimeSelectionLatest(target.scope, {
+      harnessId,
+      modelId,
+      effortLevel,
+      fastMode: fastMode && FAST_MODE_MODEL_IDS.includes(modelId),
+    });
   }
   audit(ctx.deps, {
     principalId: target.actorId,
@@ -1248,6 +1329,7 @@ export const surfaceRoutes: ReadonlyArray<Route<ApiCtx>> = [
   { method: "GET", path: "/v1/conversations", auth: "either", handle: listAgentConversations },
   { method: "GET", path: "/v1/conversations/:id", auth: "either", handle: getAgentConversation },
   { method: "POST", path: "/v1/conversations/:id", auth: "either", handle: patchAgentConversation },
+  { method: "POST", path: "/v1/conversations", auth: "either", handle: spawnAgentConversation },
   { method: "POST", path: "/v1/conversations/:id/fork", auth: "either", handle: forkAgentConversation },
   { method: "GET", path: "/v1/contexts", auth: "source", handle: listContexts },
   { method: "GET", path: "/v1/scope-resources", auth: "source", handle: listScopeResources },
