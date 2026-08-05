@@ -65,31 +65,35 @@ Two habits that keep task-focused changes from scarring the rest of the repo:
   description, so a reviewer sees the result without booting it. Can't reach the surface
   live? Render it against realistic data and say so.
 
-## Private forks
+## Downstream forks
 
-Organizations run qm from private forks of this repository. A private fork is a
-standalone private repository whose history begins as a clone of qm. Everything
-organization-specific is confined to `deploy/layers/<org>/`, and every file outside
-that directory, which these rules call core, stays byte-identical to upstream. Core
-here covers the plugins, the CLI, the docs, and CI as much as the runtime under
-`src/`. A private fork is created with a plain clone and never with
-GitHub's fork feature, because a GitHub fork of a public repository cannot be made
-private and its commits stay fetchable by SHA from the public side. The README section
-"Customize your instance" gives the creation procedure.
+Before acting, determine which repository this checkout is by running `git remote -v`.
+If `origin` points at `yc-software/qm`, you are in upstream qm. If `origin` points
+anywhere else, the repository is a long-lived downstream distribution whose history
+began as a standalone clone of upstream.
 
-Before you act, determine which repository this checkout is by running `git remote -v`.
-If `origin` points at `yc-software/qm`, you are in upstream qm. If `origin`
-points anywhere else, you are in a private fork, and five rules apply. Do not edit core;
-a change to core belongs in upstream qm, and the `upstream-pr` skill sends it there
-without leaking organization context. Keep every organization-specific file under
-`deploy/layers/<org>/`. Sync from upstream with the `update-qm` skill, which merges and
-never rebases. Pass `--repo` to every `gh` command, because `gh` may otherwise pick the
-upstream repository through the `upstream` remote and read or edit the wrong
-repository's pull requests. Never reference an upstream issue or pull request by number
-(`yc-software/qm#123`) in a fork's PRs, issues, comments, or commit messages: GitHub
-mirrors such mentions onto the referenced upstream item as a permanent timeline event,
-so the fork's existence and the mentioning title become visible to whoever GitHub
-decides may see them. Name upstream work in plain words instead.
+A downstream distribution may modify core, including `src/`, plugins, the CLI, docs,
+and CI, when its product requires behavior that upstream does not provide. Keep that
+divergence small, intentional, and covered by tests so later upstream merges remain
+tractable. Prefer extending shared choke points over copying upstream implementations or
+replacing whole files. Organization credentials, infrastructure coordinates, private
+connectors, and deployment-only configuration still belong under
+`deploy/layers/<org>/`; secrets never enter Git.
+
+Keep an `upstream` remote pointing at `yc-software/qm`. Sync upstream through a temporary
+branch, merge rather than rebase, record the merged range and every resolved conflict,
+run the affected verification, and merge the result into the downstream `main` through
+a PR. Preserve both new upstream behavior and intentional downstream behavior when
+resolving conflicts; never choose one side wholesale merely to complete a merge. The
+`update-qm` skill supplies the safe merge and verification workflow, but its stricter
+byte-identical-core assumption does not apply to a downstream distribution.
+
+Generic improvements may still be contributed with the `upstream-pr` skill, but doing so
+is optional and downstream history must never be pushed to upstream. Pass `--repo` to
+every `gh` command because `gh` may otherwise select the wrong remote. Never reference
+an upstream issue or pull request by number in downstream PRs, issues, comments, or
+commit messages: GitHub may mirror the mention onto the upstream item and expose private
+repository context. Name upstream work in plain words instead.
 
 ## Durable by default
 
