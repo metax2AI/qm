@@ -4,7 +4,7 @@ import { allLocales, sourceLocale, targetLocales } from "./generated/locale-code
 
 export type AppLocale = (typeof allLocales)[number];
 
-export const LOCALE_STORAGE_KEY = "qm.web-ui.locale";
+const LOCALE_STORAGE_KEY = "qm.web-ui.locale";
 
 const localeLoaders: Record<(typeof targetLocales)[number], () => Promise<LocaleModule>> = {
   "zh-Hans": () => import("./generated/locales/zh-Hans.ts"),
@@ -20,7 +20,8 @@ export function normalizeLocale(value: string | null | undefined): AppLocale | n
   const locale = value?.trim().replaceAll("_", "-").toLowerCase();
   if (!locale) return null;
   if (locale === "en" || locale.startsWith("en-")) return "en";
-  if (locale === "zh" || locale === "zh-cn" || locale === "zh-sg" || locale === "zh-hans") return "zh-Hans";
+  const [language, variant] = locale.split("-");
+  if (language === "zh" && (!variant || variant === "cn" || variant === "sg" || variant === "hans")) return "zh-Hans";
   return null;
 }
 

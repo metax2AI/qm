@@ -62,6 +62,11 @@ test("a denied approval's refusal is a clean outcome, not an error", async () =>
   await runApprovalTurn("web:u:t", fakeAgent(), { requestId: "a-1", approved: false }, undefined, undefined);
 });
 
+test("a denied approval from an older core is still a clean outcome", async () => {
+  stubTurn({ status: "refused", reason: "approval denied for execute" });
+  await runApprovalTurn("web:u:t", fakeAgent(), { requestId: "a-1", approved: false }, undefined, undefined);
+});
+
 test("a denied approval does not hide a different structured refusal", async () => {
   stubTurn({ status: "refused", reasonCode: "session_busy", reason: "another turn is running" });
   await assert.rejects(

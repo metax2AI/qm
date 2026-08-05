@@ -60,7 +60,7 @@ test("critical authentication and navigation paths render in Simplified Chinese"
     assert.equal(document.querySelector('button[aria-label="退出登录"]')?.getAttribute("title"), "退出登录");
     assert.deepEqual(
       [...document.querySelectorAll(".navrow span")].map((element) => element.textContent),
-      ["项目", "聊天", "文件", "定时任务", "钥匙串", "应用", "内存", "技能"],
+      ["项目", "聊天", "文件", "定时任务", "钥匙串", "应用", "记忆", "技能"],
     );
   } finally {
     await vite.close();

@@ -5,6 +5,8 @@ import { injectDefaultLocale, normalizeWebLocale } from "../server/localization.
 test("normalizes supported deployment locale aliases", () => {
   assert.equal(normalizeWebLocale("zh-CN"), "zh-Hans");
   assert.equal(normalizeWebLocale("zh_SG"), "zh-Hans");
+  assert.equal(normalizeWebLocale("zh-Hans-SG"), "zh-Hans");
+  assert.equal(normalizeWebLocale("zh-CN-u-hc-h23"), "zh-Hans");
   assert.equal(normalizeWebLocale("en-US"), "en");
   assert.equal(normalizeWebLocale("zh-TW"), null);
   assert.equal(normalizeWebLocale(undefined), null);

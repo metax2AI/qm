@@ -1007,7 +1007,7 @@ async function createProject(event: SubmitEvent): Promise<void> {
   try {
     const project = projectFromResponse(await api("/api/projects", { method: "POST", body: JSON.stringify({ name }) }));
     if (resetSeq !== contextsResetSeq) return;
-    if (!project) throw new Error("Core returned an invalid project");
+    if (!project) throw new Error(msg("Couldn't create that project."));
     const loaded = contextsState.loaded;
     let context = upsertProject(project);
     if (!loaded) {
@@ -1140,7 +1140,7 @@ async function addProjectMember(context: CoreContext, member: DirectoryMatch): P
     });
     if (resetSeq !== contextsResetSeq) return;
     const project = projectFromResponse(response);
-    if (!project) throw new Error("Core returned an invalid project");
+    if (!project) throw new Error(msg("Couldn't add that person."));
     upsertProject(project);
     contextsState.memberQuery = "";
     contextsState.memberMatches = [];
@@ -1175,7 +1175,7 @@ async function removeProjectMember(context: CoreContext, principalId: string): P
     );
     if (resetSeq !== contextsResetSeq) return;
     const project = projectFromResponse(response);
-    if (!project) throw new Error("Core returned an invalid project");
+    if (!project) throw new Error(msg("Couldn't remove that person."));
     upsertProject(project);
   } catch (error) {
     if (resetSeq !== contextsResetSeq) return;

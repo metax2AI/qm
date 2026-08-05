@@ -3,7 +3,8 @@ export type WebLocale = "en" | "zh-Hans";
 export function normalizeWebLocale(value: string | undefined): WebLocale | null {
   const locale = value?.trim().replaceAll("_", "-").toLowerCase();
   if (locale === "en" || locale?.startsWith("en-")) return "en";
-  if (locale === "zh" || locale === "zh-cn" || locale === "zh-sg" || locale === "zh-hans") return "zh-Hans";
+  const [language, variant] = locale?.split("-") ?? [];
+  if (language === "zh" && (!variant || variant === "cn" || variant === "sg" || variant === "hans")) return "zh-Hans";
   return null;
 }
 

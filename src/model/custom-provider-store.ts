@@ -9,7 +9,7 @@
 
 import { decryptSecret, deriveConnectorKey, encryptSecret } from "../connectors/connector-client-store.ts";
 import type { DurableMap } from "../persistence/durable-map.ts";
-import { validateCustomProviderSpec, type CustomProviderSpec } from "./custom-providers.ts";
+import { isReservedCustomProviderId, validateCustomProviderSpec, type CustomProviderSpec } from "./custom-providers.ts";
 
 export interface StoredCustomProvider extends CustomProviderSpec {
   apiKeyEnc?: string;
@@ -55,7 +55,7 @@ export function createCustomProviderStore(input: {
   return {
     async enabled() {
       const all = await input.backing.all();
-      return all.filter((p) => !p.disabled).map(strip);
+      return all.filter((p) => !p.disabled && !isReservedCustomProviderId(p.id)).map(strip);
     },
 
     async statuses() {
@@ -63,7 +63,7 @@ export function createCustomProviderStore(input: {
       return all
         .map((p) => ({
           ...strip(p),
-          disabled: p.disabled ?? false,
+          disabled: (p.disabled ?? false) || isReservedCustomProviderId(p.id),
           hasKey: Boolean(p.apiKeyEnc),
           updatedAt: p.updatedAt,
           updatedBy: p.updatedBy,
@@ -72,6 +72,7 @@ export function createCustomProviderStore(input: {
     },
 
     async resolveKey(id) {
+      if (isReservedCustomProviderId(id)) return null;
       const saved = await input.backing.get(id);
       if (!saved || saved.disabled || !saved.apiKeyEnc) return null;
       return decryptSecret(saved.apiKeyEnc, key);

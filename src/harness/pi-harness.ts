@@ -594,13 +594,16 @@ interface PiAgentWithPayloadHook {
 function normalizeProviderPayload(payload: unknown, model: unknown): unknown {
   const provider = model && typeof model === "object" ? (model as { provider?: unknown }).provider : undefined;
   if (provider !== "deepseek" || !payload || typeof payload !== "object") return payload;
-  const request = payload as { messages?: unknown };
+  const request = payload as Record<string, unknown>;
   if (!Array.isArray(request.messages)) return payload;
-  return {
+  const normalized: Record<string, unknown> = {
     ...request,
     messages: request.messages.map((message) => {
       if (!message || typeof message !== "object") return message;
-      const shaped = message as { role?: unknown; content?: unknown };
+      const shaped = message as { role?: unknown; content?: unknown; tool_calls?: unknown };
+      if (shaped.role === "assistant" && shaped.content === null && Array.isArray(shaped.tool_calls)) {
+        return { ...shaped, content: "" };
+      }
       if (shaped.role !== "user" || !Array.isArray(shaped.content)) return message;
       const text = shaped.content.map((part) =>
         part && typeof part === "object" && (part as { type?: unknown }).type === "text"
@@ -611,6 +614,8 @@ function normalizeProviderPayload(payload: unknown, model: unknown): unknown {
       return { ...shaped, content: text.join("\n\n") };
     }),
   };
+  delete normalized.tool_choice;
+  return normalized;
 }
 
 interface PiSeedTarget {

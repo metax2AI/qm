@@ -1,10 +1,9 @@
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
+import { runAndLog } from "@lit/localize-tools/lib/cli.js";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const cli = join(root, "node_modules", "@lit", "localize-tools", "bin", "lit-localize.js");
 const tracked = [join(root, "xliff"), join(root, "src", "generated")];
 
 function filesAt(path: string): string[] {
@@ -17,12 +16,15 @@ function snapshot(): Map<string, string> {
   return new Map(tracked.flatMap(filesAt).map((path) => [relative(root, path), readFileSync(path, "utf8")]));
 }
 
-function run(command: "extract" | "build"): void {
-  const result = spawnSync(process.execPath, [cli, command, "--config", join(root, "lit-localize.json")], {
-    cwd: root,
-    stdio: "inherit",
-  });
-  if (result.status !== 0) process.exit(result.status ?? 1);
+async function run(command: "extract" | "build"): Promise<void> {
+  const status = await runAndLog([
+    process.execPath,
+    "lit-localize",
+    command,
+    "--config",
+    join(root, "lit-localize.json"),
+  ]);
+  if (status !== 0) process.exit(status);
 }
 
 function stripGenerated(path: string): void {
@@ -40,18 +42,18 @@ function stripGenerated(path: string): void {
   writeFileSync(path, `${source.replace(/\n{3,}/g, "\n\n")}\n`);
 }
 
-function build(): void {
-  run("build");
+async function build(): Promise<void> {
+  await run("build");
   for (const path of filesAt(join(root, "src", "generated"))) stripGenerated(path);
 }
 
 const command = process.argv[2];
-if (command === "extract") run("extract");
-else if (command === "build") build();
+if (command === "extract") await run("extract");
+else if (command === "build") await build();
 else if (command === "check") {
   const before = snapshot();
-  run("extract");
-  build();
+  await run("extract");
+  await build();
   const after = snapshot();
   const changed = [...new Set([...before.keys(), ...after.keys()])].filter(
     (path) => before.get(path) !== after.get(path),

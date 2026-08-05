@@ -5,6 +5,7 @@ import {
   resolveCustomModel,
   isCustomModelId,
   customModelCatalog,
+  isReservedCustomProviderId,
   validateCustomProviderSpec,
 } from "../src/model/custom-providers.ts";
 import { builtInModelCatalog } from "../src/model/model-catalog.ts";
@@ -69,7 +70,10 @@ test("custom models are gated to pi and mock harnesses", () => {
 
 test("a registered custom model is serviceable regardless of built-in key availability", () => {
   setCustomProviders([GATEWAY]);
-  assert.equal(modelServiceable("acme-large", { anthropic: false, openai: false, openrouter: false }), true);
+  assert.equal(
+    modelServiceable("acme-large", { anthropic: false, deepseek: false, openai: false, openrouter: false }),
+    true,
+  );
 });
 
 test("catalog lists custom models; clearing the registry removes them", () => {
@@ -82,6 +86,8 @@ test("catalog lists custom models; clearing the registry removes them", () => {
 
 test("spec validation rejects reserved ids, bad slugs, bad URLs, and empty model lists", () => {
   assert.throws(() => validateCustomProviderSpec({ ...GATEWAY, id: "openai" }), /reserved/);
+  assert.equal(isReservedCustomProviderId("deepseek"), true);
+  assert.throws(() => validateCustomProviderSpec({ ...GATEWAY, id: "deepseek" }), /reserved/);
   assert.throws(() => validateCustomProviderSpec({ ...GATEWAY, id: "Not A Slug" }), /slug/);
   assert.throws(() => validateCustomProviderSpec({ ...GATEWAY, baseUrl: "ftp://x" }), /http/);
   assert.throws(() => validateCustomProviderSpec({ ...GATEWAY, baseUrl: "https://x?y=1" }), /query/);
@@ -128,8 +134,8 @@ test("store validates specs on upsert", async () => {
 test("registered models surface in the catalog and vanish on unregister", () => {
   setCustomProviders([
     {
-      id: "deepseek",
-      name: "DeepSeek",
+      id: "deepseek-gateway",
+      name: "DeepSeek Gateway",
       protocol: "openai",
       baseUrl: "https://api.deepseek.com/v1",
       models: [{ id: "deepseek-chat", name: "DeepSeek Chat" }],
@@ -138,9 +144,31 @@ test("registered models surface in the catalog and vanish on unregister", () => 
   const catalog = builtInModelCatalog();
   const entry = catalog.find((m) => m.id === "deepseek-chat");
   assert.ok(entry, "custom model appears in the catalog");
-  assert.equal(entry!.provider, "deepseek");
+  assert.equal(entry!.provider, "deepseek-gateway");
   setCustomProviders([]);
   assert.ok(!builtInModelCatalog().some((m) => m.id === "deepseek-chat"));
+});
+
+test("legacy custom providers cannot shadow a newly built-in provider", async () => {
+  const backing = createMemoryMap<StoredCustomProvider>();
+  await backing.put("deepseek", {
+    id: "deepseek",
+    name: "Legacy DeepSeek",
+    protocol: "openai",
+    baseUrl: "https://legacy.example.com/v1",
+    models: [{ id: "legacy-deepseek" }],
+    apiKeyEnc: "legacy-ciphertext",
+    updatedAt: 1,
+    updatedBy: "legacy-admin",
+  });
+  const store = createCustomProviderStore({ backing, keyMaterial: "k" });
+  assert.deepEqual(await store.enabled(), []);
+  assert.equal(await store.resolveKey("deepseek"), null);
+  assert.equal((await store.statuses())[0]!.disabled, true);
+  const legacy = await backing.get("deepseek");
+  assert.ok(legacy);
+  setCustomProviders([legacy]);
+  assert.equal(resolveModel("legacy-deepseek"), undefined);
 });
 
 test("opencode modelRef routes slashed custom model ids to the registered provider, not a phantom slash-prefix", async () => {

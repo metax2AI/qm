@@ -188,3 +188,15 @@ test("Lit templates do not contain bare user-facing English", () => {
       .join("\n"),
   );
 });
+
+test("project response failures use localized operation messages", () => {
+  const contexts = readFileSync(join(sourceRoot, "contexts.ts"), "utf8");
+  assert.doesNotMatch(contexts, /throw new Error\("Core returned an invalid project"\)/);
+  for (const message of [
+    "Couldn't create that project.",
+    "Couldn't add that person.",
+    "Couldn't remove that person.",
+  ]) {
+    assert.match(contexts, new RegExp(`throw new Error\\(msg\\(${JSON.stringify(message)}\\)\\)`));
+  }
+});

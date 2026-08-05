@@ -2612,7 +2612,7 @@ Want to get set up? Tell me your name and what you're working on, and I'll take 
 </trans-unit>
 <trans-unit id="sea3e4fffd23d559b">
   <source>Memory changed elsewhere. Refresh and try again.</source>
-  <target>内存已在其他位置发生更改。请刷新后重试。</target>
+  <target>记忆已在其他位置发生更改。请刷新后重试。</target>
 </trans-unit>
 <trans-unit id="s83349f3d94b272a2">
   <source>Project settings changed elsewhere. Refresh and try again.</source>
@@ -2732,7 +2732,7 @@ Want to get set up? Tell me your name and what you're working on, and I'll take 
 </trans-unit>
 <trans-unit id="s16e1bead7b9c95ce">
   <source>Memory</source>
-  <target>内存</target>
+  <target>记忆</target>
 </trans-unit>
 <trans-unit id="s97e3b71d8def576a">
   <source>Facts the agent carries into your conversations.</source>
@@ -2752,7 +2752,7 @@ Want to get set up? Tell me your name and what you're working on, and I'll take 
 </trans-unit>
 <trans-unit id="sbe5944bd079f057f">
   <source>Refresh memory</source>
-  <target>刷新内存</target>
+  <target>刷新记忆</target>
 </trans-unit>
 <trans-unit id="s669329d3d83ec827">
   <source>Edit the notebook directly. Switch to Facts view to search or remove individual facts. Saves are protected if the agent remembers something new while this page is open.</source>
@@ -2760,7 +2760,7 @@ Want to get set up? Tell me your name and what you're working on, and I'll take 
 </trans-unit>
 <trans-unit id="s52f1a7db3b55e7c4">
   <source>Search memory</source>
-  <target>搜索内存</target>
+  <target>搜索记忆</target>
 </trans-unit>
 <trans-unit id="s4ebeca2ba91e56de">
   <source>Search remembered facts</source>
@@ -2808,15 +2808,15 @@ Want to get set up? Tell me your name and what you're working on, and I'll take 
 </trans-unit>
 <trans-unit id="sb43fee9474cc797f">
   <source>Revision history is unavailable for this memory store.</source>
-  <target>此内存存储的修订历史不可用。</target>
+  <target>此记忆存储的修订历史不可用。</target>
 </trans-unit>
 <trans-unit id="s2a0deee89b51b530">
   <source>Discard unsaved memory changes?</source>
-  <target>放弃未保存的内存更改？</target>
+  <target>放弃未保存的记忆更改？</target>
 </trans-unit>
 <trans-unit id="sbb64f73485091323">
   <source>Refreshing will replace this draft with the latest memory. Copy anything you want to keep before continuing.</source>
-  <target>刷新将使用最新内存替换此草稿。继续前请复制你想保留的内容。</target>
+  <target>刷新将使用最新记忆替换此草稿。继续前请复制你想保留的内容。</target>
 </trans-unit>
 <trans-unit id="s4eb3fc15764e0b77">
   <source>Discard and refresh</source>
@@ -2824,7 +2824,7 @@ Want to get set up? Tell me your name and what you're working on, and I'll take 
 </trans-unit>
 <trans-unit id="sa3ee9bd3bae887c0">
   <source>Failed to load memory.</source>
-  <target>加载内存失败。</target>
+  <target>加载记忆失败。</target>
 </trans-unit>
 <trans-unit id="sd499b1ae8a6e988d">
   <source>Saved ✓</source>
@@ -2836,19 +2836,19 @@ Want to get set up? Tell me your name and what you're working on, and I'll take 
 </trans-unit>
 <trans-unit id="s4a58f272a47fb091">
   <source>Memory changed in another conversation. Your draft is still here; copy it if needed, then refresh to merge with the latest version.</source>
-  <target>内存已在另一个对话中更改。你的草稿仍在此处；如有需要，请先复制，再刷新以合并最新版本。</target>
+  <target>记忆已在另一个对话中更改。你的草稿仍在此处；如有需要，请先复制，再刷新以合并最新版本。</target>
 </trans-unit>
 <trans-unit id="sd541ab9f91d356e5">
   <source>Failed to save memory.</source>
-  <target>保存内存失败。</target>
+  <target>保存记忆失败。</target>
 </trans-unit>
 <trans-unit id="s5e9fa8a2f3d3b05c">
   <source>Failed to load memory history.</source>
-  <target>加载内存历史记录失败。</target>
+  <target>加载记忆历史记录失败。</target>
 </trans-unit>
 <trans-unit id="sf4a8840466161733">
   <source>Restore memory from <x id="0" equiv-text="${fmtDate(row.at)}"/>?</source>
-  <target>从 <x id="0" equiv-text="${fmtDate(row.at)}"/> 恢复内存？</target>
+  <target>从 <x id="0" equiv-text="${fmtDate(row.at)}"/> 恢复记忆？</target>
 </trans-unit>
 <trans-unit id="s3b6b13945286fd67">
   <source>The selected notebook will become current. The version you have now remains available in history.</source>

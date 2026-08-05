@@ -25,13 +25,18 @@ test("parseProviderBaseUrl rejects bad values", () => {
   assert.throws(() => parseProviderBaseUrl("X", "https://gw.example.com/#frag"));
 });
 
-test("providerBaseUrlsFromEnv reads the three provider variables", () => {
+test("providerBaseUrlsFromEnv reads the four provider variables", () => {
   const urls = providerBaseUrlsFromEnv({
     ANTHROPIC_BASE_URL: "https://a.example.com",
+    DEEPSEEK_BASE_URL: "https://d.example.com",
     OPENAI_BASE_URL: "https://o.example.com/v1/",
     OPENROUTER_BASE_URL: "  ",
   } as NodeJS.ProcessEnv);
-  assert.deepEqual(urls, { anthropic: "https://a.example.com", openai: "https://o.example.com/v1" });
+  assert.deepEqual(urls, {
+    anthropic: "https://a.example.com",
+    deepseek: "https://d.example.com",
+    openai: "https://o.example.com/v1",
+  });
 });
 
 test("providerBaseUrl answers only for configured, known providers", () => {
@@ -43,8 +48,9 @@ test("providerBaseUrl answers only for configured, known providers", () => {
 
 test("resolveModel routes a built-in model through the override", () => {
   assert.equal(resolveModel("claude-opus-4-8")?.baseUrl, "https://api.anthropic.com");
-  setProviderBaseUrls({ anthropic: "https://gw.example.com" });
+  setProviderBaseUrls({ anthropic: "https://gw.example.com", deepseek: "https://deepseek.example.com" });
   assert.equal(resolveModel("claude-opus-4-8")?.baseUrl, "https://gw.example.com");
+  assert.equal(resolveModel("deepseek-v4-flash")?.baseUrl, "https://deepseek.example.com");
   assert.equal(resolveModel("gpt-5.6-sol")?.baseUrl, "https://api.openai.com/v1");
 });
 
@@ -59,10 +65,12 @@ test("loadConfig parses provider base URLs and feeds the child harness envs", ()
   const config = loadConfig({
     ...BASE_ENV,
     ANTHROPIC_BASE_URL: "https://a.example.com/",
+    DEEPSEEK_BASE_URL: "https://d.example.com",
     OPENAI_BASE_URL: "https://o.example.com/v1",
   });
   assert.deepEqual(config.providerBaseUrls, {
     anthropic: "https://a.example.com",
+    deepseek: "https://d.example.com",
     openai: "https://o.example.com/v1",
   });
   assert.equal(config.claudeProcessEnv.ANTHROPIC_BASE_URL, "https://a.example.com");

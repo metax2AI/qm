@@ -17,7 +17,7 @@ import {
 } from "../src/localization.ts";
 
 test("normalizes supported browser locale aliases", () => {
-  for (const locale of ["zh", "zh-CN", "zh-SG", "zh-Hans", "zh_cn"]) {
+  for (const locale of ["zh", "zh-CN", "zh-SG", "zh-Hans", "zh_cn", "zh-Hans-CN", "zh-CN-u-hc-h23"]) {
     assert.equal(normalizeLocale(locale), "zh-Hans");
   }
   assert.equal(normalizeLocale("en-US"), "en");

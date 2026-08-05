@@ -38,8 +38,11 @@ SLACK_BOT_TOKEN=xoxb-… SLACK_APP_TOKEN=xapp-… \
 npm start
 ```
 
-(`DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, or `OPENROUTER_API_KEY` work in place of `ANTHROPIC_API_KEY`; the base
-model follows whichever provider you configure.)
+For another provider, set both its key and `MODEL_PROVIDER`; for example:
+
+```bash
+HARNESS=pi MODEL_PROVIDER=deepseek DEEPSEEK_API_KEY=… npm start
+```
 
 (Or put the tokens in the repo-root `.env` — `npm start` loads it via
 `node --env-file-if-exists`.) It logs `connected as @agent …` when live; without
