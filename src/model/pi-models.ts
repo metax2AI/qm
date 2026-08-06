@@ -168,6 +168,17 @@ export function auxiliaryModelForProvider(provider: string): string | undefined 
   return MODEL_REGISTRY.find((m) => m.auxiliary && resolveModel(m.id)?.provider === provider)?.id;
 }
 
+export function auxiliaryModelForKeys(
+  keys: Record<string, string | boolean | undefined> | ModelProviderAvailability,
+): string | undefined {
+  for (const provider of ["deepseek", "anthropic"]) {
+    if (!keys[provider as keyof typeof keys]) continue;
+    const id = auxiliaryModelForProvider(provider);
+    if (id) return id;
+  }
+  return auxiliaryModelForProvider("anthropic");
+}
+
 export function auxiliaryModelFor(baseModelId: string): string {
   const provider = resolveModel(baseModelId)?.provider;
   if (!provider) return baseModelId;

@@ -237,7 +237,7 @@ import {
 } from "./surface-cache/ack-emoji-pick-store.ts";
 import {
   auxiliaryModelFor,
-  auxiliaryModelForProvider,
+  auxiliaryModelForKeys,
   defaultModelForHarness,
   modelProviderAvailabilityFor,
   type HarnessId,
@@ -1194,7 +1194,7 @@ export function buildApp(
     turnStream,
     tasks,
     ackPicks: ackEmojiPicks,
-    ackModelId: () => auxiliaryModelForProvider("anthropic"),
+    ackModelId: () => auxiliaryModelForKeys(providerKeys),
     ...(config.brandingDefault ? { brandingDefault: config.brandingDefault } : {}),
     ...(harness.models.pickAckEmoji ? { pickAckEmoji: (t, c) => harness.models.pickAckEmoji!(t, c) } : {}),
   });

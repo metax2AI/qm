@@ -108,6 +108,38 @@ test("ack emoji stays home when the deployment has no Anthropic key at all", asy
   }
 });
 
+test("ack emoji uses the DeepSeek auxiliary when only a DeepSeek key is present", async () => {
+  const harness = createPiHarness({
+    defaultModelId: "deepseek-v4-pro",
+    resolveProviderKeys: async () => ({ deepseek: "sk-deepseek-test" }),
+  });
+  const realFetch = globalThis.fetch;
+  const calls: Array<{ url: string; model: unknown; authorization: string }> = [];
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    calls.push({
+      url: String(url),
+      model: body.model,
+      authorization: new Headers(init?.headers).get("authorization") ?? "",
+    });
+    return new Response(
+      JSON.stringify({ choices: [{ message: { content: '{"emoji":"eyes"}' } }] }),
+      { status: 200 },
+    );
+  }) as typeof globalThis.fetch;
+  try {
+    const picked = await harness.models.pickAckEmoji?.("ship it", ["eyes", "rocket"]);
+    assert.equal(picked, "eyes", "the pick lands on a DeepSeek-only deployment");
+    assert.equal(calls.length, 1, "exactly one ack call was attempted");
+    assert.match(calls[0]!.url, /deepseek/, "it went to the DeepSeek endpoint");
+    assert.match(calls[0]!.url, /chat\/completions/, "it used the OpenAI-compatible protocol");
+    assert.equal(calls[0]!.model, "deepseek-v4-flash", "it used the DeepSeek auxiliary model");
+    assert.match(calls[0]!.authorization, /^Bearer /, "DeepSeek auth goes in the Authorization header");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
 test("model utilities resolve provider credentials for every call", async () => {
   let resolutions = 0;
   const harness = createPiHarness({

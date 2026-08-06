@@ -40,7 +40,7 @@ import { swallow, swallowAs } from "../util/errors.ts";
 import {
   DEFAULT_AGENT_MODEL_ID,
   auxiliaryModelFor,
-  auxiliaryModelForProvider,
+  auxiliaryModelForKeys,
   defaultInteractiveThinkingLevel,
   modelDisplayName,
   resolveModel,
@@ -308,32 +308,45 @@ const ACK_EMOJI_PROMPT = [
   'Output STRICT JSON only: {"emoji":"<name>"}. Nothing else.',
 ].join("\n");
 
-async function directAnthropicJson(
+async function directAuxiliaryJson(
   model: Model<Api>,
   apiKey: string,
   systemPrompt: string,
   userPrompt: string,
 ): Promise<string | undefined> {
-  if (
-    !String(model.provider ?? "")
-      .toLowerCase()
-      .includes("anthropic")
-  )
-    return undefined;
-  const res = await fetch(`${model.baseUrl}/v1/messages`, {
+  const provider = String(model.provider ?? "").toLowerCase();
+  if (provider.includes("anthropic")) {
+    const res = await fetch(`${model.baseUrl}/v1/messages`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: model.id,
+        max_tokens: 64,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
+      signal: AbortSignal.timeout(2_000),
+    });
+    if (!res.ok) return undefined;
+    const json = (await res.json()) as { content?: Array<{ text?: string }> };
+    return json.content?.[0]?.text;
+  }
+  const res = await fetch(`${model.baseUrl}/chat/completions`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: model.id,
       max_tokens: 64,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
     }),
     signal: AbortSignal.timeout(2_000),
   });
   if (!res.ok) return undefined;
-  const json = (await res.json()) as { content?: Array<{ text?: string }> };
-  return json.content?.[0]?.text;
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  return json.choices?.[0]?.message?.content;
 }
 
 const APPROVAL_SUMMARY_PROMPT = [
@@ -2048,15 +2061,15 @@ export function createPiHarness(opts?: PiHarnessOptions): Harness {
 
       async pickAckEmoji(text: string, candidates: readonly string[]): Promise<string | undefined> {
         if (!text.trim() || candidates.length === 0) return undefined;
-        const ackModelId = auxiliaryModelForProvider("anthropic");
-        if (!ackModelId) return undefined;
         try {
-          const model = getRequiredModel(ackModelId);
           const providerKeys = await resolveProviderKeys();
+          const ackModelId = auxiliaryModelForKeys(providerKeys);
+          if (!ackModelId) return undefined;
+          const model = getRequiredModel(ackModelId);
           const apiKey = keyForModel(providerKeys, model);
           if (!apiKey) return undefined;
           const prompt = `Candidates: ${candidates.join(", ")}\n\nMessage: ${text.slice(0, 2000)}`;
-          const raw = await directAnthropicJson(model, apiKey, ACK_EMOJI_PROMPT, prompt);
+          const raw = await directAuxiliaryJson(model, apiKey, ACK_EMOJI_PROMPT, prompt);
           if (!raw) return undefined;
           const emoji = (JSON.parse(raw.replace(/```json|```/g, "").trim()) as { emoji?: unknown }).emoji;
           return typeof emoji === "string" && candidates.includes(emoji) ? emoji : undefined;
