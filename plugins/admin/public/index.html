@@ -3848,7 +3848,14 @@
                 <h2>1. Model provider</h2>
                 <p id="onboarding-model-summary">Add the key QM will use for its base model.</p>
               </section>
-              <section class="setup-step">
+
+
+
+
+
+
+
+              <section class="setup-step" id="onboarding-slack-step">
                 <span class="badge muted" id="onboarding-slack-badge">Optional</span>
                 <h2>2. Slack app</h2>
                 <p id="onboarding-slack-summary">
@@ -4819,10 +4826,738 @@
       </div>
     </dialog>
 
-    <script>
+     <script>
+      const LOCALE =
+        document.querySelector('meta[name="admin-default-locale"]')?.getAttribute("content") || "en";
+      const DICT = LOCALE === "zh-Hans" ? {
+        "Agent Admin": "Agent 管理后台",
+        "Dashboard": "总览",
+        "Sign out": "退出登录",
+        "Page controls": "页面控制",
+        "Admin navigation": "管理导航",
+        "Admin content": "管理内容",
+        "Admin": "管理",
+        "Checking your access…": "正在验证您的权限…",
+        "Sign in through the portal": "通过门户登录",
+        "This admin surface is reached through the portal. Sign in there to continue.": "此管理后台通过门户访问,请先在门户登录。",
+        "Sign in through the portal to continue.": "请先通过门户登录。",
+        "Admin is temporarily unavailable": "管理后台暂时不可用",
+        "Admin is temporarily unavailable.": "管理后台暂时不可用。",
+        "upload": "上传",
+        "No documents saved yet.": "暂无已保存的文档。",
+        "No files match.": "没有匹配的文件。",
+        "No files match — only the newest 2,000 are searched.": "没有匹配的文件——仅搜索最新的 2,000 个。",
+        "Only the newest 2,000 files are indexed — a scope with only older files won't appear.": "仅索引最新的 2,000 个文件——只有更旧文件的范围不会显示。",
+        "file": "个文件",
+        "files": "个文件",
+        ", newest shown": ", 仅显示最新",
+        "Search all files…": "搜索所有文件…",
+        "Search files…": "搜索文件…",
+        "Files": "文件",
+        "All scopes": "所有范围",
+        "Skill": "技能",
+        "skill": "个技能",
+        "Last used": "最近使用",
+        "Remove": "移除",
+        "No skills yet.": "暂无技能。",
+        "No skills in this scope.": "此范围内暂无技能。",
+        "No skills match.": "没有匹配的技能。",
+        "Search all skills…": "搜索所有技能…",
+        "Search skills…": "搜索技能…",
+        "Instructions": "指令",
+        "Capabilities": "能力",
+        "Approvals": "审批",
+        "Reviewer": "审批人",
+        "Requires no capabilities.": "无需任何能力。",
+        "granted": "已授予",
+        "not granted": "未授予",
+        "built-in": "内置",
+        "archived": "已归档",
+        "unknown": "未知",
+        "(empty)": "(空)",
+        "never": "从未使用",
+        "never imported ": "从未使用 · 导入于 ",
+        "scope": "个范围",
+        "You don't administer this skill's scope.": "您无权管理此技能的范围。",
+        "Couldn't load this skill.": "无法加载此技能。",
+        "by ": "由 ",
+        "from ": "来自 ",
+        "pack ": "技能包 ",
+        "Scopes (": "安装范围(",
+        "Every scope this skill is installed in. Remove takes it out of that scope only.": "此技能安装的所有范围。移除仅从该范围删除。",
+        "What the skill is allowed to reach. Granted at review time.": "技能被允许访问的内容。在审批时授予。",
+        "Reviewers who signed off on this skill.": "审批此技能的评审人。",
+        "The SKILL.md the agent reads when this skill is in play.": "技能生效时 Agent 读取的 SKILL.md。",
+        "Remove '": "移除「",
+        "' from ": "」于 ",
+        "? It stops being available to agents in that scope (kept for audit).": "?此操作后该范围内的 Agent 将无法使用它(保留审计记录)。",
+        "this skill": "此技能",
+        "from all ": "从全部 ",
+        " scopes": " 个范围",
+        " scope(s) could not be removed.": " 个范围无法移除。",
+        "Register a pack — paste a git repo URL of SKILL.md files, then Browse it into scopes": "注册技能包——粘贴含 SKILL.md 文件的 git 仓库 URL,然后通过浏览导入各范围",
+        "ref (branch or SHA)": "引用(分支或 SHA)",
+        "Pin to a branch or full 40-hex commit SHA. Blank = the repo's default branch.": "固定到分支或完整 40 位十六进制提交 SHA。留空 = 仓库默认分支。",
+        "exclude globs, comma-separated": "排除的 glob 模式,逗号分隔",
+        "deploy-token slug": "部署令牌 slug",
+        "Private-repo deploy-token credential slug. Blank = your connected GitHub account.": "私有仓库部署令牌凭据 slug。留空 = 已连接的 GitHub 账户。",
+        "Trust tier": "信任级别",
+        "trust: ": "信任:",
+        "Advanced": "高级",
+        "Register": "注册",
+        "A repo URL is required.": "需要提供仓库 URL。",
+        "Registering…": "正在注册…",
+        "Pack": "技能包",
+        "Trust": "信任",
+        "No packs yet — register one above.": "暂无技能包——请在上方注册。",
+        "last sync: ": "上次同步:",
+        " new": " 个新增",
+        " updated": " 个更新",
+        " skipped": " 个跳过",
+        " removed": " 个移除",
+        " imported": " 个已导入",
+        " available (eligible) in this pack": " 个可用(符合条件)于该技能包",
+        " of ": " 个,共 ",
+        "update available": "有更新",
+        "Upstream advanced past the imported commit — Sync now (or turn on Auto-sync) to apply.": "上游已推进到导入提交之后——同步(或开启自动同步)以应用。",
+        "up to date": "已是最新",
+        "not imported": "未导入",
+        "error — ": "错误 — ",
+        "sync failed": "同步失败",
+        "Browse skills…": "浏览技能…",
+        "Sync now": "立即同步",
+        "Pull the pack's latest commit and refresh already-imported skills (update changed, archive removed). Does NOT add new skills — use Browse for that.": "拉取技能包最新提交并刷新已导入技能(更新变更、归档移除)。不会新增技能——请使用浏览。",
+        "syncing…": "正在同步…",
+        "sync failed — ": "同步失败 — ",
+        "Turn off auto-sync": "关闭自动同步",
+        "Turn on auto-sync": "开启自动同步",
+        "Auto-sync is ON — re-imports when the upstream advances.": "自动同步已开启——上游推进时自动重新导入。",
+        "Auto-sync is OFF — manual Sync only.": "自动同步已关闭——仅手动同步。",
+        "Remove pack": "移除技能包",
+        "Remove this pack and archive its imported skills?": "移除该技能包并归档其导入的技能?",
+        "auto-sync": "自动同步",
+        "Capability": "能力",
+        "cron": "个定时任务",
+        "No crons yet.": "暂无定时任务。",
+        "No crons in this scope.": "此范围内暂无定时任务。",
+        "No crons match.": "没有匹配的定时任务。",
+        "never fired": "从未触发",
+        "enabled": "已启用",
+        "disabled": "已禁用",
+        "What": "内容",
+        "Schedule": "计划",
+        "Last fired": "上次触发",
+        "Fires": "触发记录",
+        "Edit": "编辑",
+        "Delete": "删除",
+        "Save": "保存",
+        "Cancel": "取消",
+        "Allow": "允许",
+        "Deny": "拒绝",
+        "Require approval": "需要审批",
+        "regex": "正则",
+        "Command pattern": "命令模式",
+        "optional": "可选",
+        "Move rule up": "上移规则",
+        "Move rule down": "下移规则",
+        "e.g. GitHub": "如 GitHub",
+        "Remove this bot from the ledger": "从台账中移除该机器人",
+        "Remove bot ledger entry": "移除机器人台账条目",
+        "ignore — never wakes the judge": "忽略——从不触发判定",
+        "rollup — batch, judge periodically": "汇总——批量、定期判定",
+        "action — posts are triggers": "触发——帖子即触发器",
+        "user — read like a person": "用户——像人一样阅读",
+        "Fetching ": "正在获取 ",
+        "Couldn't browse (": "无法浏览(",
+        "Select / deselect all importable skills": "全选/取消全选可导入的技能",
+        "all": "全部",
+        "eligible": "可导入",
+        "imported": "已导入",
+        "personal-scoped": "个人范围",
+        "private": "私有",
+        "collision": "名称冲突",
+        "binary files": "二进制文件",
+        "malformed": "格式异常",
+        "excluded": "已排除",
+        "Show every skill.": "显示所有技能。",
+        "Eligible and not yet in the selected scope(s) — importing adds it there.": "符合条件且尚未在所选范围——导入会将其加入。",
+        "Already imported into the selected scope(s) — Sync refreshes them; un-index to remove.": "已导入所选范围——同步会刷新;取消索引可移除。",
+        "Held back: declares a personal/owner scope, so it isn't imported as a shared pack skill.": "已暂留:声明了个人/所有者范围,因此不会作为共享技能包技能导入。",
+        "Held back: marked owner-only / agent-only.": "已暂留:标记为仅所有者/仅 Agent。",
+        "Held back: the name matches an existing platform or seed skill.": "已暂留:名称与现有平台或种子技能冲突。",
+        "Held back: contains binary files (import is text-only).": "已暂留:包含二进制文件(导入仅支持文本)。",
+        "Held back: missing or unreadable SKILL.md frontmatter.": "已暂留:SKILL.md 前置元数据缺失或不可读。",
+        "Already imported into the selected scope(s): ": "已导入所选范围:",
+        "Imported into ": "已导入 ",
+        " — importing adds it to the other selected scope(s).": " — 导入会将其加入其他所选范围。",
+        "Pick at least one scope to add skills to.": "请至少选择一个要添加技能的范围。",
+        "Select at least one skill.": "请至少选择一个技能。",
+        "Importing…": "正在导入…",
+        "Import failed (": "导入失败(",
+        " skill": " 个技能",
+        " added": " 已添加",
+        " across ": " 分布于 ",
+        " scopes": " 个范围",
+        "Import selected": "导入所选",
+        "Click to show only these.": "点击仅显示这些。",
+        "Pick at least one scope": "请至少选择一个范围",
+        "contains invalid host \"": "包含无效主机「",
+        "\". Enter a hostname or IP only—no scheme, path, port, or wildcard.": "」。仅输入主机名或 IP——不含协议、路径、端口或通配符。",
+        " contains duplicate host \"": " 包含重复主机「",
+        "No saved instructions": "无已保存的指令",
+        "No draft changes": "无草稿更改",
+        "Instructions will be cleared": "指令将被清除",
+        "Maximum length reached": "已达最大长度",
+        "Draft valid": "草稿有效",
+        "Version history": "版本历史",
+        "History begins with the next saved revision.": "历史从下次保存的修订开始。",
+        "Version ": "版本 ",
+        "Current": "当前",
+        "Restore": "恢复",
+        "Restore SOUL version ": "恢复 SOUL 版本 ",
+        "Restore version ": "恢复版本 ",
+        "SOUL changed; latest revision loaded and your draft was preserved.": "SOUL 已更改;已加载最新修订,您的草稿已保留。",
+        "Restore failed.": "恢复失败。",
+        "Enter a sample command first.": "请先输入示例命令。",
+        "Evaluating with the server’s command scanner…": "正在使用服务器命令扫描器评估…",
+        "Allowlist": "允许列表",
+        "Denylist": "拒绝列表",
+        "Cron": "定时任务",
+        " isn't in this scope.": " 不在此范围内。",
+        "Schedule": "计划",
+        "Destination": "目的地",
+        "Owner": "所有者",
+        "Status": "状态",
+        "Created": "创建时间",
+        "Last fired": "上次触发",
+        "Id": "ID",
+        "Prompt": "提示词",
+        "Message": "消息",
+        "Re-run as a fresh prompt at every fire.": "每次触发时作为全新提示词重新运行。",
+        "Delivered as-is at every fire.": "每次触发时按原样投递。",
+        "Loading fires...": "正在加载触发记录...",
+        "Recent fires": "最近触发",
+        "Each fire is a session — click one to read its transcript. Dimmed fires delivered nothing.": "每次触发都是一个会话——点击可阅读记录。变暗的触发未投递任何内容。",
+        "Failed to load fires (": "加载触发记录失败(",
+        "silent": "静默",
+        "delivered": "已投递",
+        "(no messages)": "(无消息)",
+        "This cron has never fired.": "此定时任务从未触发。",
+        "deployment": "个部署",
+        "No deployments yet.": "暂无部署。",
+        "No deployments in this scope.": "此范围内暂无部署。",
+        "No deployments match.": "没有匹配的部署。",
+        "Memory": "记忆",
+        "Org-wide": "全组织",
+        "No memory stored for this scope yet. Anything you write here, the agent will remember.": "此范围尚未存储记忆。您在这里写入的内容,Agent 都会记住。",
+        "Unsaved changes": "有未保存的更改",
+        "Saved ✓": "已保存 ✓",
+        "You don't administer this scope.": "您无权管理此范围。",
+        "Save failed.": "保存失败。",
+        "No notebooks yet — the agent hasn't remembered anything.": "暂无记忆笔记——Agent 尚未记住任何内容。",
+        "New vs returning": "新增与回访",
+        "New": "新增",
+        "Returning": "回访",
+        "No activity yet.": "暂无活动。",
+        "Cohort (week of)": "群组(周)",
+        "Users": "用户",
+        "No cohorts yet.": "暂无群组数据。",
+        "No users yet.": "暂无用户。",
+        "No expiry": "无过期时间",
+        "Keychain is not configured for this deployment.": "此部署未配置密钥库。",
+        "No people match.": "没有匹配的人员。",
+        "No keychain credentials match.": "没有匹配的密钥库凭据。",
+        "No keychain grants match.": "没有匹配的密钥库授权。",
+        "No keychain asks match.": "没有匹配的密钥库申请。",
+        "notebook": "个记忆笔记",
+        "sorted by size (this backend keeps no edit history)": "按大小排序(此后端不保留编辑历史)",
+        "empty": "空",
+        "People": "人员",
+        "Credentials": "凭据",
+        "Active grants": "有效授权",
+        "Pending asks": "待处理申请",
+        "person, service, audience, purpose": "人员、服务、受众、用途",
+        "Person": "人员",
+        "Keychain": "密钥库",
+        "Credential": "凭据",
+        "Delivery": "投递",
+        "Account": "账户",
+        "Expiry": "过期时间",
+        "Grants": "授权",
+        "Audience": "受众",
+        "Mode": "模式",
+        "Purpose": "用途",
+        "Asks": "申请",
+        "Requester": "申请人",
+        "person": "人员",
+        "Phase": "阶段",
+        "Turns": "轮次",
+        "Trend": "趋势",
+        "No turn metrics in this scope yet.": "此范围暂无轮次指标。",
+        "Total turn": "总轮次",
+        "End-to-end wall time, request to reply": "从请求到回复的端到端耗时",
+        "First token": "首字延迟",
+        "Time until the first streamed token": "到首个流式令牌的时间",
+        "Slack pickup": "Slack 拾取",
+        "Socket receive to submit — how long the message sat in the Slack plugin": "从 Socket 接收到提交——消息在 Slack 插件中的停留时间",
+        "Intake preamble": "接入前处理",
+        "Surface-side work before the request left for core": "请求离开界面发往核心前的界面侧工作",
+        "Queue wait": "队列等待",
+        "Waiting for a worker to claim the run": "等待工作进程认领任务",
+        "Dispatch": "分发",
+        "Surface receive to core hand-off": "从界面接收到核心交接",
+        "Ingress": "入站",
+        "Core receive to model start: parse, resolve, prepare": "从核心接收到模型启动:解析、解析配置、准备",
+        "Reply decision": "回复判定",
+        "Deciding whether to speak in a channel": "决定是否在频道中发言",
+        "History compaction": "历史压缩",
+        "Compacting a long transcript before the model call": "模型调用前压缩长对话记录",
+        "Machine provision": "机器供给",
+        "Booting or resuming the sandbox machine": "启动或恢复沙箱机器",
+        "Skills materialize": "技能物化",
+        "Copying resolved skills onto the machine": "将解析后的技能复制到机器上",
+        "Credentials restore": "凭据恢复",
+        "Restoring keychain credentials onto the machine": "将密钥库凭据恢复到机器上",
+        "Workspace layers": "工作区层",
+        "Restoring workspace layers at provision time": "供给时恢复工作区层",
+        "Prompt compile": "提示词编译",
+        "Assembling the system prompt": "组装系统提示词",
+        "Memory recall": "记忆召回",
+        "Injecting durable memory into the prompt": "将持久记忆注入提示词",
+        "Session lease": "会话租约",
+        "Loading the session and acquiring the writer lease": "加载会话并获取写入租约",
+        "Command exec": "命令执行",
+        "Commands the agent ran in the machine": "Agent 在机器中运行的命令",
+        "Stream + append": "流式输出与追加",
+        "Streaming tokens out and appending the turn": "流式输出令牌并追加本轮",
+        "Slack deliver": "Slack 投递",
+        "The final Slack post/update round-trip": "最终 Slack 发布/更新的往返",
+        "Memory capture": "记忆捕获",
+        "Post-turn fact extraction, off the critical path": "轮次后的事实提取,不在关键路径上",
+        " runs": " 次运行",
+        " done": " 次完成",
+        " failed": " 次失败",
+        " failure rate": " 失败率",
+        " prompt-cache hit ratio": " 提示词缓存命中率",
+        " token-weighted": " 按令牌加权",
+        " stable-prefix miss rate": " 稳定前缀未命中率",
+        " miss turns": " 次未命中轮次",
+        " turns with cache data": " 轮含缓存数据",
+        " read": " 读取",
+        " written": " 写入",
+        "Turns that never touched a machine": "未使用机器的轮次",
+        "pure conversation, no tools": "纯对话,无工具",
+        "Turns that used a machine": "使用机器的轮次",
+        " on a warm machine (": " 在热机器上(",
+        " median resume)": " 中位恢复)",
+        " booted cold (": " 冷启动(",
+        " median boot)": " 中位启动)",
+        "All turns": "所有轮次",
+        "the blended average": "混合平均值",
+        "Turn mix": "轮次构成",
+        "How often turns provision a machine, and what each kind of turn costs.": "轮次使用机器的频率,以及每种轮次的成本。",
+        "Kind of turn": "轮次类型",
+        "Share": "占比",
+        "Median": "中位数",
+        "Model calls": "模型调用",
+        "Tool calls": "工具调用",
+        "No turns sampled.": "暂无采样轮次。",
+        "No samples.": "暂无样本。",
+        " samples in this scope yet.": " 此范围内的样本。",
+        "Daily percentiles (UTC).": "每日百分位数(UTC)。",
+        "Day": "日期",
+        "No daily samples.": "暂无每日样本。",
+        "Machine": "机器",
+        "Loading scopes…": "正在加载范围…",
+        "Allowed": "允许",
+        "Denied": "拒绝",
+        "Hosts": "主机",
+        "Host": "主机",
+        "Source": "来源",
+        "Detail": "详情",
+        "No egress in this scope yet.": "此范围暂无出口记录。",
+        "No delivery destination": "无投递目的地",
+        "Edit destination": "编辑目的地",
+        "Clear destination": "清除目的地",
+        "Type": "类型",
+        "Target": "目标",
+        "Audience scope": "受众范围",
+        "On behalf of": "代表",
+        "Save destination": "保存目的地",
+        "Edit cron destination": "编辑定时任务目的地",
+        "Effective security posture": "有效安全姿态",
+        "Save policy": "保存策略",
+        "Save draft": "保存草稿",
+        "Local override": "本地覆盖",
+        "Effective default": "有效默认",
+        "Saved version ": "已保存版本 ",
+        "No saved revision": "无已保存修订",
+        "No credentials configured.": "未配置凭据。",
+        "Editing ": "正在编辑 ",
+        "Editing": "编辑中",
+        "Save changes": "保存更改",
+        "Cancel edit": "取消编辑",
+        "No stored secret yet. Enter one to make this credential usable.": "尚未存储密钥。输入一个以使此凭据可用。",
+        "Add a credential": "添加凭据",
+        "Autonomy": "自主性",
+        "Network": "网络",
+        "Slack audience": "Slack 受众",
+        "Intelligence": "智能",
+        "Loading": "加载中",
+        "Security posture": "安全姿态",
+        "Outbound enforcement": "出站管控",
+        "External participants": "外部参与者",
+        "Base model": "基础模型",
+        "Effective state": "有效状态",
+        "Resolved for this scope now": "当前此范围的解析结果",
+        "Control plane": "控制面",
+        "Governance": "治理",
+        "Set the organization's operating boundaries and review what agents can effectively do before changing them.": "设定组织的运行边界,并在更改前审查 Agent 的实际能力。",
+        "Scope": "范围",
+        "Organization": "组织",
+        "Selected governance scope": "已选的治理范围",
+        "Governance sections": "治理分区",
+        "Upload to ": "上传到 ",
+        "Upload": "上传",
+        "Uploading ": "正在上传 ",
+        "Uploaded ": "已上传 ",
+        " of ": " 个,共 ",
+        " before failure. ": " 后失败。",
+        "Upload failed.": "上传失败。",
+        "Upload failed (": "上传失败(",
+        "Couldn't open file (": "无法打开文件(",
+        "Large image — click to preview full size": "大图——点击预览完整尺寸",
+        "We couldn't verify your admin access right now — the backend didn't answer. This is usually temporary.": "暂时无法验证您的管理员身份——后端没有响应。这通常是暂时性的。",
+        "Trying again resolves most cases. If this keeps happening, the core service may be down.": "重试通常可以解决。如果持续发生,核心服务可能已停止。",
+        "Try again": "重试",
+        "You don't have admin access": "您没有管理员权限",
+        "The Admin area is limited to governance admins. Your account is signed in and verified — it just isn't granted admin rights.": "管理后台仅限治理管理员使用。您的账号已登录并通过验证——只是未授予管理员权限。",
+        "Signed in as": "已登录为",
+        "Admin rights come from your organization's admin grants. If you need access, ask an existing admin to grant it.": "管理员权限来自组织的管理员授权。如需访问,请向现有管理员申请授权。",
+        "Back to your surfaces": "返回您的界面",
+        "Onboarding": "引导配置",
+        "Temporary setup guide": "临时安装引导",
+        "Artifacts": "资产",
+        "System": "系统",
+        "Insights": "洞察",
+        "Sessions": "会话",
+        "Governance": "治理",
+        "Connectors": "连接器",
+        "Users": "用户",
+        "Keychain": "密钥库",
+        "User": "用户",
+        "Metrics": "指标",
+        "Egress": "出口",
+        "Skills": "技能",
+        "Crons": "定时任务",
+        "Deployments": "部署",
+        "Live": "实时",
+        "Audit": "审计",
+        "Judgments": "判定",
+        "Retention": "留存",
+        "Ack emoji": "确认表情",
+        "History": "历史",
+        "No admin activity yet.": "暂无管理活动。",
+        "No admin activity for this scope.": "此范围暂无管理活动。",
+        "Users": "用户",
+        "Admins": "管理员",
+        "principal, role, or scope": "搜索主体、角色或范围",
+        "principal id (e.g. U07ABCD)": "主体 ID(如 U07ABCD)",
+        "Grant": "授权",
+        "Principal id required.": "请输入主体 ID。",
+        "Only an org admin may grant.": "只有组织管理员可以授权。",
+        "Grant failed.": "授权失败。",
+        "Principal id": "主体 ID",
+        "Grant org admin": "授予组织管理员",
+        "Promote a principal to org admin. Org admins only.": "将主体提升为组织管理员。仅限组织管理员操作。",
+        "principal id or name (e.g. dana@example.com)": "主体 ID 或名称(如 dana@example.com)",
+        "Open web UI as": "以该用户打开 Web UI",
+        "directory lookup failed": "目录查询失败",
+        "Principal id or name required.": "请输入主体 ID 或名称。",
+        "Matches several people — pick one from the suggestions.": "匹配到多人——请从建议中选择一个。",
+        "Couldn't resolve that (": "无法解析该用户(",
+        "Principal id or name": "主体 ID 或名称",
+        "Impersonate a user": "模拟用户",
+        "Open the assistant Web UI as any principal — for support, debugging, or onboarding tests. Time-boxed and audited.": "以任意主体身份打开助手 Web UI——用于支持、调试或安装测试。有时限且全程审计。",
+        "Principal": "主体",
+        "Role": "角色",
+        "Scope": "范围",
+        "Granted by": "授权人",
+        "Revoke": "撤销",
+        "The last org admin cannot be revoked.": "最后一个组织管理员不能被撤销。",
+        "No admins match.": "没有匹配的管理员。",
+        "Who can govern this org. Revoking removes their admin rights immediately.": "谁能治理此组织。撤销将立即移除其管理员权限。",
+        "Last seen": "最近活动",
+        "Sessions": "会话",
+        "Turns": "轮次",
+        "Impersonate": "模拟",
+        "Make admin": "设为管理员",
+        "No users match.": "没有匹配的用户。",
+        "member": "成员",
+        "event": "事件",
+        "Admin": "管理员",
+        "Action": "操作",
+        "Resource": "资源",
+        "Time": "时间",
+        "Loading…": "加载中…",
+        "You don't have admin access.": "您没有管理员权限。",
+        "Failed to load user (": "加载用户失败(",
+        "Conversations": "会话",
+        "Turns": "轮次",
+        "First seen": "首次出现",
+        "Last seen": "最近活动",
+        "Conversation": "会话",
+        "Volume": "数据量",
+        "Last activity": "最近活动",
+        "(no messages yet)": "(暂无消息)",
+        "created ": "创建于 ",
+        "turn": "轮",
+        "entry": "条",
+        "entries": "条",
+        "No conversations yet.": "暂无会话。",
+        "Recent conversations": "最近会话",
+        "Every conversation this person took part in — click a row to read the transcript.": "此人参与的所有会话——点击行可阅读完整记录。",
+        "Name": "名称",
+        "Kind": "类型",
+        "Size": "大小",
+        "Source": "来源",
+        "Created": "创建时间",
+        "Download": "下载",
+        "Documents in this person's personal workspace — saved by the agent or uploaded.": "此人的个人工作区中的文档——由 Agent 保存或上传。",
+        "No files in their personal workspace.": "此人的个人工作区暂无文件。",
+        "Deployment": "部署",
+        "Status": "状态",
+        "Version": "版本",
+        "Deployments": "部署",
+        "Apps this person published from their personal workspace.": "此人从个人工作区发布的应用。",
+        "No deployments.": "暂无部署。",
+        "What": "内容",
+        "Schedule": "计划",
+        "Last fired": "上次触发",
+        "Crons": "定时任务",
+        "Scheduled prompts and reminders this person owns.": "此人拥有的定时提示与提醒。",
+        "No crons.": "暂无定时任务。",
+        "Config store not available.": "配置存储不可用。",
+        "Setting": "设置项",
+        "Value": "值",
+        "Custom soul": "自定义人格",
+        "set": "已设置",
+        "default": "默认",
+        "Command policy": "命令策略",
+        "rule": "条规则",
+        "rules": "条规则",
+        "denylist": "黑名单",
+        "Security posture": "安全姿态",
+        "Egress overrides": "出口覆盖",
+        "allow": "允许",
+        "deny": "拒绝",
+        "none": "无",
+        "Base model": "基础模型",
+        "org default": "组织默认",
+        "Connectors linked": "已连接的连接器",
+        "No config.": "暂无配置。",
+        "completed": "已完成",
+        "dismissed": "已忽略",
+        "pending": "进行中",
+        "not started": "未开始",
+        "Current status: ": "当前状态:",
+        "Saving…": "保存中…",
+        "Failed (": "失败(",
+        "Reset — onboarding will run on this person's next DM.": "已重置——此人的下次私信将重新触发引导。",
+        "Saved.": "已保存。",
+        "Network error — try again.": "网络错误——请重试。",
+        "Reset (re-run on next DM)": "重置(下次私信重新运行)",
+        "Mark completed": "标记为已完成",
+        "Mark dismissed": "标记为已忽略",
+        "Reset to brand-new (delete this person's DMs)": "重置为全新状态(删除此人的私信)",
+        "Resetting…": "重置中…",
+        "Onboarding": "引导配置",
+        "Personal-DM onboarding state — reset to re-trigger the flow on this person's next DM, or wipe their DMs to replay the full new-user experience.": "个人私信引导状态——重置可在下次私信重新触发流程,或清空私信以重播完整的新用户体验。",
+        "Configuration": "配置",
+        "Policy and connectors for this person's personal scope.": "此人个人范围的政策与连接器。",
+        "Manage in Governance": "在治理中管理",
+        "1. Model provider": "1. 模型服务商",
+        "Add the key QM will use for its base model.": "添加 QM 基础模型将使用的密钥。",
+        "Optional": "可选",
+        "2. Slack app": "2. Slack 应用",
+        "Enter Slack tokens": "输入 Slack 令牌",
+        "3. OAuth apps": "3. OAuth 应用",
+        "Configure OAuth apps": "配置 OAuth 应用",
+        "Base model": "基础模型",
+        "Validate and save": "验证并保存",
+        "Disable this provider": "停用此服务商",
+        "Custom providers": "自定义服务商",
+        "Point QM at any OpenAI- or Anthropic-compatible endpoint — a vendor like DeepSeek, or a gateway like LiteLLM fronting many models. Keys are validated, stored write-only, and the models join the picker.": "将 QM 指向任意 OpenAI 或 Anthropic 兼容端点——如 DeepSeek 等厂商,或 LiteLLM 等聚合网关。密钥经校验后仅可写入存储,模型会加入选择器。",
+        "Provider": "服务商",
+        "Protocol": "协议",
+        "Endpoint": "端点",
+        "Models": "模型",
+        "Key": "密钥",
+        "No custom providers registered.": "尚未注册自定义服务商。",
+        "Provider id (slug) ": "服务商 ID(短标识)",
+        "Display name ": "显示名称",
+        "OpenAI-compatible": "OpenAI 兼容",
+        "Anthropic-compatible": "Anthropic 兼容",
+        "Base URL": "基础 URL",
+        "API key": "API 密钥",
+        "Write-only; blank on edit keeps the stored key": "仅可写入;编辑时留空保留已存密钥",
+        "Models (one per line: id | name | context | maxTokens)": "模型(每行一个:id | 名称 | 上下文 | 最大令牌)",
+        "Validate key against the endpoint (untick for gateways without a models listing)": "对端点验证密钥(无模型列表的网关请取消勾选)",
+        "Save provider": "保存服务商",
+        "Write-only API key": "仅可写入的 API 密钥",
+        "set — enter a replacement": "已设置——输入新值以替换",
+        "admin-managed key": "管理员托管的密钥",
+        "deployment key": "部署密钥",
+        " cannot run until its ": " 在其 ",
+        " key is configured.": " 密钥配置完成前无法运行。",
+        "No base model is configured yet — pick a provider and model below.": "尚未配置基础模型——请在下方选择服务商和模型。",
+        "Setup status could not be loaded. Try again.": "无法加载配置状态,请重试。",
+        " — key configured": " — 密钥已配置",
+        "Connected": "已连接",
+        "Connected to ": "已连接到 ",
+        "a Slack workspace": "Slack 工作区",
+        "Create the QM app, install it, then add its bot and Socket Mode tokens.": "创建 QM 应用、安装后,添加其机器人令牌与 Socket Mode 令牌。",
+        " configured": " 个已配置",
+        " available in the web UI.": " 可在 Web UI 中使用。",
+        "Add Google, GitHub, Notion, or other OAuth clients to make those connectors available.": "添加 Google、GitHub、Notion 或其他 OAuth 客户端以启用相应连接器。",
+        "Ready": "就绪",
+        "Needs a key": "需要密钥",
+        "key configured": "密钥已配置",
+        "key": "密钥",
+        "Most recent errors": "最近的错误",
+        "error": "错误",
+        "errors": "错误",
+        "logged in this scope": "此范围内的记录",
+        "logged in this session": "此会话中的记录",
+        "uncategorized": "未分类",
+        "(no message)": "(无消息)",
+        "No errors.": "暂无错误。",
+        "Active now": "当前活跃",
+        "Recent runs": "近期任务",
+        "Failed": "失败",
+        "Done": "完成",
+        "Run ": "任务 ",
+        "no thread": "无会话",
+        "Run": "任务",
+        "Type": "类型",
+        "Attempts": "尝试次数",
+        "Worker": "执行者",
+        "Duration": "耗时",
+        "Lease": "租约",
+        "Started": "开始时间",
+        "No runs.": "暂无任务。",
+        "Sort:": "排序:",
+        "Human activity": "人工活动",
+        "All activity": "所有活动",
+        " active scope": " 个活跃范围",
+        " active scopes": " 个活跃范围",
+        "No conversations yet.": "暂无会话。",
+        "No scopes yet — nobody has talked to the agent.": "还没有范围——尚未有人与 Agent 对话。",
+        " known scope": " 个已知范围",
+        " known scopes": " 个已知范围",
+        " without conversations": " 暂无对话",
+        " conv": " 次对话",
+        " bg": " 次后台",
+        "conversation": "次对话",
+        " background": " 次后台",
+        "no conversations": "暂无对话",
+        "Show thinking": "显示思考过程",
+        "Show tool results": "显示工具结果",
+        "Show ": "显示 ",
+        "thinking": "思考过程",
+        "tool results": "工具结果",
+        "Failed to load transcript (": "加载对话记录失败(",
+        "created at": "创建于",
+        "Show more": "展开",
+        "Show less": "收起",
+        "Background": "后台",
+        "Created by": "创建者",
+        "No entries.": "暂无记录。",
+        "View cron": "查看定时任务",
+        "User": "用户",
+        "Sent to model": "发送给模型",
+        "Load earlier messages": "加载更早的消息",
+        "Back to transcript": "返回对话记录",
+        "Failed to load context (": "加载上下文失败(",
+        "unattributed context": "未归属的上下文",
+        " steps": " 步",
+        "No context was captured for this turn.": "此轮未捕获到上下文。",
+        "fire": "次触发",
+        "All ": "查看全部 ",
+
+        "No ": "暂无",
+        " in this scope.": " 在此范围内。",
+        "No crons in this scope.": "此范围内暂无定时任务。",
+        "Sessions": "会话",
+        "Judged": "已判定",
+        "Woke": "已唤醒",
+        "Silent": "保持沉默",
+        "Fastlane": "快车道",
+        "woke": "已唤醒",
+        "silent": "保持沉默",
+        "fastlane": "快车道",
+        "Judgment": "判定",
+        "Loading judgments…": "正在加载判定…",
+        "Only an org admin can read ambient judgments.": "只有组织管理员可以读取环境判定。",
+        "No judgments recorded for this filter yet.": "此筛选条件下暂无判定记录。",
+        "Stayed silent.": "保持沉默。",
+        "@mention — routed past the judge.": "@提及——直接绕过判定。",
+        "asked by ": "由 ",
+        "Judge context": "判定上下文",
+        "Routed past the judge (formal @mention) — no prompt was rendered.": "已绕过判定(正式 @提及)——未生成提示词。",
+        "(prompt not recorded)": "(未记录提示词)",
+        "Governance": "治理",
+        "Nothing mirrored for this window.": "此时间窗口内无镜像消息。",
+        "All": "全部",
+        "Picked": "已选用",
+        "Declined": "已拒绝",
+        "Failed to load (": "加载失败(",
+        "Failed to load mirror (": "加载镜像失败(",
+        "Jump to this moment in Slack to scroll up for more context": "在 Slack 中跳转到此时刻,向上滚动查看更多上下文",
+        "Slack mirror": "Slack 镜像",
+        "Open in Slack": "在 Slack 中打开",
+        "Loading ack-emoji picks…": "正在加载确认表情记录…",
+        "Only an org admin can read ack-emoji picks.": "只有组织管理员可以读取确认表情记录。",
+        "No ack-emoji picks recorded for this filter yet.": "此筛选条件下暂无确认表情记录。",
+        "Load earlier picks": "加载更早的记录",
+        "picked": "已选用",
+        "declined": "已拒绝",
+        "Open in Slack": "在 Slack 中打开",
+        "Message": "消息",
+        "(not recorded)": "(未记录)",
+        "Candidate slate": "候选表情",
+        "(candidate slate not recorded)": "(未记录候选表情)",
+        "now": "刚刚",
+        "Today ": "今天 ",
+        "Yesterday ": "昨天 ",
+        " min": " 分钟",
+        " mins": " 分钟",
+        " s": " 秒",
+        " ms": " 毫秒",
+      } : {};
+      const t = (en) => (LOCALE === "zh-Hans" && DICT[en] ? DICT[en] : en);
+      function applyStaticTranslations() {
+        if (LOCALE !== "zh-Hans") return;
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+          acceptNode(node) {
+            const text = node.nodeValue?.trim();
+            return text && DICT[text] ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+          },
+        });
+        const hits = [];
+        while (walker.nextNode()) hits.push(walker.currentNode);
+        for (const node of hits) node.nodeValue = DICT[node.nodeValue.trim()];
+        for (const el of document.querySelectorAll("[placeholder],[title]")) {
+          for (const attr of ["placeholder", "title"]) {
+            const value = el.getAttribute(attr);
+            if (value && DICT[value]) el.setAttribute(attr, DICT[value]);
+          }
+        }
+        document.title = t(document.title);
+      }
       const $ = (id) => document.getElementById(id);
       const EFFECTS = ["allow", "deny", "require_approval"];
-      const EFFECT_LABELS = { allow: "Allow", deny: "Deny", require_approval: "Require approval" };
+      const EFFECT_LABELS = { allow: t("Allow"), deny: t("Deny"), require_approval: t("Require approval") };
       const SECTIONS = [
         { views: ["history", "slack", "judgments"] },
         { label: "Artifacts", views: ["files", "skills", "memory", "deployments", "crons"] },
@@ -4830,6 +5565,14 @@
         { label: "Admin", views: ["onboarding", "governance", "connectors", "users", "keychain", "egress", "audit"] },
         { label: "Insights", views: ["retention"] },
       ];
+      const HIDE_SLACK =
+        typeof document !== "undefined" &&
+        document.querySelector('meta[name="admin-hide-slack"]')?.getAttribute("content") === "1";
+      if (HIDE_SLACK) {
+        for (const section of SECTIONS) {
+          section.views = section.views.filter((v) => v !== "slack");
+        }
+      }
 
       const VIEWS = [...SECTIONS.flatMap((s) => s.views), "user", "ackemoji"];
       const DISABLED_VIEWS = new Set(["retention"]);
@@ -4838,26 +5581,26 @@
           '<svg class="tab-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M14 10a2 2 0 0 1-2 2H6l-3.5 3V4a2 2 0 0 1 2-2h7.5a2 2 0 0 1 2 2z"/></svg>',
       };
       const VIEW_TITLE = {
-        onboarding: "Onboarding",
-        governance: "Governance",
-        connectors: "Connectors",
-        users: "Users",
-        keychain: "Keychain",
-        user: "User",
-        metrics: "Metrics",
-        egress: "Egress",
-        history: "Sessions",
-        files: "Files",
-        memory: "Memory",
-        live: "Live",
-        audit: "Audit",
-        skills: "Skills",
-        crons: "Crons",
-        deployments: "Deployments",
-        retention: "Retention",
-        slack: "Slack",
-        judgments: "Judgments",
-        ackemoji: "Ack emoji",
+        onboarding: t("Onboarding"),
+        governance: t("Governance"),
+        connectors: t("Connectors"),
+        users: t("Users"),
+        keychain: t("Keychain"),
+        user: t("User"),
+        metrics: t("Metrics"),
+        egress: t("Egress"),
+        history: t("Sessions"),
+        files: t("Files"),
+        memory: t("Memory"),
+        live: t("Live"),
+        audit: t("Audit"),
+        skills: t("Skills"),
+        crons: t("Crons"),
+        deployments: t("Deployments"),
+        retention: t("Retention"),
+        slack: t("Slack"),
+        judgments: t("Judgments"),
+        ackemoji: t("Ack emoji"),
       };
       const SCOPED = new Set([
         "governance",
@@ -4886,7 +5629,7 @@
         document.querySelector('meta[name="brand-self-label"]')?.getAttribute("content") || "Agent";
       // The header's product name and the tab title follow the org's assistant label.
       document.getElementById("brand-product").textContent = brandSelfLabel();
-      document.title = `${brandSelfLabel()} Admin`;
+      document.title = t(`${brandSelfLabel()} Admin`);
       let page = 1;
 
       const FOCUS_STALE_MS = 60000;
@@ -4944,23 +5687,25 @@
         b.onclick = () => openWebUiAs(target);
         return b;
       }
-      const fmtTime = (ts) => new Date(ts).toLocaleString();
+      const fmtTime = (ts) => new Date(ts).toLocaleString(LOCALE === "zh-Hans" ? "zh-CN" : undefined);
       const sameLocalDate = (a, b) =>
         a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
       const fmtClock = (d) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const relFmt = LOCALE === "zh-Hans" ? new Intl.RelativeTimeFormat("zh-CN", { numeric: "auto" }) : null;
       function relTime(ts) {
         if (!ts) return "—";
         const d = new Date(ts);
         const now = new Date();
         const mins = Math.floor((now.getTime() - d.getTime()) / 60000);
-        if (mins >= 0 && mins < 1) return "now";
-        if (mins >= 0 && mins < 60) return mins + (mins === 1 ? " min" : " mins");
-        if (sameLocalDate(d, now)) return "Today " + fmtClock(d);
+        if (mins >= 0 && mins < 1) return t("now");
+        if (mins >= 0 && mins < 60)
+          return relFmt ? relFmt.format(-mins, "minute") : mins + (mins === 1 ? " min" : " mins");
+        if (sameLocalDate(d, now)) return t("Today ") + fmtClock(d);
         const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-        if (sameLocalDate(d, yesterday)) return "Yesterday " + fmtClock(d);
+        if (sameLocalDate(d, yesterday)) return t("Yesterday ") + fmtClock(d);
         return (
           d.toLocaleDateString(
-            [],
+            LOCALE === "zh-Hans" ? "zh-CN" : undefined,
             d.getFullYear() === now.getFullYear()
               ? { month: "short", day: "numeric" }
               : { month: "short", day: "numeric", year: "numeric" },
@@ -4979,8 +5724,8 @@
       }
       const fmtMs = (n) => {
         if (n == null) return "—";
-        if (n >= 1000) return (n / 1000).toFixed(2) + " s";
-        return Math.round(n) + " ms";
+        if (n >= 1000) return (n / 1000).toFixed(2) + t(" s");
+        return Math.round(n) + t(" ms");
       };
       const fmtPct = (n) => ((n || 0) * 100).toFixed(1) + "%";
       const statusTimers = new Map();
@@ -5121,9 +5866,9 @@
       }
       function sessionCountsLabel(sessions, background) {
         const parts = [];
-        if (sessions) parts.push(plural(sessions, "conversation"));
-        if (background) parts.push(Number(background).toLocaleString() + " background");
-        return parts.join(" · ") || "no conversations";
+        if (sessions) parts.push(plural(sessions, t("conversation")));
+        if (background) parts.push(Number(background).toLocaleString() + t(" background"));
+        return parts.join(" · ") || t("no conversations");
       }
       function linkedStacked(href, primary, secondary) {
         const d = stacked(primary, secondary);
@@ -5234,7 +5979,7 @@
         glyph.textContent = "⇧";
         const label = document.createElement("span");
         label.append(
-          "Upload to ",
+          t("Upload to "),
           (() => {
             const s = document.createElement("strong");
             s.textContent = scopeTitle(scope);
@@ -5248,7 +5993,7 @@
         status.className = "status muted";
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = "Upload";
+        button.textContent = t("Upload");
         const input = document.createElement("input");
         input.type = "file";
         input.multiple = true;
@@ -5261,7 +6006,7 @@
           button.disabled = true;
           uploadStatusMessage(
             status,
-            "Uploading " + picked.length + " " + (picked.length === 1 ? "file" : "files") + "...",
+            t("Uploading ") + picked.length + " " + (picked.length === 1 ? t("file") : t("files")) + "...",
             "saving",
           );
           let uploaded = 0;
@@ -5276,19 +6021,21 @@
                 },
                 body: file,
               });
-              if (!r.ok) throw new Error(uploadErrorMessage(await r.text(), "Upload failed (" + r.status + ")."));
+              if (!r.ok) throw new Error(uploadErrorMessage(await r.text(), t("Upload failed (") + r.status + ")."));
               uploaded += 1;
             }
             uploadStatusMessage(
               status,
-              "Uploaded " + picked.length + " " + (picked.length === 1 ? "file" : "files") + ".",
+              t("Uploaded ") + picked.length + " " + (picked.length === 1 ? t("file") : t("files")) + ".",
               "ok",
             );
             dataCache.clear();
             await renderData();
           } catch (err) {
-            const partial = uploaded ? "Uploaded " + uploaded + " of " + picked.length + " before failure. " : "";
-            uploadStatusMessage(status, partial + (err instanceof Error ? err.message : "Upload failed."), "err");
+            const partial = uploaded
+              ? t("Uploaded ") + uploaded + t(" of ") + picked.length + t(" before failure. ")
+              : "";
+            uploadStatusMessage(status, partial + (err instanceof Error ? err.message : t("Upload failed.")), "err");
             if (uploaded) {
               dataCache.clear();
               await renderData();
@@ -5403,8 +6150,8 @@
         if (!me.ok) {
           $("who").classList.add("hidden");
 
-          if (me.status !== 401) return showView("unavailable-view", "Admin is temporarily unavailable.");
-          return showView("signin-view", "Sign in through the portal to continue.");
+          if (me.status !== 401) return showView("unavailable-view", t("Admin is temporarily unavailable."));
+          return showView("signin-view", t("Sign in through the portal to continue."));
         }
         $("org-tag").textContent = "· " + me.data.org;
         orgId = me.data.org;
@@ -5742,7 +6489,7 @@
       }
 
       function scopeTitle(id) {
-        return scopeKind(id) === "org" ? "All scopes" : dirLabel(id) || id;
+        return scopeKind(id) === "org" ? t("All scopes") : dirLabel(id) || id;
       }
 
       function shortName(scopeId) {
@@ -5852,15 +6599,15 @@
           const input = document.createElement("input");
           input.type = "checkbox";
           input.checked = transcriptVisibility[key];
-          input.setAttribute("aria-label", "Show " + label);
+          input.setAttribute("aria-label", t("Show ") + t(label));
           input.onchange = () => {
             transcriptVisibility[key] = input.checked;
             onChange();
           };
           const prefix = document.createElement("span");
           prefix.className = "header-check-prefix";
-          prefix.textContent = "Show ";
-          wrap.append(input, prefix, document.createTextNode(label));
+          prefix.textContent = t("Show ");
+          wrap.append(input, prefix, document.createTextNode(t(label)));
           return wrap;
         };
         controls.append(checkbox("thinking", "thinking"), checkbox("tool results", "toolResults"));
@@ -6064,26 +6811,26 @@
       let serviceCredDirectory = [];
       function updateSoulWorkbench() {
         const draft = $("soul").value;
-        $("soul-saved").textContent = soulSaved || "No saved instructions";
+        $("soul-saved").textContent = soulSaved || t("No saved instructions");
         $("soul-draft").textContent =
-          draft === soulSaved ? "No draft changes" : draft || "Instructions will be cleared";
+          draft === soulSaved ? t("No draft changes") : draft || t("Instructions will be cleared");
         $("soul-size").textContent =
           draft.length.toLocaleString() +
           " characters · about " +
           Math.ceil(draft.length / 4).toLocaleString() +
           " tokens";
-        $("soul-validation").textContent = draft.length >= 100000 ? "Maximum length reached" : "Draft valid";
+        $("soul-validation").textContent = draft.length >= 100000 ? t("Maximum length reached") : t("Draft valid");
       }
       function renderSoulHistory() {
         const root = $("soul-history");
         root.textContent = "";
         const heading = document.createElement("h3");
-        heading.textContent = "Version history";
+        heading.textContent = t("Version history");
         root.appendChild(heading);
         if (!soulHistory.length) {
           const empty = document.createElement("p");
           empty.className = "hint";
-          empty.textContent = "History begins with the next saved revision.";
+          empty.textContent = t("History begins with the next saved revision.");
           root.appendChild(empty);
           return;
         }
@@ -6091,7 +6838,7 @@
           const row = document.createElement("div");
           row.className = "soul-revision";
           const meta = document.createElement("p");
-          meta.textContent = "Version " + revision.version;
+          meta.textContent = t("Version ") + revision.version;
           const detail = document.createElement("small");
           detail.textContent =
             (revision.updatedBy || "Author unavailable") +
@@ -6100,23 +6847,23 @@
           meta.appendChild(detail);
           const restore = document.createElement("button");
           restore.type = "button";
-          restore.textContent = revision.version === soulVersion ? "Current" : "Restore";
+          restore.textContent = revision.version === soulVersion ? t("Current") : t("Restore");
           restore.disabled = revision.version === soulVersion;
           restore.onclick = async () => {
             const immutable = { ...revision };
             const targetScope = scope;
             const expectedVersion = soulVersion;
             const confirmed = await reviewGovernanceChange({
-              title: "Restore SOUL version " + immutable.version + "?",
+              title: t("Restore SOUL version ") + immutable.version + "?",
               subtitle: "The saved instructions from this revision will replace the current SOUL.",
               facts: [
                 ["Scope", governanceScopeName(targetScope)],
                 ["Current", "Version " + expectedVersion],
-                ["Restore", "Version " + immutable.version],
+                [t("Restore"), t("Version ") + immutable.version],
               ],
               warning:
                 "This does not erase history. A new revision will be created, and future turns will use it immediately.",
-              confirmLabel: "Restore version " + immutable.version,
+              confirmLabel: t("Restore version ") + immutable.version,
               danger: true,
             });
             if (!confirmed) return;
@@ -6132,8 +6879,8 @@
               return setStatus(
                 "st-soul",
                 r.status === 409
-                  ? "SOUL changed; latest revision loaded and your draft was preserved."
-                  : r.data?.message || "Restore failed.",
+                  ? t("SOUL changed; latest revision loaded and your draft was preserved.")
+                  : r.data?.message || t("Restore failed."),
                 "err",
                 true,
               );
@@ -6209,7 +6956,7 @@
             " supports domain policy, but the control plane cannot mint a reachable proxy token. Agents still have open outbound access.";
         }
         capability.querySelector("span").textContent = enforcementSummary;
-        sectionButton("egress").textContent = enforcement.active ? "Save policy" : "Save draft";
+        sectionButton("egress").textContent = enforcement.active ? t("Save policy") : t("Save draft");
         if ("externalSlackParticipants" in data) {
           const external = !!data.externalSlackParticipants;
           setGovernanceStatus(
@@ -6305,7 +7052,7 @@
         }
         $("egress-effective").textContent = effectiveEgressLabel;
         const egressSave = sectionButton("egress");
-        if (egressSave) egressSave.textContent = enforcement.active ? "Save policy" : "Save draft";
+        if (egressSave) egressSave.textContent = enforcement.active ? t("Save policy") : t("Save draft");
 
         const showExternalSlack = scope.startsWith("org:") && "externalSlackParticipants" in r.data;
         $("card-external-slack").classList.toggle("hidden", !showExternalSlack);
@@ -7009,7 +7756,7 @@
           const option = document.createElement("option");
           option.value = status.provider;
           const label = MODEL_PROVIDER_LABELS[status.provider] || connectorName(status.provider);
-          option.textContent = status.configured ? label + " — key configured" : label;
+          option.textContent = status.configured ? label + t(" — key configured") : label;
           select.appendChild(option);
         });
         if (preferred && [...select.options].some((option) => option.value === preferred)) select.value = preferred;
@@ -7028,8 +7775,8 @@
         const status = onboardingModelStatuses.find((item) => item.provider === provider);
         $("onboarding-model-delete").disabled = !status || status.source === "absent";
         $("onboarding-model-key").placeholder = status?.configured
-          ? "•••• set — enter a replacement"
-          : "Write-only API key";
+          ? "•••• " + t("set — enter a replacement")
+          : t("Write-only API key");
       }
       async function loadOnboarding() {
         const [models, slack, catalog, config] = await Promise.all([
@@ -7039,7 +7786,7 @@
           api("GET", "/api/scopes/" + encodeURIComponent(orgScope())),
         ]);
         if (!models.ok || !slack.ok || !catalog.ok || !config.ok) {
-          setStatus("st-onboarding-model", "Setup status could not be loaded. Try again.", "err", true);
+          setStatus("st-onboarding-model", t("Setup status could not be loaded. Try again."), "err", true);
           renderOnboardingProviderOptions();
           return;
         }
@@ -7053,41 +7800,41 @@
         const baseStatus = onboardingModelStatuses.find((item) => item.provider === baseProvider);
         onboardingBadge(
           "onboarding-model-badge",
-          baseStatus?.configured ? "Ready" : "Needs a key",
+          baseStatus?.configured ? t("Ready") : t("Needs a key"),
           Boolean(baseStatus?.configured),
         );
         $("onboarding-model-summary").textContent = !baseModel
-          ? "No base model is configured yet — pick a provider and model below."
+          ? t("No base model is configured yet — pick a provider and model below.")
           : baseStatus?.configured
-            ? baseModel + " · " + (baseStatus.source === "admin" ? "admin-managed key" : "deployment key")
+            ? baseModel + " · " + (baseStatus.source === "admin" ? t("admin-managed key") : t("deployment key"))
             : baseModel +
-              " cannot run until its " +
+              t(" cannot run until its ") +
               (MODEL_PROVIDER_LABELS[baseProvider] || connectorName(baseProvider)) +
-              " key is configured.";
+              t(" key is configured.");
         renderOnboardingProviderOptions(baseProvider);
         renderOnboardingModelOptions(baseModel);
 
         onboardingBadge(
           "onboarding-slack-badge",
-          slack.data.configured ? "Connected" : "Optional",
+          slack.data.configured ? t("Connected") : t("Optional"),
           Boolean(slack.data.configured),
           true,
         );
         $("onboarding-slack-summary").textContent = slack.data.configured
-          ? "Connected to " + (slack.data.teamName || slack.data.teamId || "a Slack workspace") + "."
-          : "Create the QM app, install it, then add its bot and Socket Mode tokens.";
+          ? t("Connected to ") + (slack.data.teamName || slack.data.teamId || t("a Slack workspace")) + "."
+          : t("Create the QM app, install it, then add its bot and Socket Mode tokens.");
         if (slack.data.createUrl) $("onboarding-slack-create").href = slack.data.createUrl;
 
         const configured = (catalog.data.catalog || []).filter((item) => item.configured);
         onboardingBadge(
           "onboarding-oauth-badge",
-          configured.length ? configured.length + " configured" : "Optional",
+          configured.length ? configured.length + t(" configured") : t("Optional"),
           configured.length > 0,
           true,
         );
         $("onboarding-oauth-summary").textContent = configured.length
-          ? configured.map((item) => connectorName(item.provider)).join(", ") + " available in the web UI."
-          : "Add Google, GitHub, Notion, or other OAuth clients to make those connectors available.";
+          ? configured.map((item) => connectorName(item.provider)).join(", ") + t(" available in the web UI.")
+          : t("Add Google, GitHub, Notion, or other OAuth clients to make those connectors available.");
         viewLoadedAt.onboarding = Date.now();
       }
       $("onboarding-model-provider").onchange = () => renderOnboardingModelOptions();
@@ -7604,9 +8351,9 @@
         const pat = document.createElement("input");
         pat.type = "text";
         pat.value = rule?.pattern || "";
-        pat.placeholder = "regex";
+        pat.placeholder = t("regex");
         pat.spellcheck = false;
-        pat.setAttribute("aria-label", "Command pattern");
+        pat.setAttribute("aria-label", t("Command pattern"));
         pat.addEventListener("input", () => {
           validatePatternInput(pat);
           syncRuleWorkbench();
@@ -7625,7 +8372,7 @@
         const rsn = document.createElement("input");
         rsn.type = "text";
         rsn.value = rule?.reason || "";
-        rsn.placeholder = "optional";
+        rsn.placeholder = t("optional");
         const priority = document.createElement("span");
         priority.className = "rule-priority mono";
         const order = document.createElement("div");
@@ -7642,12 +8389,12 @@
         const up = document.createElement("button");
         up.type = "button";
         up.textContent = "↑";
-        up.setAttribute("aria-label", "Move rule up");
+        up.setAttribute("aria-label", t("Move rule up"));
         up.onclick = () => move(-1);
         const down = document.createElement("button");
         down.type = "button";
         down.textContent = "↓";
-        down.setAttribute("aria-label", "Move rule down");
+        down.setAttribute("aria-label", t("Move rule down"));
         down.onclick = () => move(1);
         const del = document.createElement("button");
         del.type = "button";
@@ -7677,10 +8424,10 @@
       }
       const BOT_MODES = ["ignore", "rollup", "action", "user"];
       const BOT_MODE_LABELS = {
-        ignore: "ignore — never wakes the judge",
-        rollup: "rollup — batch, judge periodically",
-        action: "action — posts are triggers",
-        user: "user — read like a person",
+        ignore: t("ignore — never wakes the judge"),
+        rollup: t("rollup — batch, judge periodically"),
+        action: t("action — posts are triggers"),
+        user: t("user — read like a person"),
       };
       function syncBotsEmpty() {
         $("ambient-bots-empty").classList.toggle("hidden", $("ambient-bots").children.length > 0);
@@ -7690,7 +8437,7 @@
         const nm = document.createElement("input");
         nm.type = "text";
         nm.value = name || "";
-        nm.placeholder = "e.g. GitHub";
+        nm.placeholder = t("e.g. GitHub");
         nm.spellcheck = false;
         const sel = document.createElement("select");
         BOT_MODES.forEach((m) => {
@@ -7714,9 +8461,9 @@
         const del = document.createElement("button");
         del.type = "button";
         del.className = "rowbtn danger";
-        del.textContent = "Remove";
-        del.title = "Remove this bot from the ledger";
-        del.setAttribute("aria-label", "Remove bot ledger entry");
+        del.textContent = t("Remove");
+        del.title = t("Remove this bot from the ledger");
+        del.setAttribute("aria-label", t("Remove bot ledger entry"));
         del.onclick = () => {
           tr.remove();
           syncBotsEmpty();
@@ -7788,7 +8535,7 @@
         const result = $("policy-result");
         if (!command.trim()) {
           result.dataset.tone = "";
-          result.textContent = "Enter a sample command first.";
+          result.textContent = t("Enter a sample command first.");
           return;
         }
         let policy;
@@ -7801,7 +8548,7 @@
         }
         $("policy-simulate").disabled = true;
         result.dataset.tone = "";
-        result.textContent = "Evaluating with the server’s command scanner…";
+        result.textContent = t("Evaluating with the server’s command scanner…");
         const simulateBody = { command };
         if (loadedCommandPolicyPresent || $("card-command-policy").classList.contains("dirty"))
           simulateBody.policy = policy;
@@ -7890,18 +8637,18 @@
               ) {
                 throw new Error(
                   label +
-                    ' contains invalid host "' +
+                    t(' contains invalid host "') +
                     host +
-                    '". Enter a hostname or IP only—no scheme, path, port, or wildcard.',
+                    t('". Enter a hostname or IP only—no scheme, path, port, or wildcard.'),
                 );
               }
-              if (seen.has(host)) throw new Error(label + ' contains duplicate host "' + host + '".');
+              if (seen.has(host)) throw new Error(label + t(' contains duplicate host "') + host + '".');
               seen.add(host);
               return host;
             });
         };
-        const allowedHosts = parse("egress", "Allowlist");
-        const deniedHosts = parse("egress-deny", "Denylist");
+        const allowedHosts = parse("egress", t("Allowlist"));
+        const deniedHosts = parse("egress-deny", t("Denylist"));
         const overlap = allowedHosts.find((host) => deniedHosts.includes(host));
         if (overlap)
           throw new Error('Host "' + overlap + '" appears in both lists. Remove it from one list before saving.');
@@ -8246,26 +8993,26 @@
       }
 
       const PHASE_META = {
-        total: ["Total turn", "End-to-end wall time, request to reply"],
-        ttft: ["First token", "Time until the first streamed token"],
-        slackInflight: ["Slack pickup", "Socket receive to submit — how long the message sat in the Slack plugin"],
-        intakePreamble: ["Intake preamble", "Surface-side work before the request left for core"],
-        queue: ["Queue wait", "Waiting for a worker to claim the run"],
-        dispatch: ["Dispatch", "Surface receive to core hand-off"],
-        ingress: ["Ingress", "Core receive to model start: parse, resolve, prepare"],
-        detect: ["Reply decision", "Deciding whether to speak in a channel"],
-        compact: ["History compaction", "Compacting a long transcript before the model call"],
-        provision: ["Machine provision", "Booting or resuming the sandbox machine"],
-        materialize: ["Skills materialize", "Copying resolved skills onto the machine"],
-        creds: ["Credentials restore", "Restoring keychain credentials onto the machine"],
-        layers: ["Workspace layers", "Restoring workspace layers at provision time"],
-        compile: ["Prompt compile", "Assembling the system prompt"],
-        recall: ["Memory recall", "Injecting durable memory into the prompt"],
-        lease: ["Session lease", "Loading the session and acquiring the writer lease"],
-        exec: ["Command exec", "Commands the agent ran in the machine"],
-        stream: ["Stream + append", "Streaming tokens out and appending the turn"],
-        deliver: ["Slack deliver", "The final Slack post/update round-trip"],
-        capture: ["Memory capture", "Post-turn fact extraction, off the critical path"],
+        total: [t("Total turn"), t("End-to-end wall time, request to reply")],
+        ttft: [t("First token"), t("Time until the first streamed token")],
+        slackInflight: [t("Slack pickup"), t("Socket receive to submit — how long the message sat in the Slack plugin")],
+        intakePreamble: [t("Intake preamble"), t("Surface-side work before the request left for core")],
+        queue: [t("Queue wait"), t("Waiting for a worker to claim the run")],
+        dispatch: [t("Dispatch"), t("Surface receive to core hand-off")],
+        ingress: [t("Ingress"), t("Core receive to model start: parse, resolve, prepare")],
+        detect: [t("Reply decision"), t("Deciding whether to speak in a channel")],
+        compact: [t("History compaction"), t("Compacting a long transcript before the model call")],
+        provision: [t("Machine provision"), t("Booting or resuming the sandbox machine")],
+        materialize: [t("Skills materialize"), t("Copying resolved skills onto the machine")],
+        creds: [t("Credentials restore"), t("Restoring keychain credentials onto the machine")],
+        layers: [t("Workspace layers"), t("Restoring workspace layers at provision time")],
+        compile: [t("Prompt compile"), t("Assembling the system prompt")],
+        recall: [t("Memory recall"), t("Injecting durable memory into the prompt")],
+        lease: [t("Session lease"), t("Loading the session and acquiring the writer lease")],
+        exec: [t("Command exec"), t("Commands the agent ran in the machine")],
+        stream: [t("Stream + append"), t("Streaming tokens out and appending the turn")],
+        deliver: [t("Slack deliver"), t("The final Slack post/update round-trip")],
+        capture: [t("Memory capture"), t("Post-turn fact extraction, off the critical path")],
       };
       const phaseLabel = (key) => (PHASE_META[key] || [titleCase(key)])[0];
       const phaseDesc = (key) => (PHASE_META[key] || [])[1] || "";
@@ -8311,7 +9058,7 @@
         const phases = d.phases || [];
         root.appendChild(
           openableTable(
-            ["Phase", "p50", "p95", "p99", "Turns", "Trend"],
+            [t("Phase"), "p50", "p95", "p99", t("Turns"), t("Trend")],
             phases,
             (p) => [
               nodeCell(stacked(phaseLabel(p.phase), phaseDesc(p.phase))),
@@ -8322,7 +9069,7 @@
               nodeCell(sparkline(p.daily), "num"),
             ],
             (p) => go({ view: "metrics", scope, session: null, phase: p.phase }),
-            "No turn metrics in this scope yet.",
+            t("No turn metrics in this scope yet."),
           ),
         );
         renderTurnMix(root, d);
@@ -8330,10 +9077,10 @@
         if (tp.total)
           root.appendChild(
             statline([
-              (tp.total ?? 0) + " runs",
-              (tp.done ?? 0) + " done",
-              (tp.failed ?? 0) + " failed",
-              fmtPct(tp.failureRate) + " failure rate",
+              (tp.total ?? 0) + t(" runs"),
+              (tp.done ?? 0) + t(" done"),
+              (tp.failed ?? 0) + t(" failed"),
+              fmtPct(tp.failureRate) + t(" failure rate"),
             ]),
           );
       }
@@ -8342,13 +9089,13 @@
         if (!c || !(c.samples || 0)) return;
         root.appendChild(
           statline([
-            (c.avgHitRatio == null ? "—" : fmtPct(c.avgHitRatio)) + " prompt-cache hit ratio",
-            (c.pooledHitRatio == null ? "—" : fmtPct(c.pooledHitRatio)) + " token-weighted",
-            (c.missRate == null ? "—" : fmtPct(c.missRate)) + " stable-prefix miss rate",
-            (c.missTurns || 0) + " miss turns",
-            (c.samples || 0) + " turns with cache data",
-            fmtTokens(c.cacheReadTotal || 0) + " read",
-            fmtTokens(c.cacheWriteTotal || 0) + " written",
+            (c.avgHitRatio == null ? "—" : fmtPct(c.avgHitRatio)) + t(" prompt-cache hit ratio"),
+            (c.pooledHitRatio == null ? "—" : fmtPct(c.pooledHitRatio)) + t(" token-weighted"),
+            (c.missRate == null ? "—" : fmtPct(c.missRate)) + t(" stable-prefix miss rate"),
+            (c.missTurns || 0) + t(" miss turns"),
+            (c.samples || 0) + t(" turns with cache data"),
+            fmtTokens(c.cacheReadTotal || 0) + t(" read"),
+            fmtTokens(c.cacheWriteTotal || 0) + t(" written"),
           ]),
         );
       }
@@ -8363,7 +9110,7 @@
         const share = (n) => (c.totalTurns ? fmtPct((n || 0) / c.totalTurns) : "—");
         const rows = [
           [
-            nodeCell(stacked("Turns that never touched a machine", "pure conversation, no tools")),
+            nodeCell(stacked(t("Turns that never touched a machine"), t("pure conversation, no tools"))),
             { text: share(a.samples), cls: "num" },
             { text: String(a.samples || 0), cls: "num" },
             { text: fmtMs(a.total && a.total.p50), cls: "num" },
@@ -8373,15 +9120,15 @@
           [
             nodeCell(
               stacked(
-                "Turns that used a machine",
+                t("Turns that used a machine"),
                 (b.warm || 0) +
-                  " on a warm machine (" +
+                  t(" on a warm machine (") +
                   fmtMs(b.provisionWarm && b.provisionWarm.p50) +
-                  " median resume) · " +
+                  t(" median resume)") + " · " +
                   (b.cold || 0) +
-                  " booted cold (" +
+                  t(" booted cold (") +
                   fmtMs(b.provisionCold && b.provisionCold.p50) +
-                  " median boot)",
+                  t(" median boot)"),
               ),
             ),
             { text: share(b.samples), cls: "num" },
@@ -8391,7 +9138,7 @@
             { text: fmtX(b.toolCalls && b.toolCalls.avg), cls: "num" },
           ],
           [
-            nodeCell(stacked("All turns", "the blended average")),
+            nodeCell(stacked(t("All turns"), t("the blended average"))),
             { text: "100%", cls: "num" },
             { text: String(c.totalTurns || 0), cls: "num" },
             { text: fmtMs(c.total && c.total.p50), cls: "num" },
@@ -8401,9 +9148,9 @@
         ];
         root.appendChild(
           dataCard(
-            "Turn mix",
-            "How often turns provision a machine, and what each kind of turn costs.",
-            table(["Kind of turn", "Share", "Turns", "Median", "Model calls", "Tool calls"], rows, "No turns sampled."),
+            t("Turn mix"),
+            t("How often turns provision a machine, and what each kind of turn costs."),
+            table([t("Kind of turn"), t("Share"), t("Turns"), t("Median"), t("Model calls"), t("Tool calls")], rows, t("No turns sampled.")),
           ),
         );
       }
@@ -8453,7 +9200,7 @@
         if (!p || !p.count) {
           const e = document.createElement("p");
           e.className = "empty";
-          e.textContent = "No " + phaseLabel(phaseKey).toLowerCase() + " samples in this scope yet.";
+          e.textContent = t("No ") + phaseLabel(phaseKey).toLowerCase() + t(" samples in this scope yet.");
           root.appendChild(e);
           return;
         }
@@ -8479,8 +9226,8 @@
         root.appendChild(
           dataCard(
             "By day",
-            "Daily percentiles (UTC).",
-            table(["Day", "Turns", "p50", "p95", "p99"], dailyRows, "No daily samples."),
+            t("Daily percentiles (UTC)."),
+            table([t("Day"), t("Turns"), "p50", "p95", "p99"], dailyRows, t("No daily samples.")),
           ),
         );
         const linkable = (t) => !!t.sessionId;
@@ -8490,7 +9237,7 @@
             "Worst recent turns",
             anyLinkable ? "The slowest samples — each opens the turn's transcript." : "The slowest samples.",
             openableTable(
-              [phaseLabel(phaseKey), "Total turn", "Scope", "Machine", "Time"],
+              [phaseLabel(phaseKey), t("Total turn"), t("Scope"), t("Machine"), t("Time")],
               p.worst || [],
               (t) => [
                 { text: fmtMs(t.ms), cls: "num" },
@@ -8520,7 +9267,7 @@
         defaultShell({ count: plural(events.length, "event") });
         const rows = events.map((e) => [
           { text: e.principalId, cls: "mono" },
-          nodeCell(mutedText(e.action || "event", /revoke|delete|deny|fail/.test(String(e.action || "")) ? "err" : "")),
+          nodeCell(mutedText(e.action || t("event"), /revoke|delete|deny|fail/.test(String(e.action || "")) ? "err" : "")),
           { text: e.status ? e.resource + " (" + e.status + ")" : e.resource || "", cls: "mono" },
           ...(all ? [{ text: shortName(e.scopeLabel) }] : []),
           timeCell(e.ts),
@@ -8528,9 +9275,9 @@
         root.appendChild(
           bareDataCard(
             table(
-              ["Admin", "Action", "Resource", ...(all ? ["Scope"] : []), "Time"],
+              [t("Admin"), t("Action"), t("Resource"), ...(all ? [t("Scope")] : []), t("Time")],
               rows,
-              all ? "No admin activity yet." : "No admin activity for this scope.",
+              all ? t("No admin activity yet.") : t("No admin activity for this scope."),
             ),
           ),
         );
@@ -8619,8 +9366,8 @@
         defaultShell({
           stats: [
             [String(d.total ?? recs.length), "Calls"],
-            [String(d.denied ?? 0), "Denied"],
-            [String(d.hosts ?? 0), "Hosts"],
+            [String(d.denied ?? 0), t("Denied")],
+            [String(d.hosts ?? 0), t("Hosts")],
             [String(bs.broker ?? 0), "Broker"],
             [String(bs.firewall ?? 0), "Firewall"],
           ],
@@ -8637,9 +9384,9 @@
         root.appendChild(
           bareDataCard(
             table(
-              ["Host", "Status", "Source", ...(all ? ["Scope"] : []), "Principal", "Detail", "Time"],
+              [t("Host"), t("Status"), t("Source"), ...(all ? [t("Scope")] : []), t("Principal"), t("Detail"), t("Time")],
               rows,
-              "No egress in this scope yet.",
+              t("No egress in this scope yet."),
             ),
           ),
         );
@@ -8669,7 +9416,11 @@
         return kind === "cron" || kind === "background" ? "background" : kind;
       }
 
-      const KIND_LABEL = { conversation: "Conversations", cron: "Crons", background: "Background" };
+      const KIND_LABEL = {
+        conversation: t("Conversations"),
+        cron: t("Crons"),
+        background: t("Background"),
+      };
       function historyModeLabel(kind) {
         return KIND_LABEL[kind] || KIND_LABEL.conversation;
       }
@@ -8777,7 +9528,7 @@
         return (dest.type || "destination") + " -> " + (dest.target || "-");
       }
       function destinationDetails(dest) {
-        if (!dest) return "No delivery destination";
+        if (!dest) return t("No delivery destination");
         const bits = [];
         if (dest.audienceScopeId) bits.push(dest.audienceScopeId);
         if (dest.onBehalfOf) bits.push("on behalf of " + dest.onBehalfOf);
@@ -8799,7 +9550,7 @@
         const edit = document.createElement("button");
         edit.type = "button";
         edit.className = "rowbtn";
-        edit.textContent = "Edit destination";
+        edit.textContent = t("Edit destination");
         edit.onclick = () => {
           cronDestinationEditId = c.id;
           renderCurrentData();
@@ -8808,7 +9559,7 @@
         const clear = document.createElement("button");
         clear.type = "button";
         clear.className = "rowbtn danger";
-        clear.textContent = "Clear destination";
+        clear.textContent = t("Clear destination");
         clear.disabled = !c.destination;
         clear.onclick = async () => {
           if (!(await saveCronDestination(c.id, null))) return;
@@ -8825,7 +9576,7 @@
         form.style.gridTemplateColumns = "repeat(auto-fit, minmax(160px, 1fr))";
         form.style.gap = "10px";
         const typeWrap = document.createElement("label");
-        typeWrap.textContent = "Type";
+        typeWrap.textContent = t("Type");
         const type = document.createElement("select");
         for (const value of ["slack", "principal"]) {
           const opt = document.createElement("option");
@@ -8836,19 +9587,19 @@
         type.value = c.destination?.type === "principal" ? "principal" : "slack";
         typeWrap.appendChild(type);
         const targetWrap = document.createElement("label");
-        targetWrap.textContent = "Target";
+        targetWrap.textContent = t("Target");
         const target = document.createElement("input");
         target.type = "text";
         target.value = c.destination?.target || "";
         targetWrap.appendChild(target);
         const scopeWrap = document.createElement("label");
-        scopeWrap.textContent = "Audience scope";
+        scopeWrap.textContent = t("Audience scope");
         const audienceScopeId = document.createElement("input");
         audienceScopeId.type = "text";
         audienceScopeId.value = c.destination?.audienceScopeId || "";
         scopeWrap.appendChild(audienceScopeId);
         const oboWrap = document.createElement("label");
-        oboWrap.textContent = "On behalf of";
+        oboWrap.textContent = t("On behalf of");
         const onBehalfOf = document.createElement("input");
         onBehalfOf.type = "text";
         onBehalfOf.value = c.destination?.onBehalfOf || "";
@@ -8867,7 +9618,7 @@
         const save = document.createElement("button");
         save.type = "button";
         save.className = "primary";
-        save.textContent = "Save destination";
+        save.textContent = t("Save destination");
         save.onclick = async () => {
           const nextTarget = target.value.trim();
           if (!nextTarget) {
@@ -8887,14 +9638,14 @@
         };
         const cancel = document.createElement("button");
         cancel.type = "button";
-        cancel.textContent = "Cancel";
+        cancel.textContent = t("Cancel");
         cancel.onclick = () => {
           cronDestinationEditId = null;
           renderCurrentData();
         };
         foot.append(save, cancel);
         body.appendChild(foot);
-        return dataCard("Edit cron destination", c.title || c.action || c.message || c.id, body);
+        return dataCard(t("Edit cron destination"), c.title || c.action || c.message || c.id, body);
       }
       const cronStatusText = (c) => {
         if (c.archived) return "archived";
@@ -8932,29 +9683,29 @@
           return {
             name,
             preview,
-            time: shortSchedule(c.schedule) + " · " + (c.lastFiredAt ? relTime(c.lastFiredAt) : "never fired"),
+            time: shortSchedule(c.schedule) + " · " + (c.lastFiredAt ? relTime(c.lastFiredAt) : t("never fired")),
             cls: status === "enabled" ? "" : "dim",
             href: stateToUrl({ view: "crons", scope, cron: c.id }),
           };
         };
         const openCron = (c) => go({ view: "crons", scope, session: null, cron: c.id, page: 1 });
         const names = sorted.map((c) => (cronName(c, true) + " " + (c.action || c.message || "")).toLowerCase());
-        const list = denseList(sorted, cronRow, openCron, index ? "No crons yet." : "No crons in this scope.");
+        const list = denseList(sorted, cronRow, openCron, index ? t("No crons yet.") : t("No crons in this scope."));
         let scopeWrap = null;
         if (index) {
           scopeWrap = document.createElement("div");
           scopeWrap.appendChild(
             scopeIndexList(allCrons, {
               latestOf: lastRun,
-              noun: "cron",
-              empty: "No crons yet.",
+              noun: t("cron"),
+              empty: t("No crons yet."),
               extra: { cron: null },
             }),
           );
         }
         const noMatch = document.createElement("p");
         noMatch.className = "empty hidden";
-        noMatch.textContent = "No crons match.";
+        noMatch.textContent = t("No crons match.");
         const listWrap = document.createElement("div");
         listWrap.append(list, noMatch);
         wireScopeSearch({
@@ -9010,10 +9761,10 @@
         const toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "prompt-toggle";
-        toggle.textContent = "Show more";
+        toggle.textContent = t("Show more");
         toggle.onclick = () => {
           const clamped = body.classList.toggle("clamped");
-          toggle.textContent = clamped ? "Show more" : "Show less";
+          toggle.textContent = clamped ? t("Show more") : t("Show less");
         };
         wrap.appendChild(toggle);
 
@@ -9029,13 +9780,13 @@
             label: "← " + VIEW_TITLE.crons,
             onClick: () => go({ view: "crons", scope, session: null, cron: null, page: 1 }),
           },
-          title: c ? firstLine(cronName(c, true), 90) : "Cron",
+          title: c ? firstLine(cronName(c, true), 90) : t("Cron"),
           context: c ? shortName(c.ownerScopeId) : "",
         });
         if (!c) {
           const p = document.createElement("p");
           p.className = "empty";
-          p.textContent = "Cron " + shortId(cronId) + " isn't in this scope.";
+          p.textContent = t("Cron") + " " + shortId(cronId) + t(" isn't in this scope.");
           root.appendChild(p);
           return;
         }
@@ -9046,13 +9797,13 @@
           (destinationDetails(c.destination) && c.destination ? " · " + destinationDetails(c.destination) : "");
         root.appendChild(
           factList([
-            ["Schedule", fmtSchedule(c.schedule)],
-            ["Destination", dest],
-            ["Owner", c.owner || c.createdBy || "—"],
-            ["Status", cronStatusText(c)],
-            ["Created", fmtTime(c.createdAt)],
-            ["Last fired", c.lastFiredAt ? relTime(c.lastFiredAt) : "never fired"],
-            ["Id", c.id],
+            [t("Schedule"), fmtSchedule(c.schedule)],
+            [t("Destination"), dest],
+            [t("Owner"), c.owner || c.createdBy || "—"],
+            [t("Status"), cronStatusText(c)],
+            [t("Created"), fmtTime(c.createdAt)],
+            [t("Last fired"), c.lastFiredAt ? relTime(c.lastFiredAt) : t("never fired")],
+            [t("Id"), c.id],
           ]),
         );
         const actions = cronDestinationActions(c);
@@ -9062,19 +9813,19 @@
         if (prompt)
           root.appendChild(
             dataCard(
-              c.action ? "Prompt" : "Message",
-              c.action ? "Re-run as a fresh prompt at every fire." : "Delivered as-is at every fire.",
+              c.action ? t("Prompt") : t("Message"),
+              c.action ? t("Re-run as a fresh prompt at every fire.") : t("Delivered as-is at every fire."),
               clampedPrompt(prompt),
             ),
           );
         const firesWrap = document.createElement("div");
         firesWrap.appendChild(
-          Object.assign(document.createElement("div"), { className: "loadingline", textContent: "Loading fires..." }),
+          Object.assign(document.createElement("div"), { className: "loadingline", textContent: t("Loading fires...") }),
         );
         root.appendChild(
           dataCard(
-            "Recent fires",
-            "Each fire is a session — click one to read its transcript. Dimmed fires delivered nothing.",
+            t("Recent fires"),
+            t("Each fire is a session — click one to read its transcript. Dimmed fires delivered nothing."),
             firesWrap,
           ),
         );
@@ -9096,34 +9847,34 @@
           return;
         }
         const fires = r.data.sessions || [];
-        const t = denseList(
+        const list = denseList(
           fires,
           (s) => {
             let delivery = "";
             if (typeof s.delivered === "number") {
-              delivery = "silent";
-              if (s.delivered) delivery = "delivered" + (s.delivered > 1 ? " ×" + s.delivered : "");
+              delivery = t("silent");
+              if (s.delivered) delivery = t("delivered") + (s.delivered > 1 ? " ×" + s.delivered : "");
             }
             return {
               name: relTime(s.createdAt || s.lastActivity),
-              preview: [delivery, plural(s.turns || 0, "turn"), s.lastMessage || s.firstMessage || "(no messages)"]
+              preview: [delivery, plural(s.turns || 0, t("turn")), s.lastMessage || s.firstMessage || t("(no messages)")]
                 .filter(Boolean)
                 .join(" · "),
-              time: plural(s.messages || 0, "entry", "entries"),
+              time: plural(s.messages || 0, t("entry"), t("entries")),
               cls: typeof s.delivered === "number" && !s.delivered ? "dim" : "",
               href: stateToUrl({ view: "history", scope: s.scopeId || scope, session: s.id }),
             };
           },
           (s) => go({ view: "history", scope: s.scopeId || scope, session: s.id }),
-          "This cron has never fired.",
+          t("This cron has never fired."),
         );
-        container.appendChild(t);
+        container.appendChild(list);
         const total = r.data.total || fires.length;
         if (total > limit) {
           const more = document.createElement("button");
           more.type = "button";
           more.className = "prompt-toggle";
-          more.textContent = "All " + plural(total, "fire") + " →";
+          more.textContent = t("All ") + plural(total, t("fire")) + " →";
           more.onclick = () =>
             go({ view: "history", scope, session: null, page: 1, historyKind: "cron", cron: cronId });
           container.appendChild(more);
@@ -9135,7 +9886,7 @@
           (a, b) => (b.lastAccessAt || b.createdAt || 0) - (a.lastAccessAt || a.createdAt || 0),
         );
         const deployments = orgOwnView() ? allDeps.filter((dep) => scopeKind(dep.ownerScopeId) === "org") : allDeps;
-        const count = deployments.length ? plural(deployments.length, "deployment") : "";
+        const count = deployments.length ? plural(deployments.length, t("deployment")) : "";
         const previewOf = (dep) =>
           [
             titleCase(dep.status || "unknown"),
@@ -9158,11 +9909,11 @@
         };
         const lastTouch = (dep) => dep.lastAccessAt || dep.createdAt || 0;
         const names = deployments.map((dep) => (dep.name || dep.id).toLowerCase());
-        const t = denseList(
+        const list = denseList(
           deployments,
           depRow,
           openDep,
-          index ? "No deployments yet." : "No deployments in this scope.",
+          index ? t("No deployments yet.") : t("No deployments in this scope."),
         );
         let scopeWrap = null;
         if (index) {
@@ -9170,21 +9921,21 @@
           scopeWrap.appendChild(
             scopeIndexList(allDeps, {
               latestOf: lastTouch,
-              noun: "deployment",
-              empty: "No deployments yet.",
+              noun: t("deployment"),
+              empty: t("No deployments yet."),
             }),
           );
         }
         const noMatch = document.createElement("p");
         noMatch.className = "empty hidden";
-        noMatch.textContent = "No deployments match.";
+        noMatch.textContent = t("No deployments match.");
         const listWrap = document.createElement("div");
-        listWrap.append(t, noMatch);
+        listWrap.append(list, noMatch);
         wireScopeSearch({
           key: "deployments",
           indexWrap: scopeWrap,
           listWrap,
-          rows: [...t.children],
+          rows: [...list.children],
           names,
           noMatch,
           total: deployments.length,
@@ -9225,8 +9976,8 @@
         }
       }
       function createdByCell(s) {
-        if (s.pack) return { text: packRepoLabel(s.pack.url) || "pack " + shortId(s.pack.id, 8), cls: "mono" };
-        if (s.createdBy && s.createdBy.indexOf("system:") === 0) return { text: "built-in", cls: "subline" };
+        if (s.pack) return { text: packRepoLabel(s.pack.url) || t("pack ") + shortId(s.pack.id, 8), cls: "mono" };
+        if (s.createdBy && s.createdBy.indexOf("system:") === 0) return { text: t("built-in"), cls: "subline" };
         return { text: s.createdBy || "—", cls: "mono" };
       }
 
@@ -9263,19 +10014,23 @@
 
       function skillRemoveAction(records) {
         const live = (records || []).filter((r) => r.status !== "archived");
-        if (!live.length) return badge("archived", "muted");
+        if (!live.length) return badge(t("archived"), "muted");
         const rm = document.createElement("button");
         rm.type = "button";
         rm.className = "rowbtn danger";
-        rm.textContent = "Remove";
+        rm.textContent = t("Remove");
         rm.onclick = async (e) => {
           e.stopPropagation();
-          const name = (records[0] && (records[0].name || records[0].id)) || "this skill";
+          const name = (records[0] && (records[0].name || records[0].id)) || t("this skill");
           const where =
             live.length === 1
-              ? "from " + (dirLabel(live[0].ownerScopeId) || live[0].ownerScopeId)
-              : "from all " + live.length + " scopes";
-          if (!confirm("Remove '" + name + "' " + where + "? It stops being available to agents (kept for audit)."))
+              ? t("from ") + (dirLabel(live[0].ownerScopeId) || live[0].ownerScopeId)
+              : t("from all ") + live.length + t(" scopes");
+          if (
+            !confirm(
+              t("Remove '") + name + "' " + where + t("? It stops being available to agents in that scope (kept for audit)."),
+            )
+          )
             return;
           rm.disabled = true;
           let failed = 0;
@@ -9288,7 +10043,7 @@
           }
           dataCache.clear();
           renderData();
-          if (failed) alert(failed + " scope(s) could not be removed.");
+          if (failed) alert(failed + t(" scope(s) could not be removed."));
         };
         return rm;
       }
@@ -9308,16 +10063,16 @@
           .sort((a, b) => lastUse(b) - lastUse(a) || (a.name || "").localeCompare(b.name || ""));
         const skills = orgOwnView() ? allSkills.filter((s) => scopeKind(s.ownerScopeId) === "org") : allSkills;
         const count =
-          plural(skills.length, "skill") +
-          (index && skills.length ? " · " + plural(new Set(skills.map((s) => s.ownerScopeId)).size, "scope") : "");
+          plural(skills.length, t("skill")) +
+          (index && skills.length ? " · " + plural(new Set(skills.map((s) => s.ownerScopeId)).size, t("scope")) : "");
 
         const recordsByKey = new Map(groupSkillsByIdentity(allSkills).map((g) => [g.key, g.records]));
         const openSkill = (s) => openSkillDetail(detail, s, recordsByKey.get(skillIdentityKey(s)) || [s]);
         const names = skills.map((s) => ((s.name || s.id) + " " + (s.description || "")).toLowerCase());
         const lastUsedText = (s) => {
           if (s.lastUsedAt) return fmtHistoryTime(s.lastUsedAt);
-          if (lastUse(s)) return "never · imported " + fmtHistoryTime(lastUse(s));
-          return "never";
+          if (lastUse(s)) return t("never imported ") + fmtHistoryTime(lastUse(s));
+          return t("never");
         };
 
         let scopeWrap = null;
@@ -9326,13 +10081,13 @@
           scopeWrap.appendChild(
             scopeIndexList(allSkills, {
               latestOf: lastUse,
-              noun: "skill",
-              empty: "No skills yet.",
+              noun: t("skill"),
+              empty: t("No skills yet."),
             }),
           );
         }
-        const t = openableTable(
-          ["Skill", ...(index ? ["Scope"] : []), "Status", "Created by", "Last used", ""],
+        const table = openableTable(
+          [t("Skill"), ...(index ? [t("Scope")] : []), t("Status"), t("Created by"), t("Last used"), ""],
           skills,
           (s) => [
             nodeCell(stacked(s.name || s.id, s.description || shortId(s.id))),
@@ -9346,19 +10101,19 @@
             nodeCell(skillRemoveAction([s])),
           ],
           openSkill,
-          index ? "No skills yet." : "No skills in this scope.",
+          index ? t("No skills yet.") : t("No skills in this scope."),
           { className: "skills-table" },
         );
         const noMatch = document.createElement("p");
         noMatch.className = "empty hidden";
-        noMatch.textContent = "No skills match.";
+        noMatch.textContent = t("No skills match.");
         const tableWrap = document.createElement("div");
-        tableWrap.append(t, noMatch);
+        tableWrap.append(table, noMatch);
         wireScopeSearch({
           key: "skills",
           indexWrap: scopeWrap,
           listWrap: tableWrap,
-          rows: [...t.querySelectorAll("tbody tr")],
+          rows: [...table.querySelectorAll("tbody tr")],
           names,
           noMatch,
           total: skills.length,
@@ -9374,7 +10129,7 @@
             title: index ? VIEW_TITLE.skills : shortName(scope),
             count,
           },
-          placeholder: index ? "Search all skills…" : "Search skills…",
+          placeholder: index ? t("Search all skills…") : t("Search skills…"),
         });
         const card = bareDataCard(tableWrap);
         if (scopeWrap) card.querySelector(".body").prepend(scopeWrap);
@@ -9397,15 +10152,16 @@
         if (!r.ok || !r.data) {
           const p = document.createElement("p");
           p.className = "empty";
-          p.textContent = r.status === 403 ? "You don't administer this skill's scope." : "Couldn't load this skill.";
+          p.textContent =
+            r.status === 403 ? t("You don't administer this skill's scope.") : t("Couldn't load this skill.");
           holder.appendChild(p);
           return;
         }
         const k = r.data;
         const box = document.createElement("div");
-        let byFact = ["by " + (k.createdBy || "—"), "muted"];
-        if (k.pack) byFact = ["from " + (packRepoLabel(k.pack.url) || "pack " + shortId(k.pack.id, 8)), "muted"];
-        else if (k.createdBy && k.createdBy.indexOf("system:") === 0) byFact = ["built-in", "muted"];
+        let byFact = [t("by ") + (k.createdBy || "—"), "muted"];
+        if (k.pack) byFact = [t("from ") + (packRepoLabel(k.pack.url) || t("pack ") + shortId(k.pack.id, 8)), "muted"];
+        else if (k.createdBy && k.createdBy.indexOf("system:") === 0) byFact = [t("built-in"), "muted"];
         const facts = [
           { node: statusBadge(k.status) },
           ["v" + k.version, "muted"],
@@ -9435,59 +10191,61 @@
           ]);
         box.appendChild(
           dataCard(
-            "Scopes (" + group.length + ")",
-            "Every scope this skill is installed in. Remove takes it out of that scope only.",
-            table(["Scope", "Status", "Version", ""], detailScopeRows, "—"),
+            t("Scopes (") + group.length + ")",
+            t("Every scope this skill is installed in. Remove takes it out of that scope only."),
+            table([t("Scope"), t("Status"), t("Version"), ""], detailScopeRows, "—"),
           ),
         );
         const capRows = (k.requiredCapabilities || []).map((c) => [
           { text: c, cls: "mono" },
-          nodeCell((k.grantedCapabilities || []).includes(c) ? badge("granted", "ok") : badge("not granted", "warn")),
+          nodeCell(
+            (k.grantedCapabilities || []).includes(c) ? badge(t("granted"), "ok") : badge(t("not granted"), "warn"),
+          ),
         ]);
         box.appendChild(
           dataCard(
-            "Capabilities",
-            "What the skill is allowed to reach. Granted at review time.",
-            table(["Capability", "Status"], capRows, "Requires no capabilities."),
+            t("Capabilities"),
+            t("What the skill is allowed to reach. Granted at review time."),
+            table([t("Capability"), t("Status")], capRows, t("Requires no capabilities.")),
           ),
         );
         if ((k.approvals || []).length)
           box.appendChild(
             dataCard(
-              "Approvals",
-              "Reviewers who signed off on this skill.",
+              t("Approvals"),
+              t("Reviewers who signed off on this skill."),
               table(
-                ["Reviewer"],
+                [t("Reviewer")],
                 k.approvals.map((a) => [{ text: a, cls: "mono" }]),
               ),
             ),
           );
         const pre = document.createElement("pre");
         pre.className = "skillbody";
-        pre.textContent = k.body || "(empty)";
+        pre.textContent = k.body || t("(empty)");
         pre.style.whiteSpace = "pre-wrap";
         pre.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
         pre.style.fontSize = "12px";
         pre.style.margin = "0";
-        box.appendChild(dataCard("Instructions", "The SKILL.md the agent reads when this skill is in play.", pre));
+        box.appendChild(dataCard(t("Instructions"), t("The SKILL.md the agent reads when this skill is in play."), pre));
         holder.appendChild(dataCard(k.name || k.id, "", box));
         holder.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
 
       function skillScopeAction(g) {
-        if (g.status === "archived") return badge("archived", "muted");
+        if (g.status === "archived") return badge(t("archived"), "muted");
         const rm = document.createElement("button");
         rm.type = "button";
         rm.className = "rowbtn danger";
-        rm.textContent = "Remove";
+        rm.textContent = t("Remove");
         rm.onclick = async () => {
           if (
             !confirm(
-              "Remove '" +
+              t("Remove '") +
                 (g.name || g.id) +
-                "' from " +
+                t("' from ") +
                 (dirLabel(g.ownerScopeId) || g.ownerScopeId) +
-                "? It stops being available to agents in that scope (kept for audit).",
+                t("? It stops being available to agents in that scope (kept for audit)."),
             )
           )
             return;
@@ -9576,24 +10334,18 @@
         };
         const row = document.createElement("div");
         row.className = "pack-register";
-        const url = mkInput("Register a pack — paste a git repo URL of SKILL.md files, then Browse it into scopes");
+        const url = mkInput(t("Register a pack — paste a git repo URL of SKILL.md files, then Browse it into scopes"));
         const adv = document.createElement("div");
         adv.className = "pack-adv hidden";
-        const ref = mkInput(
-          "ref (branch or SHA)",
-          "Pin to a branch or full 40-hex commit SHA. Blank = the repo's default branch.",
-        );
-        const excl = mkInput("exclude globs, comma-separated", "e.g. trusted/*");
-        const slug = mkInput(
-          "deploy-token slug",
-          "Private-repo deploy-token credential slug. Blank = your connected GitHub account.",
-        );
+        const ref = mkInput(t("ref (branch or SHA)"), t("Pin to a branch or full 40-hex commit SHA. Blank = the repo's default branch."));
+        const excl = mkInput(t("exclude globs, comma-separated"), "e.g. trusted/*");
+        const slug = mkInput(t("deploy-token slug"), t("Private-repo deploy-token credential slug. Blank = your connected GitHub account."));
         const tier = document.createElement("select");
-        tier.title = "Trust tier";
-        for (const t of ["third-party", "internal"]) {
+        tier.title = t("Trust tier");
+        for (const level of ["third-party", "internal"]) {
           const o = document.createElement("option");
-          o.value = t;
-          o.textContent = "trust: " + t;
+          o.value = level;
+          o.textContent = t("trust: ") + level;
           tier.appendChild(o);
         }
         adv.append(ref, excl, slug, tier);
@@ -9606,7 +10358,7 @@
           Boolean(ref.value.trim() || excl.value.trim() || slug.value.trim() || tier.value !== "third-party");
         const paintAdvToggle = () => {
           const open = !adv.classList.contains("hidden");
-          advToggle.textContent = "Advanced" + (!open && advHasValues() ? " •" : "");
+          advToggle.textContent = t("Advanced") + (!open && advHasValues() ? " •" : "");
           advToggle.classList.toggle("open", open);
           advToggle.setAttribute("aria-expanded", String(open));
         };
@@ -9621,16 +10373,16 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.className = "primary";
-        btn.textContent = "Register";
+        btn.textContent = t("Register");
         btn.onclick = async () => {
           if (!url.value.trim()) {
             status.className = "status err";
-            status.textContent = "A repo URL is required.";
+            status.textContent = t("A repo URL is required.");
             return;
           }
           btn.disabled = true;
           status.className = "status";
-          status.textContent = "Registering…";
+          status.textContent = t("Registering…");
           const body = { url: url.value.trim() };
           if (ref.value.trim()) body.ref = ref.value.trim();
           const ex = excl.value
@@ -9657,14 +10409,16 @@
           const li = s.lastImport;
           const c = (li && li.counts) || {};
           const delta = li
-            ? "last sync: " +
+            ? t("last sync: ") +
               (c.imported || 0) +
-              " new · " +
+              t(" new") +
+              " · " +
               (c.updated || 0) +
-              " updated · " +
+              t(" updated") +
+              " · " +
               (c.skipped || 0) +
-              " skipped" +
-              (c.archived ? " · " + c.archived + " removed" : "")
+              t(" skipped") +
+              (c.archived ? " · " + c.archived + t(" removed") : "")
             : "";
           const packNode = document.createElement("span");
           packNode.className = "pack-name";
@@ -9679,10 +10433,10 @@
           }
           packNode.title = s.url + (delta ? "\n" + delta : "");
           const skillsNode = document.createElement("span");
-          skillsNode.textContent = s.available != null ? (s.importedCount || 0) + " of " + s.available : "—";
+          skillsNode.textContent = s.available != null ? (s.importedCount || 0) + t(" of ") + s.available : "—";
           if (s.available != null)
             skillsNode.title =
-              (s.importedCount || 0) + " imported · " + s.available + " available (eligible) in this pack";
+              (s.importedCount || 0) + t(" imported") + " · " + s.available + t(" available (eligible) in this pack");
           const st = document.createElement("span");
           st.className = "status";
           const setStatusText = (text, cls, title) => {
@@ -9691,30 +10445,31 @@
             if (title) st.title = title;
           };
           if (li && li.status === "error")
-            setStatusText("error — " + (li.error || "sync failed"), "err", li.error || "");
+            setStatusText(t("error — ") + (li.error || t("sync failed")), "err", li.error || "");
           else if (s.updateAvailable)
             setStatusText(
-              "update available",
+              t("update available"),
               "dirty",
-              "Upstream advanced past the imported commit — Sync now (or turn on Auto-sync) to apply.",
+              t("Upstream advanced past the imported commit — Sync now (or turn on Auto-sync) to apply."),
             );
-          else setStatusText(li ? "up to date" : "not imported", "muted", delta);
+          else setStatusText(li ? t("up to date") : t("not imported"), "muted", delta);
           const isTracked = s.syncMode === "tracked";
           let busy = false;
           const menu = overflowMenu([
-            { label: "Browse skills…", onClick: () => browsePack(s, detail) },
+            { label: t("Browse skills…"), onClick: () => browsePack(s, detail) },
             {
-              label: "Sync now",
-              title:
+              label: t("Sync now"),
+              title: t(
                 "Pull the pack's latest commit and refresh already-imported skills (update changed, archive removed). Does NOT add new skills — use Browse for that.",
+              ),
               onClick: async () => {
                 if (busy) return;
                 busy = true;
-                setStatusText("syncing…", "saving");
+                setStatusText(t("syncing…"), "saving");
                 const r = await api("POST", "/api/skill-packs/" + encodeURIComponent(s.id) + "/sync", {});
                 busy = false;
                 if (!r.ok) {
-                  setStatusText("sync failed — " + (r.data?.message || r.status), "err", r.data?.message || "");
+                  setStatusText(t("sync failed — ") + (r.data?.message || r.status), "err", r.data?.message || "");
                   return;
                 }
                 const d = r.data || {};
@@ -9723,8 +10478,8 @@
                   a = (d.archived || []).length;
                 setStatusText(
                   n || u || a
-                    ? "✓ " + n + " new" + (u ? " · " + u + " updated" : "") + (a ? " · " + a + " removed" : "")
-                    : "✓ up to date",
+                    ? "✓ " + n + t(" new") + (u ? " · " + u + t(" updated") : "") + (a ? " · " + a + t(" removed") : "")
+                    : "✓ " + t("up to date"),
                   "ok",
                 );
                 setTimeout(() => {
@@ -9734,10 +10489,10 @@
               },
             },
             {
-              label: isTracked ? "Turn off auto-sync" : "Turn on auto-sync",
+              label: isTracked ? t("Turn off auto-sync") : t("Turn on auto-sync"),
               title: isTracked
-                ? "Auto-sync is ON — re-imports when the upstream advances."
-                : "Auto-sync is OFF — manual Sync only.",
+                ? t("Auto-sync is ON — re-imports when the upstream advances.")
+                : t("Auto-sync is OFF — manual Sync only."),
               onClick: async () => {
                 if (busy) return;
                 busy = true;
@@ -9754,11 +10509,11 @@
               },
             },
             {
-              label: "Remove pack",
+              label: t("Remove pack"),
               danger: true,
               onClick: async () => {
                 if (busy) return;
-                if (!confirm("Remove this pack and archive its imported skills?")) return;
+                if (!confirm(t("Remove this pack and archive its imported skills?"))) return;
                 busy = true;
                 const r = await api("DELETE", "/api/skill-packs/" + encodeURIComponent(s.id));
                 busy = false;
@@ -9772,12 +10527,14 @@
           return [
             { node: packNode },
             { node: skillsNode, cls: "num" },
-            { text: s.trustTier + (isTracked ? " · auto-sync" : ""), cls: "subline" },
+            { text: s.trustTier + (isTracked ? " · " + t("auto-sync") : ""), cls: "subline" },
             { node: st },
             { node: menu, cls: "num" },
           ];
         });
-        box.appendChild(table(["Pack", "Skills", "Trust", "Status", ""], rows, "No packs yet — register one above."));
+        box.appendChild(
+          table([t("Pack"), t("Skills"), t("Trust"), t("Status"), ""], rows, t("No packs yet — register one above.")),
+        );
         root.appendChild(bareDataCard(box));
         root.appendChild(detail);
       }
@@ -9958,14 +10715,14 @@
         holder.textContent = "";
         const loading = document.createElement("div");
         loading.className = "loadingline";
-        loading.textContent = "Fetching " + s.url + "…";
+        loading.textContent = t("Fetching ") + s.url + "…";
         holder.appendChild(loading);
         const r = await api("GET", "/api/skill-packs/" + encodeURIComponent(s.id) + "/catalog");
         holder.textContent = "";
         if (!r.ok || !r.data) {
           const p = document.createElement("p");
           p.className = "empty";
-          p.textContent = r.data?.message || "Couldn't browse (" + r.status + ").";
+          p.textContent = r.data?.message || t("Couldn't browse (") + r.status + ").";
           holder.appendChild(p);
           return;
         }
@@ -9998,7 +10755,7 @@
 
         const headCb = document.createElement("input");
         headCb.type = "checkbox";
-        headCb.title = "Select / deselect all importable skills";
+        headCb.title = t("Select / deselect all importable skills");
         const syncHead = () => {
           const n = checks.length,
             sel = checks.filter((cb) => cb.checked).length;
@@ -10021,53 +10778,53 @@
         let activeFilter = "all";
 
         const REASON = {
-          all: { label: "all", tone: "muted", help: "Show every skill." },
+          all: { label: t("all"), tone: "muted", help: t("Show every skill.") },
           eligible: {
             label: "eligible",
             tone: "ok",
-            help: "Eligible and not yet in the selected scope(s) — importing adds it there.",
+            help: t("Eligible and not yet in the selected scope(s) — importing adds it there."),
           },
           imported: {
             label: "imported",
             tone: "info",
-            help: "Already imported into the selected scope(s) — Sync refreshes them; un-index to remove.",
+            help: t("Already imported into the selected scope(s) — Sync refreshes them; un-index to remove."),
           },
           scope: {
             label: "personal-scoped",
             tone: "muted",
-            help: "Held back: declares a personal/owner scope, so it isn't imported as a shared pack skill.",
+            help: t("Held back: declares a personal/owner scope, so it isn't imported as a shared pack skill."),
           },
-          private: { label: "private", tone: "muted", help: "Held back: marked owner-only / agent-only." },
+          private: { label: t("private"), tone: "muted", help: t("Held back: marked owner-only / agent-only.") },
           collision: {
             label: "collision",
             tone: "muted",
-            help: "Held back: the name matches an existing platform or seed skill.",
+            help: t("Held back: the name matches an existing platform or seed skill."),
           },
           "binary-asset": {
             label: "binary files",
             tone: "muted",
-            help: "Held back: contains binary files (import is text-only).",
+            help: t("Held back: contains binary files (import is text-only)."),
           },
           malformed: {
             label: "malformed",
             tone: "muted",
-            help: "Held back: missing or unreadable SKILL.md frontmatter.",
+            help: t("Held back: missing or unreadable SKILL.md frontmatter."),
           },
         };
         const reasonLabel = (key) => (REASON[key] ? REASON[key].label : key || "excluded");
         const rowBadge = (c) => {
           if (importedInAll(c)) {
             const b = badge("imported", "info");
-            b.title = "Already imported into the selected scope(s): " + (c.importedScopes || []).join(", ");
+            b.title = t("Already imported into the selected scope(s): ") + (c.importedScopes || []).join(", ");
             return b;
           }
           if (c.eligible) {
             const b = badge("eligible", "ok");
             if (importedInSome(c))
               b.title =
-                "Imported into " +
+                t("Imported into ") +
                 (c.importedScopes || []).join(", ") +
-                " — importing adds it to the other selected scope(s).";
+                t(" — importing adds it to the other selected scope(s).");
             return b;
           }
           const b = badge(reasonLabel(c.excludeReason), "warn");
@@ -10081,19 +10838,19 @@
           const names = checks.filter((b) => b.checked).map((b) => b.dataset.name);
           if (!scopes.length) {
             status.className = "status err";
-            status.textContent = "Pick at least one scope to add skills to.";
+            status.textContent = t("Pick at least one scope to add skills to.");
             return;
           }
           if (!names.length) {
             status.className = "status err";
-            status.textContent = "Select at least one skill.";
+            status.textContent = t("Select at least one skill.");
             return;
           }
           importButtons.forEach((b) => {
             b.disabled = true;
           });
           status.className = "status";
-          status.textContent = "Importing…";
+          status.textContent = t("Importing…");
           const allEligible = checks.length === names.length;
           const r2 = await api("POST", "/api/skill-packs/" + encodeURIComponent(s.id) + "/import", {
             selected: allEligible ? "all" : names,
@@ -10104,7 +10861,7 @@
           });
           if (!r2.ok) {
             status.className = "status err";
-            status.textContent = r2.data?.message || "Import failed (" + r2.status + ").";
+            status.textContent = r2.data?.message || t("Import failed (") + r2.status + ").";
             return;
           }
           const added = r2.data.imported?.length ?? 0;
@@ -10112,10 +10869,10 @@
           status.textContent =
             "✓ " +
             added +
-            " skill" +
+            t(" skill") +
             (added === 1 ? "" : "s") +
-            " added" +
-            (scopes.length > 1 ? " across " + scopes.length + " scopes" : "");
+            t(" added") +
+            (scopes.length > 1 ? t(" across ") + scopes.length + t(" scopes") : "");
           dataCache.clear();
           setTimeout(() => renderData(), 1500);
         };
@@ -10125,7 +10882,7 @@
           const btn = document.createElement("button");
           btn.type = "button";
           btn.className = "primary";
-          btn.textContent = "Import selected";
+          btn.textContent = t("Import selected");
           btn.onclick = () => doImport(status);
           importButtons.push(btn);
 
@@ -10171,7 +10928,7 @@
               b.style.color = "#fff";
               b.style.borderColor = "var(--text)";
             }
-            b.title = (meta.help ? meta.help + " " : "") + (key === "all" ? "" : "Click to show only these.");
+            b.title = (meta.help ? meta.help + " " : "") + (key === "all" ? "" : t("Click to show only these."));
             b.onclick = () => {
               activeFilter = key;
               recompute();
@@ -10292,8 +11049,8 @@
 
         if (scopeDir) {
           pageShell({
-            back: { label: "← Memory", onClick: () => go({ view: "memory", scope: "org:" + orgId, session: null }) },
-            title: orgWideView() ? "Org-wide" : shortName(scope),
+            back: { label: "← " + t("Memory"), onClick: () => go({ view: "memory", scope: "org:" + orgId, session: null }) },
+            title: orgWideView() ? t("Org-wide") : shortName(scope),
           });
         }
         const server = d.content || "";
@@ -10305,17 +11062,17 @@
         ta.style.minHeight = "340px";
         ta.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
         ta.style.fontSize = "12px";
-        ta.placeholder = "No memory stored for this scope yet. Anything you write here, the agent will remember.";
+        ta.placeholder = t("No memory stored for this scope yet. Anything you write here, the agent will remember.");
         const foot = document.createElement("div");
         foot.className = "foot";
         const save = document.createElement("button");
         save.className = "primary";
-        save.textContent = "Save";
+        save.textContent = t("Save");
         const st = document.createElement("span");
         st.className = "status";
         st.id = "st-memory";
         const syncHint = () => {
-          if (ta.value !== server) setStatus("st-memory", "Unsaved changes", "");
+          if (ta.value !== server) setStatus("st-memory", t("Unsaved changes"), "");
         };
         ta.oninput = () => {
           memDraft = ta.value;
@@ -10329,11 +11086,11 @@
           if (r.ok) {
             memDraft = null;
             memDraftScope = null;
-            setStatus("st-memory", "Saved ✓", "ok");
+            setStatus("st-memory", t("Saved ✓"), "ok");
           } else
             setStatus(
               "st-memory",
-              r.status === 403 ? "You don't administer this scope." : r.data?.message || "Save failed.",
+              r.status === 403 ? t("You don't administer this scope.") : r.data?.message || t("Save failed."),
               "err",
             );
         };
@@ -10358,14 +11115,14 @@
           );
         pageShell({
           title: VIEW_TITLE.memory,
-          count: written.length ? plural(written.length, "notebook") : "",
-          context: written.length && !hasTimestamps ? "sorted by size (this backend keeps no edit history)" : "",
+          count: written.length ? plural(written.length, t("notebook")) : "",
+          context: written.length && !hasTimestamps ? t("sorted by size (this backend keeps no edit history)") : "",
         });
-        const t = denseList(
+        const list = denseList(
           scopes,
           (s) => ({
             name: scopeKind(s.scopeId) === "org" ? "org" : s.label || shortName(s.scopeId),
-            preview: s.hasMemory ? fmtBytes(s.bytes || 0) : "empty",
+            preview: s.hasMemory ? fmtBytes(s.bytes || 0) : t("empty"),
             time: s.updatedAt ? relTime(s.updatedAt) : "—",
             href: stateToUrl(
               scopeKind(s.scopeId) === "org"
@@ -10374,9 +11131,9 @@
             ),
           }),
           openScope,
-          "No notebooks yet — the agent hasn't remembered anything.",
+          t("No notebooks yet — the agent hasn't remembered anything."),
         );
-        root.appendChild(bareDataCard(t));
+        root.appendChild(bareDataCard(list));
       }
       function renderRetention(root, d) {
         const a = d.active || {};
@@ -10533,7 +11290,7 @@
         if (d.enabled === false) {
           const p = document.createElement("p");
           p.className = "empty";
-          p.textContent = "Keychain is not configured for this deployment.";
+          p.textContent = t("Keychain is not configured for this deployment.");
           root.appendChild(
             dataCard(
               "Keychain unavailable",
@@ -10552,13 +11309,13 @@
         let filterVal = "";
         defaultShell({
           stats: [
-            [people.length, "People"],
-            [credentials.length, "Credentials"],
-            [activeGrants.length, "Active grants"],
-            [pendingAsks.length, "Pending asks"],
+            [people.length, t("People")],
+            [credentials.length, t("Credentials")],
+            [activeGrants.length, t("Active grants")],
+            [pendingAsks.length, t("Pending asks")],
           ],
           search: {
-            placeholder: "person, service, audience, purpose",
+            placeholder: t("person, service, audience, purpose"),
             onInput: (v) => {
               filterVal = v;
               drawLists();
@@ -10619,10 +11376,10 @@
 
           lists.appendChild(
             dataCard(
-              "People",
+              t("People"),
               "Everyone known through sessions, admin grants, keychain records, grants, or asks.",
               table(
-                ["Person", "Keychain", "Active grants", "Pending asks"],
+                [t("Person"), t("Keychain"), t("Active grants"), t("Pending asks")],
                 filteredPeople.map((p) => [
                   nodeCell(stacked(p.displayName || p.principalId, p.displayName ? p.principalId : ""), "mono"),
                   { text: String(p.credentialCount || 0), cls: "num" },
@@ -10636,10 +11393,10 @@
 
           lists.appendChild(
             dataCard(
-              "Credentials",
+              t("Credentials"),
               "Metadata only. Secret material and encrypted values are never returned to admin.",
               table(
-                ["Owner", "Credential", "Delivery", "Account", "Expiry"],
+                [t("Owner"), t("Credential"), t("Delivery"), t("Account"), t("Expiry")],
                 filteredCreds.map((c) => [
                   nodeCell(stacked(personName(c.ownerId), c.ownerId), "mono"),
                   nodeCell(stacked(c.service, c.id), "mono"),
@@ -10658,10 +11415,10 @@
 
           lists.appendChild(
             dataCard(
-              "Grants",
+              t("Grants"),
               "Purpose-bound keychain grants from an owner to an audience scope.",
               table(
-                ["Owner", "Credential", "Audience", "Mode", "Status", "Purpose"],
+                [t("Owner"), t("Credential"), t("Audience"), t("Mode"), t("Status"), t("Purpose")],
                 filteredGrants.map((g) => {
                   const [label, kind] = keychainGrantStatus(g);
                   let labelKind = "";
@@ -10686,10 +11443,10 @@
 
           lists.appendChild(
             dataCard(
-              "Asks",
+              t("Asks"),
               "Outstanding and resolved cross-conversation consent requests.",
               table(
-                ["Owner", "Requester", "Credential", "Scope", "Status", "Purpose"],
+                [t("Owner"), t("Requester"), t("Credential"), t("Scope"), t("Status"), t("Purpose")],
                 filteredAsks.map((a) => [
                   nodeCell(stacked(personName(a.ownerId), a.ownerId), "mono"),
                   nodeCell(stacked(personName(a.requesterId), a.requesterId), "mono"),
@@ -10711,11 +11468,11 @@
         let filterVal = "";
         defaultShell({
           stats: [
-            [users.length, "Users"],
-            [grants.length, "Admins"],
+            [users.length, t("Users")],
+            [grants.length, t("Admins")],
           ],
           search: {
-            placeholder: "principal, role, or scope",
+            placeholder: t("principal, role, or scope"),
             onInput: (v) => {
               filterVal = v;
               drawLists();
@@ -10735,16 +11492,16 @@
         };
         const pInput = document.createElement("input");
         pInput.type = "text";
-        pInput.placeholder = "principal id (e.g. U07ABCD)";
+        pInput.placeholder = t("principal id (e.g. U07ABCD)");
         pInput.spellcheck = false;
         pInput.autocapitalize = "none";
         const grantBtn = document.createElement("button");
         grantBtn.className = "primary";
         grantBtn.type = "button";
-        grantBtn.textContent = "Grant";
+        grantBtn.textContent = t("Grant");
         grantBtn.onclick = async () => {
           const principalId = pInput.value.trim();
-          if (!principalId) return setStatus("st-users", "Principal id required.", "err");
+          if (!principalId) return setStatus("st-users", t("Principal id required."), "err");
           const r = await api("POST", "/api/grants", { principalId, role: "org_admin", scopeId: "org:" + orgId });
           if (r.ok) {
             pInput.value = "";
@@ -10752,12 +11509,12 @@
           } else
             setStatus(
               "st-users",
-              r.status === 403 ? "Only an org admin may grant." : r.data?.message || "Grant failed.",
+              r.status === 403 ? t("Only an org admin may grant.") : r.data?.message || t("Grant failed."),
               "err",
             );
         };
-        form.append(mkField("grow", "Principal id", pInput), grantBtn);
-        const formCard = dataCard("Grant org admin", "Promote a principal to org admin. Org admins only.", form);
+        form.append(mkField("grow", t("Principal id"), pInput), grantBtn);
+        const formCard = dataCard(t("Grant org admin"), t("Promote a principal to org admin. Org admins only."), form);
         const st = document.createElement("p");
         st.className = "status";
         st.id = "st-users";
@@ -10769,7 +11526,7 @@
         impForm.className = "grant-form";
         const impInput = document.createElement("input");
         impInput.type = "text";
-        impInput.placeholder = "principal id or name (e.g. dana@example.com)";
+        impInput.placeholder = t("principal id or name (e.g. dana@example.com)");
         impInput.spellcheck = false;
         impInput.autocapitalize = "none";
         impInput.setAttribute("list", "imp-suggest");
@@ -10778,13 +11535,13 @@
         const impBtn = document.createElement("button");
         impBtn.className = "primary";
         impBtn.type = "button";
-        impBtn.textContent = "Open web UI as ↗";
+        impBtn.textContent = t("Open web UI as") + " ↗";
         let impTimer = null,
           impSeq = 0;
 
         const dirMembers = async (q) => {
           const r = await api("GET", "/api/directory?q=" + encodeURIComponent(q));
-          if (!r.ok) throw new Error(r.data?.message || "directory lookup failed (" + r.status + ")");
+          if (!r.ok) throw new Error(r.data?.message || t("directory lookup failed") + " (" + r.status + ")");
           return r.data?.members || [];
         };
         impInput.addEventListener("input", () => {
@@ -10812,24 +11569,24 @@
 
         impBtn.onclick = async () => {
           const v = impInput.value.trim();
-          if (!v) return setStatus("st-imp", "Principal id or name required.", "err");
+          if (!v) return setStatus("st-imp", t("Principal id or name required."), "err");
           setStatus("st-imp", "");
           impBtn.disabled = true;
           try {
             const members = await dirMembers(v);
             if (members.length > 1)
-              return setStatus("st-imp", "Matches several people — pick one from the suggestions.", "err");
+              return setStatus("st-imp", t("Matches several people — pick one from the suggestions."), "err");
             await openWebUiAs(members[0]?.principalId ?? v);
           } catch (e) {
-            setStatus("st-imp", "Couldn't resolve that (" + (e?.message || "directory lookup failed") + ").", "err");
+            setStatus("st-imp", t("Couldn't resolve that (") + (e?.message || t("directory lookup failed")) + ").", "err");
           } finally {
             impBtn.disabled = false;
           }
         };
-        impForm.append(mkField("grow", "Principal id or name", impInput), impBtn);
+        impForm.append(mkField("grow", t("Principal id or name"), impInput), impBtn);
         const impCard = dataCard(
-          "Impersonate a user",
-          "Open the assistant Web UI as any principal — for support, debugging, or onboarding tests. Time-boxed and audited.",
+          t("Impersonate a user"),
+          t("Open the assistant Web UI as any principal — for support, debugging, or onboarding tests. Time-boxed and audited."),
           impForm,
         );
         const impSt = document.createElement("p");
@@ -10852,41 +11609,41 @@
           );
 
           const admins = actionTable(
-            ["Principal", "Role", "Scope", "Granted by", ""],
+            [t("Principal"), t("Role"), t("Scope"), t("Granted by"), ""],
             filteredGrants,
             (g) => [
               { text: g.principalId, cls: "mono" },
-              nodeCell(mutedText(g.role ? labelRole(g.role) : "member")),
+              nodeCell(mutedText(g.role ? labelRole(g.role) : t("member"))),
               nodeCell(stacked(g.scopeId, scopeKind(g.scopeId)), "mono"),
               g.grantedBy || "-",
               {
                 action: {
-                  label: "Revoke",
+                  label: t("Revoke"),
                   danger: true,
                   disabled: orgAdminCount <= 1 && g.role === "org_admin",
-                  title: orgAdminCount <= 1 ? "The last org admin cannot be revoked." : "",
+                  title: orgAdminCount <= 1 ? t("The last org admin cannot be revoked.") : "",
                   run: () => revokeGrant(g),
                 },
               },
             ],
-            "No admins match.",
+            t("No admins match."),
           );
           lists.appendChild(
-            dataCard("Admins", "Who can govern this org. Revoking removes their admin rights immediately.", admins),
+            dataCard(t("Admins"), t("Who can govern this org. Revoking removes their admin rights immediately."), admins),
           );
 
           const roster = openableTable(
-            ["Principal", "Role", "Last seen", "Sessions", "Turns", "", ""],
+            [t("Principal"), t("Role"), t("Last seen"), t("Sessions"), t("Turns"), "", ""],
             filteredUsers,
             (u) => [
               { text: u.principalId, cls: "mono" },
-              nodeCell(mutedText(u.admin?.isAdmin ? labelRole(u.admin.role) : "member")),
+              nodeCell(mutedText(u.admin?.isAdmin ? labelRole(u.admin.role) : t("member"))),
               u.lastSeenAt ? timeCell(u.lastSeenAt) : { text: "-", cls: "num" },
               { text: String(u.sessionCount), cls: "num" },
               { text: String(u.turnCount), cls: "num" },
               {
                 action: {
-                  label: "Impersonate ↗",
+                  label: t("Impersonate") + " ↗",
                   run: (ev) => {
                     ev?.stopPropagation?.();
                     openWebUiAs(u.principalId);
@@ -10897,7 +11654,7 @@
                 ? { text: "" }
                 : {
                     action: {
-                      label: "Make admin",
+                      label: t("Make admin"),
                       run: (ev) => {
                         ev?.stopPropagation?.();
                         pInput.value = u.principalId;
@@ -10908,7 +11665,7 @@
                   },
             ],
             (u) => go({ view: "user", scope, session: null, principal: u.principalId }),
-            "No users match.",
+            t("No users match."),
           );
           lists.appendChild(
             dataCard(
@@ -11425,14 +12182,14 @@
         sortControl.className = "shell-sort";
         const sortLabel = document.createElement("span");
         sortLabel.className = "shell-sort-label";
-        sortLabel.textContent = "Sort:";
+        sortLabel.textContent = t("Sort:");
         const seg = document.createElement("div");
         seg.className = "segmented";
         const sortOpt = (value, label) => {
           const b = document.createElement("button");
           b.type = "button";
           b.className = "seg" + (scopeSort === value ? " active" : "");
-          b.textContent = label;
+          b.textContent = t(label);
           b.onclick = () => {
             if (scopeSort !== value) {
               scopeSort = value;
@@ -11447,12 +12204,12 @@
         pageShell({
           title: VIEW_TITLE.history,
           count: activeRows.length
-            ? activeRows.length + (activeRows.length === 1 ? " active scope" : " active scopes")
+            ? activeRows.length + (activeRows.length === 1 ? t(" active scope") : t(" active scopes"))
             : "",
           actions: [sortControl],
         });
         const activityTime = (s) => (scopeSort === "human" ? s.lastConversationActivity || 0 : s.lastActivity || 0);
-        const t = denseList(
+        const list = denseList(
           activeRows,
           (s) => {
             const preview = document.createElement("span");
@@ -11469,14 +12226,15 @@
             };
           },
           (s) => selectScope(s.scopeId),
-          rows.length ? "No conversations yet." : "No scopes yet — nobody has talked to the agent.",
+          rows.length ? t("No conversations yet.") : t("No scopes yet — nobody has talked to the agent."),
         );
-        root.appendChild(bareDataCard(t));
+        root.appendChild(bareDataCard(list));
         if (quietRows.length) {
           const quiet = document.createElement("details");
           quiet.className = "history-quiet";
           const summary = document.createElement("summary");
-          summary.textContent = `${quietRows.length} known scope${quietRows.length === 1 ? "" : "s"} without conversations`;
+          summary.textContent =
+            quietRows.length + (quietRows.length === 1 ? t(" known scope") : t(" known scopes")) + t(" without conversations");
           const chips = document.createElement("div");
           chips.className = "history-empty-scopes";
           quietRows.forEach((s) => {
@@ -11540,14 +12298,14 @@
             },
             title: cronName(d.cron?.cron || sessions[0]?.origin?.cron, true),
             context: scopeKind(scope) !== "org" ? shortName(scope) : "",
-            count: plural(total, "fire"),
+            count: plural(total, t("fire")),
           });
         } else {
           pageShell({
             back:
               scopeKind(scope) !== "org"
                 ? {
-                    label: "← Sessions",
+                    label: "← " + t("Sessions"),
                     onClick: () => go({ view: "history", scope: "org:" + orgId, session: null, page: 1, historyKind }),
                   }
                 : undefined,
@@ -11564,7 +12322,7 @@
         };
         if (historyKind === "cron" && !cronSel) {
           const crons = d.crons || [];
-          const t = denseList(
+          const list = denseList(
             crons,
             (c) => {
               const preview = document.createElement("span");
@@ -11587,12 +12345,12 @@
               };
             },
             (c) => go({ view: "history", scope, session: null, page: 1, historyKind, cron: c.cronId }),
-            "No crons in this scope.",
+            t("No crons in this scope."),
           );
-          root.appendChild(bareDataCard(t));
+          root.appendChild(bareDataCard(list));
           return;
         }
-        const t = denseList(
+        const list = denseList(
           sessions,
           (s) => {
             const originCron = s.origin?.kind === "cron" ? s.origin.cron : null;
@@ -11622,9 +12380,9 @@
             };
           },
           (s) => go({ view: "history", scope, session: s.id, historyKind }),
-          `No ${modeLabel.toLowerCase()} in this scope.`,
+          t("No ") + modeLabel.toLowerCase() + t(" in this scope."),
         );
-        root.appendChild(bareDataCard(t));
+        root.appendChild(bareDataCard(list));
         root.appendChild(
           pager(total, limit, offset, (n) =>
             go({ view: "history", scope, session: null, page: n, historyKind, cron: cronSel }),
@@ -11641,7 +12399,7 @@
             note.className = "statline";
             const toggle = document.createElement("a");
             toggle.href = "#";
-            toggle.textContent = plural(total, "error") + " logged in this scope";
+            toggle.textContent = plural(total, t("error")) + t(" logged in this scope");
             note.appendChild(toggle);
             errNote.appendChild(note);
             let box = null;
@@ -11652,7 +12410,7 @@
                 box = null;
                 return;
               }
-              box = errorStripBox(errs, "Most recent errors", 20, (e) => {
+              box = errorStripBox(errs, t("Most recent errors"), 20, (e) => {
                 if (!e.sessionId) return null;
                 const st = { view: "history", scope, session: e.sessionId, historyKind };
                 return { href: stateToUrl(st), go: () => go(st) };
@@ -11687,24 +12445,24 @@
       async function showUserDetail(principalId) {
         const root = $("view-data");
         root.textContent = "";
-        pageShell({ back: { label: "← Users", onClick: () => history.back() }, title: principalId || "User" });
+        pageShell({ back: { label: "← " + t("Users"), onClick: () => history.back() }, title: principalId || t("User") });
         const detail = document.createElement("div");
         detail.className = "detail";
-        detail.textContent = "Loading…";
+        detail.textContent = t("Loading…");
         root.appendChild(detail);
         const r = await api("GET", "/api/users/" + encodeURIComponent(principalId));
         if (!r.ok) {
           detail.textContent =
-            r.status === 403 ? "You don't have admin access." : r.data?.message || `Failed to load user (${r.status}).`;
+            r.status === 403 ? t("You don't have admin access.") : r.data?.message || t("Failed to load user (") + `${r.status}).`;
           return;
         }
         detail.textContent = "";
         const d = r.data || {};
 
         pageShell({
-          back: { label: "← Users", onClick: () => history.back() },
+          back: { label: "← " + t("Users"), onClick: () => history.back() },
           title: d.displayName || d.principalId || principalId,
-          context: [d.admin?.isAdmin ? labelRole(d.admin.role) : "member", d.scopeId || ""].filter(Boolean).join(" · "),
+          context: [d.admin?.isAdmin ? labelRole(d.admin.role) : t("member"), d.scopeId || ""].filter(Boolean).join(" · "),
         });
         const userActions = document.createElement("div");
         userActions.style.margin = "0 0 14px";
@@ -11714,34 +12472,34 @@
         const stats = d.stats || {};
         detail.appendChild(
           kpis([
-            [String(stats.sessions ?? 0), "Conversations"],
-            [String(stats.turns ?? 0), "Turns"],
-            [stats.firstSeenAt ? fmtTime(stats.firstSeenAt) : "—", "First seen"],
-            [stats.lastSeenAt ? fmtTime(stats.lastSeenAt) : "—", "Last seen"],
+            [String(stats.sessions ?? 0), t("Conversations")],
+            [String(stats.turns ?? 0), t("Turns")],
+            [stats.firstSeenAt ? fmtTime(stats.firstSeenAt) : "—", t("First seen")],
+            [stats.lastSeenAt ? fmtTime(stats.lastSeenAt) : "—", t("Last seen")],
           ]),
         );
 
         const convs = d.conversations || [];
         const convTable = openableTable(
-          ["Conversation", "Scope", "Volume", "Last activity"],
+          [t("Conversation"), t("Scope"), t("Volume"), t("Last activity")],
           convs,
           (s) => {
-            const latest = s.lastMessage || s.firstMessage || "(no messages yet)";
+            const latest = s.lastMessage || s.firstMessage || t("(no messages yet)");
             const started =
               s.firstMessage && s.firstMessage !== latest
                 ? "> " + s.firstMessage
-                : "created " + fmtHistoryCreated(s.createdAt, s.lastActivity);
+                : t("created ") + fmtHistoryCreated(s.createdAt, s.lastActivity);
             return [
               nodeCell(stacked(latest, started, "history-conversation"), "history-conversation-cell"),
               historyScopeCell(s.scopeId),
               nodeCell(
-                stacked(plural(s.userTurns || 0, "turn"), plural(s.messages || 0, "entry", "entries")),
+                stacked(plural(s.userTurns || 0, t("turn")), plural(s.messages || 0, t("entry"), t("entries"))),
                 "num history-volume-cell",
               ),
               nodeCell(
                 stacked(
                   fmtHistoryTime(s.lastActivity),
-                  "created " + fmtHistoryCreated(s.createdAt, s.lastActivity),
+                  t("created ") + fmtHistoryCreated(s.createdAt, s.lastActivity),
                   "history-activity",
                 ),
                 "history-activity-cell",
@@ -11749,13 +12507,13 @@
             ];
           },
           (s) => go({ view: "history", scope: s.scopeId, session: s.id }),
-          "No conversations yet.",
+          t("No conversations yet."),
           { className: "history-table", cols: ["52%", "18%", "10%", "20%"] },
         );
         detail.appendChild(
           dataCard(
-            "Recent conversations",
-            "Every conversation this person took part in — click a row to read the transcript.",
+            t("Recent conversations"),
+            t("Every conversation this person took part in — click a row to read the transcript."),
             convTable,
           ),
         );
@@ -11765,17 +12523,17 @@
           nodeCell(stacked(f.name || fileName(f.path), f.path || "")),
           { text: fileKind(f.path || f.name), cls: "mono" },
           { text: fmtBytes(f.size || 0), cls: "num" },
-          nodeCell(mutedText(f.direction === "out" ? "agent" : "upload")),
+          nodeCell(mutedText(f.direction === "out" ? "agent" : t("upload"))),
           { text: f.createdAt ? fmtTime(f.createdAt) : "—", cls: "num" },
           f.openable
-            ? { action: { label: "Download", run: () => downloadFile({ ...f, openable: true }) } }
+            ? { action: { label: t("Download"), run: () => downloadFile({ ...f, openable: true }) } }
             : { text: "—", cls: "num" },
         ]);
         detail.appendChild(
           dataCard(
-            "Files",
-            "Documents in this person's personal workspace — saved by the agent or uploaded.",
-            table(["Name", "Kind", "Size", "Source", "Created", ""], fileRows, "No files in their personal workspace."),
+            t("Files"),
+            t("Documents in this person's personal workspace — saved by the agent or uploaded."),
+            table([t("Name"), t("Kind"), t("Size"), t("Source"), t("Created"), ""], fileRows, t("No files in their personal workspace.")),
           ),
         );
 
@@ -11794,9 +12552,9 @@
         ]);
         detail.appendChild(
           dataCard(
-            "Deployments",
-            "Apps this person published from their personal workspace.",
-            table(["Deployment", "Status", "Version", "Last access"], depRows, "No deployments."),
+            t("Deployments"),
+            t("Apps this person published from their personal workspace."),
+            table([t("Deployment"), t("Status"), t("Version"), t("Last access")], depRows, t("No deployments.")),
           ),
         );
 
@@ -11814,9 +12572,9 @@
         ]);
         detail.appendChild(
           dataCard(
-            "Crons",
-            "Scheduled prompts and reminders this person owns.",
-            table(["What", "Schedule", "Last fired", "Status"], cronRows, "No crons."),
+            t("Crons"),
+            t("Scheduled prompts and reminders this person owns."),
+            table([t("What"), t("Schedule"), t("Last fired"), t("Status")], cronRows, t("No crons.")),
           ),
         );
 
@@ -11826,7 +12584,7 @@
           cfgWrap.appendChild(
             Object.assign(document.createElement("p"), {
               className: "empty",
-              textContent: "Config store not available.",
+              textContent: t("Config store not available."),
             }),
           );
         else {
@@ -11835,21 +12593,21 @@
           const denyN = (cfg.egress?.deniedHosts || []).length;
           cfgWrap.appendChild(
             table(
-              ["Setting", "Value"],
+              [t("Setting"), t("Value")],
               [
-                ["Custom soul", { node: mutedText(cfg.hasSoul ? "set · v" + (cfg.soulVersion || 1) : "default") }],
+                ["Custom soul", { node: mutedText(cfg.hasSoul ? t("set") + " · v" + (cfg.soulVersion || 1) : t("default")) }],
                 [
-                  "Command policy",
+                  t("Command policy"),
                   cfg.commandPolicy
-                    ? ruleN + " rule" + (ruleN === 1 ? "" : "s") + " · " + (cfg.commandPolicy.mode || "denylist")
-                    : "default",
+                    ? ruleN + " " + t(ruleN === 1 ? "rule" : "rules") + " · " + (cfg.commandPolicy.mode || "denylist")
+                    : t("default"),
                 ],
-                ["Security posture", cfg.securityPosture || "auto"],
-                ["Egress overrides", allowN || denyN ? allowN + " allow · " + denyN + " deny" : "none"],
-                ["Base model", cfg.baseModel || "org default"],
-                ["Connectors linked", String((cfg.connectors || []).length)],
+                [t("Security posture"), cfg.securityPosture || "auto"],
+                [t("Egress overrides"), allowN || denyN ? allowN + " " + t("allow") + " · " + denyN + " " + t("deny") : t("none")],
+                [t("Base model"), cfg.baseModel || t("org default")],
+                [t("Connectors linked"), String((cfg.connectors || []).length)],
               ],
-              "No config.",
+              t("No config."),
             ),
           );
         }
@@ -11866,23 +12624,23 @@
         const obHint = document.createElement("p");
         obHint.className = "hint";
         function paintOb(status) {
-          obStatusRow.textContent = "Current status: ";
+          obStatusRow.textContent = t("Current status: ");
           obStatusRow.appendChild(badge(OB_LABEL[status] || status, OB_KIND[status] || "muted"));
         }
         async function applyOb(status) {
           obButtons.forEach((b) => (b.disabled = true));
-          obHint.textContent = "Saving…";
+          obHint.textContent = t("Saving…");
           try {
             const r = await api("PUT", "/api/users/" + encodeURIComponent(principalId) + "/onboarding", { status });
             if (!r.ok) {
-              obHint.textContent = r.data?.message || "Failed (" + r.status + ").";
+              obHint.textContent = r.data?.message || t("Failed (") + r.status + ").";
               return;
             }
             paintOb(r.data?.status || status);
             obHint.textContent =
-              status === "not_started" ? "Reset — onboarding will run on this person's next DM." : "Saved.";
+              status === "not_started" ? t("Reset — onboarding will run on this person's next DM.") : t("Saved.");
           } catch {
-            obHint.textContent = "Network error — try again.";
+            obHint.textContent = t("Network error — try again.");
           } finally {
             obButtons.forEach((b) => (b.disabled = false));
           }
@@ -11896,9 +12654,9 @@
           return b;
         };
         const obButtons = [
-          mkOb("Reset (re-run on next DM)", "not_started", true),
-          mkOb("Mark completed", "completed"),
-          mkOb("Mark dismissed", "dismissed"),
+          mkOb(t("Reset (re-run on next DM)"), "not_started", true),
+          mkOb(t("Mark completed"), "completed"),
+          mkOb(t("Mark dismissed"), "dismissed"),
         ];
         const obActions = document.createElement("div");
         obActions.className = "obactions";
@@ -11906,7 +12664,7 @@
         const resetBtn = document.createElement("button");
         resetBtn.type = "button";
         resetBtn.className = "danger-link";
-        resetBtn.textContent = "Reset to brand-new (delete this person's DMs) →";
+        resetBtn.textContent = t("Reset to brand-new (delete this person's DMs)") + " →";
         const resetHint = document.createElement("p");
         resetHint.className = "hint";
         resetBtn.onclick = async () => {
@@ -11918,17 +12676,17 @@
             return;
           resetBtn.disabled = true;
           obButtons.forEach((b) => (b.disabled = true));
-          resetHint.textContent = "Resetting…";
+          resetHint.textContent = t("Resetting…");
           try {
             const r = await api("POST", "/api/users/" + encodeURIComponent(principalId) + "/reset");
             if (!r.ok) {
-              resetHint.textContent = r.data?.message || "Failed (" + r.status + ").";
+              resetHint.textContent = r.data?.message || t("Failed (") + r.status + ").";
               return;
             }
 
             showUserDetail(principalId);
           } catch {
-            resetHint.textContent = "Network error — try again.";
+            resetHint.textContent = t("Network error — try again.");
           } finally {
             resetBtn.disabled = false;
             obButtons.forEach((b) => (b.disabled = false));
@@ -11940,17 +12698,17 @@
         obWrap.append(obStatusRow, obActions, obHint, obDivider, resetBtn, resetHint);
         detail.appendChild(
           dataCard(
-            "Onboarding",
-            "Personal-DM onboarding state — reset to re-trigger the flow on this person's next DM, or wipe their DMs to replay the full new-user experience.",
+            t("Onboarding"),
+            t("Personal-DM onboarding state — reset to re-trigger the flow on this person's next DM, or wipe their DMs to replay the full new-user experience."),
             obWrap,
           ),
         );
 
-        const cfgCard = dataCard("Configuration", "Policy and connectors for this person's personal scope.", cfgWrap);
+        const cfgCard = dataCard(t("Configuration"), t("Policy and connectors for this person's personal scope."), cfgWrap);
         const manage = document.createElement("button");
         manage.type = "button";
         manage.className = "link";
-        manage.textContent = "Manage in Governance →";
+        manage.textContent = t("Manage in Governance") + " →";
         manage.onclick = () => go({ view: "governance", scope: d.scopeId || "personal:" + principalId, session: null });
         cfgCard.querySelector(".body").appendChild(manage);
         detail.appendChild(cfgCard);
@@ -11959,10 +12717,13 @@
       async function showContextPage(sessionId, turnSeq) {
         const root = $("view-data");
         root.textContent = "";
-        pageShell({ back: { label: "← Back to transcript", onClick: () => history.back() }, title: "Sent to model" });
+        pageShell({
+          back: { label: "← " + t("Back to transcript"), onClick: () => history.back() },
+          title: t("Sent to model"),
+        });
         const detail = document.createElement("div");
         detail.className = "detail";
-        detail.textContent = "Loading…";
+        detail.textContent = t("Loading…");
         root.appendChild(detail);
 
         const lr = await api(
@@ -11975,23 +12736,25 @@
             encodeURIComponent(scope),
         );
         if (!lr.ok) {
-          detail.textContent = lr.data?.message || `Failed to load context (${lr.status}).`;
+          detail.textContent = lr.data?.message || t("Failed to load context (") + `${lr.status}).`;
           return;
         }
         const reqs = (lr.data.requests || []).slice().sort((a, b) => (a.step || 0) - (b.step || 0));
-        const turnLabel = turnSeq === "orphan" ? "unattributed context" : `turn #${turnSeq}`;
+        const turnLabel = turnSeq === "orphan" ? t("unattributed context") : `turn #${turnSeq}`;
         detail.textContent = "";
         const head = document.createElement("div");
         head.className = "context-page-head";
         const title = document.createElement("h2");
         title.textContent =
-          reqs.length > 1 ? `Sent to model · ${turnLabel} · ${reqs.length} steps` : `Sent to model · ${turnLabel}`;
+          reqs.length > 1
+            ? t("Sent to model") + " · " + turnLabel + " · " + reqs.length + t(" steps")
+            : t("Sent to model") + " · " + turnLabel;
         head.appendChild(title);
         if (!reqs.length) {
           detail.appendChild(head);
           const p = document.createElement("p");
           p.className = "context-empty";
-          p.textContent = "No context was captured for this turn.";
+          p.textContent = t("No context was captured for this turn.");
           detail.appendChild(p);
           return;
         }
@@ -12494,8 +13257,8 @@
           context: container,
           search: slackSearchBox(container),
           actions: [
-            navLink("Judgments →", { view: "judgments", container }),
-            ...(scopeGo ? [navLink("Governance →", { view: "governance", scope: scopeGo, session: null })] : []),
+            navLink(t("Judgments") + " →", { view: "judgments", container }),
+            ...(scopeGo ? [navLink(t("Governance") + " →", { view: "governance", scope: scopeGo, session: null })] : []),
           ],
         });
         const loading = document.createElement("div");
@@ -12637,15 +13400,15 @@
       }
 
       const JUDGMENT_TABS = [
-        { key: "act,ignore", label: "Judged", counts: ["act", "ignore"] },
-        { key: "act", label: "Woke", counts: ["act"] },
-        { key: "ignore", label: "Silent", counts: ["ignore"] },
-        { key: "fastlane", label: "Fastlane", counts: ["fastlane"] },
+        { key: "act,ignore", label: t("Judged"), counts: ["act", "ignore"] },
+        { key: "act", label: t("Woke"), counts: ["act"] },
+        { key: "ignore", label: t("Silent"), counts: ["ignore"] },
+        { key: "fastlane", label: t("Fastlane"), counts: ["fastlane"] },
       ];
       function judgmentBadge(d) {
-        if (d === "act") return badge("woke", "ok");
-        if (d === "ignore") return badge("silent", "muted");
-        return badge("fastlane", "accent");
+        if (d === "act") return badge(t("woke"), "ok");
+        if (d === "ignore") return badge(t("silent"), "muted");
+        return badge(t("fastlane"), "accent");
       }
       async function renderAmbientJudgments(st) {
         const root = $("view-data");
@@ -12656,21 +13419,21 @@
         const backTo = (over) => go({ view: "judgments", container: null, decision: st.decision, jid: null, ...over });
         const shell = (extra) =>
           pageShell({
-            title: "Judgments",
+            title: t("Judgments"),
             ...(st.container
               ? {
-                  back: { label: "← Judgments", onClick: () => backTo({}) },
+                  back: { label: "← " + t("Judgments"), onClick: () => backTo({}) },
                   context: slackContainerLabel(st.container),
                   contextGo: { view: "slack", container: st.container },
                 }
               : {}),
-            actions: [navLink("Ack emoji →", { view: "ackemoji" })],
+            actions: [navLink(t("Ack emoji") + " →", { view: "ackemoji" })],
             ...extra,
           });
         shell({});
         const loading = document.createElement("div");
         loading.className = "loadingline";
-        loading.textContent = "Loading judgments…";
+        loading.textContent = t("Loading judgments…");
         root.appendChild(loading);
         const path =
           "/api/ambient-judgments?decision=" +
@@ -12683,8 +13446,8 @@
           return void root.appendChild(
             emptyPara(
               r.status === 403
-                ? "Only an org admin can read ambient judgments."
-                : r.data?.message || `Failed to load (${r.status}).`,
+                ? t("Only an org admin can read ambient judgments.")
+                : r.data?.message || t("Failed to load (") + `${r.status}).`,
             ),
           );
         const counts = r.data.counts || { act: 0, ignore: 0, fastlane: 0 };
@@ -12703,7 +13466,7 @@
           })),
         });
         let judgments = r.data.judgments || [];
-        if (!judgments.length) return void root.appendChild(emptyPara("No judgments recorded for this filter yet."));
+        if (!judgments.length) return void root.appendChild(emptyPara(t("No judgments recorded for this filter yet.")));
         const open = (j) =>
           go({ view: "judgments", container: st.container, decision: st.decision, jid: String(j.id) });
         const rowOf = (j) => {
@@ -12712,7 +13475,7 @@
           prev.appendChild(judgmentBadge(j.decision));
           const txt = document.createElement("span");
           txt.className = "pill";
-          txt.textContent = j.reason || (j.decision === "fastlane" ? "@mention — routed past the judge" : "—");
+          txt.textContent = j.reason || (j.decision === "fastlane" ? t("@mention — routed past the judge.") : "—");
           prev.appendChild(txt);
           if (j.latencyMs != null) {
             const l = document.createElement("span");
@@ -12761,7 +13524,7 @@
         const wrap = document.createElement("div");
         const title = document.createElement("div");
         title.className = "judg-pane-title";
-        title.appendChild(document.createTextNode("Slack mirror"));
+        title.appendChild(document.createTextNode(t("Slack mirror")));
         const href = judgmentSlackHref(workspaceUrl, j.container, j.tsFrom);
         if (href) {
           const a = document.createElement("a");
@@ -12769,8 +13532,8 @@
           a.target = "_blank";
           a.rel = "noopener";
           a.className = "judg-extlink";
-          a.setAttribute("aria-label", "Open in Slack");
-          a.title = "Jump to this moment in Slack to scroll up for more context";
+          a.setAttribute("aria-label", t("Open in Slack"));
+          a.title = t("Jump to this moment in Slack to scroll up for more context");
           a.innerHTML =
             '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5H3.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-3"/><path d="M9.5 2.5h4v4"/><path d="M7 9 13.5 2.5"/></svg>';
           title.appendChild(a);
@@ -12792,12 +13555,12 @@
           );
           if (view !== "judgments" || urlToState().jid !== String(j.id)) return;
           box.textContent = "";
-          if (!r.ok) return void box.appendChild(emptyPara(r.data?.message || `Failed to load mirror (${r.status}).`));
+          if (!r.ok) return void box.appendChild(emptyPara(r.data?.message || t("Failed to load mirror (") + `${r.status}).`));
           const from = j.tsFrom,
             to = j.tsTo;
 
           const messages = (r.data.messages || []).filter((m) => !to || m.ts <= to);
-          if (!messages.length) return void box.appendChild(emptyPara("Nothing mirrored for this window."));
+          if (!messages.length) return void box.appendChild(emptyPara(t("Nothing mirrored for this window.")));
           const stream = document.createElement("div");
           stream.className = "sm-stream";
           for (const m of messages) {
@@ -12814,7 +13577,7 @@
         const wrap = document.createElement("div");
         const title = document.createElement("div");
         title.className = "judg-pane-title";
-        title.textContent = "Judge context";
+        title.textContent = t("Judge context");
         wrap.appendChild(title);
         const box = document.createElement("div");
         box.className = "judg-prompt";
@@ -12822,8 +13585,8 @@
         pre.textContent =
           j.prompt ||
           (j.decision === "fastlane"
-            ? "Routed past the judge (formal @mention) — no prompt was rendered."
-            : "(prompt not recorded)");
+            ? t("Routed past the judge (formal @mention) — no prompt was rendered.")
+            : t("(prompt not recorded)"));
         box.appendChild(pre);
         wrap.appendChild(box);
         return wrap;
@@ -12832,10 +13595,10 @@
         const root = $("view-data");
         root.textContent = "";
         const back = {
-          label: "← Judgments",
+          label: "← " + t("Judgments"),
           onClick: () => go({ view: "judgments", container: st.container, decision: st.decision, jid: null }),
         };
-        pageShell({ back, title: "Judgment" });
+        pageShell({ back, title: t("Judgment") });
         const detail = document.createElement("div");
         detail.className = "detail judg-detail";
         detail.textContent = "Loading…";
@@ -12848,10 +13611,10 @@
         const scopeGo = slackContainerScope(j.container);
         pageShell({
           back,
-          title: "Judgment",
+          title: t("Judgment"),
           context: slackContainerLabel(j.container),
           contextGo: { view: "slack", container: j.container, ts: j.tsFrom },
-          actions: scopeGo ? [navLink("Governance →", { view: "governance", scope: scopeGo, session: null })] : [],
+          actions: scopeGo ? [navLink(t("Governance") + " →", { view: "governance", scope: scopeGo, session: null })] : [],
         });
         const split = document.createElement("div");
         split.className = "judg-split";
@@ -12863,7 +13626,7 @@
         const head = document.createElement("div");
         head.className = "badges";
         head.appendChild(judgmentBadge(j.decision));
-        if (j.askedBy) head.appendChild(badge("asked by " + j.askedBy, "accent"));
+        if (j.askedBy) head.appendChild(badge(t("asked by ") + j.askedBy, "accent"));
         const meta = document.createElement("span");
         meta.className = "shell-context";
         meta.textContent = [j.model, j.latencyMs != null ? j.latencyMs + "ms" : null, fmtTime(j.createdAt)]
@@ -12873,17 +13636,17 @@
         dec.appendChild(head);
         const p = document.createElement("p");
         let reason = "—";
-        if (j.decision === "ignore") reason = "Stayed silent.";
-        else if (j.decision === "fastlane") reason = "@mention — routed past the judge.";
+        if (j.decision === "ignore") reason = t("Stayed silent.");
+        else if (j.decision === "fastlane") reason = t("@mention — routed past the judge.");
         p.textContent = j.reason || reason;
         dec.appendChild(p);
         detail.appendChild(dec);
       }
 
       const ACK_PICK_TABS = [
-        { key: null, label: "All", counts: ["picked", "declined"] },
-        { key: "picked", label: "Picked", counts: ["picked"] },
-        { key: "declined", label: "Declined", counts: ["declined"] },
+        { key: null, label: t("All"), counts: ["picked", "declined"] },
+        { key: "picked", label: t("Picked"), counts: ["picked"] },
+        { key: "declined", label: t("Declined"), counts: ["declined"] },
       ];
 
       function ackEmojiTag(name, icon) {
@@ -12907,7 +13670,7 @@
         return s;
       }
       function ackPickBadge(o) {
-        return o === "picked" ? badge("picked", "ok") : badge("declined", "muted");
+        return o === "picked" ? badge(t("picked"), "ok") : badge(t("declined"), "muted");
       }
       async function renderAckEmojiPicks(st) {
         const root = $("view-data");
@@ -12917,11 +13680,11 @@
         const outcome = st.decision || null;
         const shell = (extra) =>
           pageShell({
-            title: "Ack emoji",
+            title: t("Ack emoji"),
             ...(st.container
               ? {
                   back: {
-                    label: "← Ack emoji",
+                    label: "← " + t("Ack emoji"),
                     onClick: () => go({ view: "ackemoji", container: null, decision: st.decision, jid: null }),
                   },
                   context: slackContainerLabel(st.container),
@@ -12929,7 +13692,7 @@
                 }
               : {
                   back: {
-                    label: "← Judgments",
+                    label: "← " + t("Judgments"),
                     onClick: () => go({ view: "judgments", container: null, decision: null, jid: null }),
                   },
                 }),
@@ -12938,7 +13701,7 @@
         shell({});
         const loading = document.createElement("div");
         loading.className = "loadingline";
-        loading.textContent = "Loading ack-emoji picks…";
+        loading.textContent = t("Loading ack-emoji picks…");
         root.appendChild(loading);
         const path =
           "/api/ack-emoji-picks?" +
@@ -12951,8 +13714,8 @@
           return void root.appendChild(
             emptyPara(
               r.status === 403
-                ? "Only an org admin can read ack-emoji picks."
-                : r.data?.message || `Failed to load (${r.status}).`,
+                ? t("Only an org admin can read ack-emoji picks.")
+                : r.data?.message || t("Failed to load (") + `${r.status}).`,
             ),
           );
         const counts = r.data.counts || { picked: 0, declined: 0 };
@@ -12965,7 +13728,7 @@
           })),
         });
         let picks = r.data.picks || [];
-        if (!picks.length) return void root.appendChild(emptyPara("No ack-emoji picks recorded for this filter yet."));
+        if (!picks.length) return void root.appendChild(emptyPara(t("No ack-emoji picks recorded for this filter yet.")));
         const open = (p) => go({ view: "ackemoji", container: st.container, decision: st.decision, jid: String(p.id) });
         const rowOf = (p) => {
           const prev = document.createElement("span");
@@ -12999,7 +13762,7 @@
           const more = document.createElement("button");
           more.type = "button";
           more.className = "load-earlier more";
-          more.textContent = "Load earlier picks";
+          more.textContent = t("Load earlier picks");
           more.onclick = async () => {
             more.disabled = true;
             const last = picks[picks.length - 1];
@@ -13017,23 +13780,23 @@
         const root = $("view-data");
         root.textContent = "";
         const back = {
-          label: "← Ack emoji",
+          label: "← " + t("Ack emoji"),
           onClick: () => go({ view: "ackemoji", container: st.container, decision: st.decision, jid: null }),
         };
-        pageShell({ back, title: "Ack emoji" });
+        pageShell({ back, title: t("Ack emoji") });
         const detail = document.createElement("div");
         detail.className = "detail judg-detail";
-        detail.textContent = "Loading…";
+        detail.textContent = t("Loading…");
         root.appendChild(detail);
         const r = await api("GET", "/api/ack-emoji-picks?id=" + encodeURIComponent(st.jid));
         if (view !== "ackemoji" || urlToState().jid !== st.jid) return;
         detail.textContent = "";
-        if (!r.ok) return void detail.appendChild(emptyPara(r.data?.message || `Failed to load (${r.status}).`));
+        if (!r.ok) return void detail.appendChild(emptyPara(r.data?.message || t("Failed to load (") + `${r.status}).`));
         const p = r.data.pick;
         const href = judgmentSlackHref(r.data.workspaceUrl, p.channel, p.ts);
         pageShell({
           back,
-          title: "Ack emoji",
+          title: t("Ack emoji"),
           context: slackContainerLabel(p.channel),
           contextGo: { view: "slack", container: p.channel, ts: p.ts },
         });
@@ -13054,24 +13817,24 @@
           a.target = "_blank";
           a.rel = "noopener";
           a.className = "judg-extlink";
-          a.textContent = "Open in Slack ↗";
+          a.textContent = t("Open in Slack") + " ↗";
           head.appendChild(a);
         }
         dec.appendChild(head);
         const msgTitle = document.createElement("div");
         msgTitle.className = "judg-pane-title";
-        msgTitle.textContent = "Message";
+        msgTitle.textContent = t("Message");
         detail.appendChild(dec);
         detail.appendChild(msgTitle);
         const msg = document.createElement("div");
         msg.className = "judg-prompt";
         const mpre = document.createElement("pre");
-        mpre.textContent = p.message || "(not recorded)";
+        mpre.textContent = p.message || t("(not recorded)");
         msg.appendChild(mpre);
         detail.appendChild(msg);
         const candTitle = document.createElement("div");
         candTitle.className = "judg-pane-title";
-        candTitle.textContent = "Candidate slate";
+        candTitle.textContent = t("Candidate slate");
         detail.appendChild(candTitle);
         const cand = document.createElement("div");
         cand.className = "badges";
@@ -13080,7 +13843,7 @@
           if (name === p.picked) tag.classList.add("accent");
           cand.appendChild(tag);
         }
-        if (!(p.candidates || "").trim()) cand.appendChild(emptyPara("(candidate slate not recorded)"));
+        if (!(p.candidates || "").trim()) cand.appendChild(emptyPara(t("(candidate slate not recorded)")));
         detail.appendChild(cand);
       }
       async function showTranscript(sessionId, limit, expand) {
@@ -13089,8 +13852,8 @@
         const root = $("view-data");
         root.textContent = "";
         pageShell({
-          back: { label: "← Conversations", onClick: () => history.back() },
-          title: "Conversation",
+          back: { label: "← " + t("Conversations"), onClick: () => history.back() },
+          title: t("Conversation"),
           context: shortName(scope),
         });
         renderTranscriptHeaderControls(() => applyTranscriptControls());
@@ -13113,7 +13876,7 @@
             reqLimit,
         );
         if (!r.ok) {
-          detail.textContent = r.data?.message || `Failed to load transcript (${r.status}).`;
+          detail.textContent = r.data?.message || t("Failed to load transcript (") + `${r.status}).`;
           return;
         }
         detail.textContent = "";
@@ -13128,10 +13891,10 @@
             ? session.scopeId.slice("personal:".length)
             : null;
         pageShell({
-          back: { label: "← Conversations", onClick: () => history.back() },
-          title: origin?.label || "Conversation",
+          back: { label: "← " + t("Conversations"), onClick: () => history.back() },
+          title: origin?.label || t("Conversation"),
           context:
-            shortName(session.scopeId || scope) + (session.createdAt ? " · created " + relTime(session.createdAt) : ""),
+            shortName(session.scopeId || scope) + (session.createdAt ? " · " + t("created at") + " " + relTime(session.createdAt) : ""),
           actions: ownerPrincipal ? [webUiAsButton(ownerPrincipal)] : [],
         });
         const errStrip = document.createElement("div");
@@ -13141,7 +13904,7 @@
             "scope=" + encodeURIComponent(scope) + "&sessionId=" + encodeURIComponent(sessionId),
           );
           if (!errs.length || !errStrip.isConnected) return;
-          errStrip.appendChild(errorStripBox(errs, plural(errs.length, "error") + " logged in this session", 5));
+          errStrip.appendChild(errorStripBox(errs, plural(errs.length, t("error")) + t(" logged in this session"), 5));
         })();
 
         const originPromptSeq = origin && !serverHasMore ? entries.find((e) => e.type === "user")?.seq : null;
@@ -13161,7 +13924,7 @@
         if (!entries.length && !deliveryEvents.length) {
           const p = document.createElement("p");
           p.className = "empty";
-          p.textContent = "No entries.";
+          p.textContent = t("No entries.");
           detail.appendChild(p);
           return;
         }
@@ -13284,7 +14047,7 @@
         const messageEntryLabel = (e) => {
           if (e.type === "assistant") return brandSelfLabel();
           if (e.type !== "user") return titleCase(e.type || "entry");
-          return payloadName(e.payload) || "User";
+          return payloadName(e.payload) || t("User");
         };
         const entryLabel = (e) => {
           const s = document.createElement("span");
@@ -13305,7 +14068,7 @@
           const link = document.createElement("button");
           link.type = "button";
           link.className = "link";
-          link.textContent = "View cron";
+          link.textContent = t("View cron");
           link.onclick = () =>
             go({
               view: "crons",
@@ -13337,7 +14100,7 @@
           const link = document.createElement("button");
           link.type = "button";
           link.className = "link";
-          link.textContent = "View cron";
+          link.textContent = t("View cron");
           const cron = event.origin.cron || null;
           link.onclick = () =>
             go({ view: "crons", scope: cron?.ownerScopeId || scope, session: null, cron: event.origin.cronId });
@@ -14171,11 +14934,13 @@
             time: fmtBytes(f.size || 0) + " · " + relTime(f.createdAt),
           }),
           downloadFile,
-          "No documents saved yet.",
+          t("No documents saved yet."),
         );
         const noMatch = document.createElement("p");
         noMatch.className = "empty hidden";
-        noMatch.textContent = capped ? "No files match — only the newest 2,000 are searched." : "No files match.";
+        noMatch.textContent = capped
+          ? t("No files match — only the newest 2,000 are searched.")
+          : t("No files match.");
 
         let scopeWrap = null;
         if (index) {
@@ -14183,14 +14948,14 @@
           scopeWrap.appendChild(
             scopeIndexList(all, {
               latestOf: (f) => f.createdAt || 0,
-              noun: "file",
-              empty: "No documents saved yet.",
+              noun: t("file"),
+              empty: t("No documents saved yet."),
             }),
           );
           if (capped) {
             const note = document.createElement("p");
             note.className = "empty";
-            note.textContent = "Only the newest 2,000 files are indexed — a scope with only older files won't appear.";
+            note.textContent = t("Only the newest 2,000 files are indexed — a scope with only older files won't appear.");
             scopeWrap.appendChild(note);
           }
         }
@@ -14209,14 +14974,16 @@
               ? {}
               : {
                   back: {
-                    label: "← Files",
+                    label: "← " + t("Files"),
                     onClick: () => go({ view: "files", scope: "org:" + orgId, own: null, session: null, page: 1 }),
                   },
                 }),
             title: index ? VIEW_TITLE.files : shortName(scope),
-            count: files.length ? plural(files.length, "file") + (capped ? ", newest shown" : "") : "",
+            count: files.length
+              ? plural(files.length, t("file")) + (capped ? t(", newest shown") : "")
+              : "",
           },
-          placeholder: index ? "Search all files…" : "Search files…",
+          placeholder: index ? t("Search all files…") : t("Search files…"),
         });
         root.appendChild(fileUploadBox());
         const card = bareDataCard(fileWrap);
@@ -14239,7 +15006,7 @@
             box.appendChild(img);
           } else {
             box.textContent = "img";
-            box.title = "Large image — click to preview full size";
+            box.title = t("Large image — click to preview full size");
           }
         }
         return box;
@@ -14248,7 +15015,7 @@
         if (!f.openable) return;
         const check = await api("GET", "/api/files/read?id=" + encodeURIComponent(f.id));
         if (!check.ok) {
-          alert(check.data?.message || `Couldn't open file (${check.status}).`);
+          alert(check.data?.message || t("Couldn't open file (") + `${check.status}).`);
           return;
         }
         const href = API_BASE + "/api/files/download?id=" + encodeURIComponent(f.id);
@@ -14272,14 +15039,14 @@
         const done = runs.filter((r) => r.status === "done").length;
         root.appendChild(
           kpis([
-            [d.active ?? 0, "Active now"],
-            [runs.length, "Recent runs"],
-            [failed, "Failed"],
-            [done, "Done"],
+            [d.active ?? 0, t("Active now")],
+            [runs.length, t("Recent runs")],
+            [failed, t("Failed")],
+            [done, t("Done")],
           ]),
         );
         const rows = runs.map((r) => [
-          { node: stacked("Run " + shortId(r.id), r.threadRef || "no thread"), cls: "mono" },
+          { node: stacked(t("Run ") + shortId(r.id), r.threadRef || t("no thread")), cls: "mono" },
           nodeCell(statusBadge(r.status)),
           r.sessionScope ? scopeCell(r.sessionScope) : { text: "-", cls: "mono" },
           nodeCell(typeBadge(r.sessionType)),
@@ -14299,14 +15066,19 @@
         root.appendChild(
           bareDataCard(
             table(
-              ["Run", "Status", "Scope", "Type", "Attempts", "Worker", "Duration", "Lease", "Started"],
+              [t("Run"), t("Status"), t("Scope"), t("Type"), t("Attempts"), t("Worker"), t("Duration"), t("Lease"), t("Started")],
               rows,
-              "No runs.",
+              t("No runs."),
             ),
           ),
         );
       }
 
+      applyStaticTranslations();
+      if (HIDE_SLACK) {
+        $("onboarding-slack-step")?.remove();
+        $("card-slack-installation")?.remove();
+      }
       refresh();
     </script>
   </body>

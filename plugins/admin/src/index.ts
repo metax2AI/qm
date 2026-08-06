@@ -20,6 +20,8 @@ import { dirname, join } from "node:path";
 
 const PORT = portFromEnv(8090);
 const ADMIN_BASE_PATH = (process.env.ADMIN_BASE_PATH ?? "").replace(/\/$/, "");
+const ADMIN_DEFAULT_LOCALE = process.env.ADMIN_DEFAULT_LOCALE === "zh-Hans" ? "zh-Hans" : "en";
+const ADMIN_HIDE_SLACK = process.env.ADMIN_HIDE_SLACK === "1" || process.env.ADMIN_HIDE_SLACK === "true";
 function signedHeaders(method: string, corePath: string, rawBody: string): Record<string, string> {
   return signedRequestHeaders(CORE_SIGNING_SECRET, method, corePath, rawBody, { "content-type": "application/json" });
 }
@@ -27,7 +29,13 @@ function signedHeaders(method: string, corePath: string, rawBody: string): Recor
 const BASE_HTML = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), "../public/index.html"),
   "utf8",
-).replaceAll("__ADMIN_BASE__", () => ADMIN_BASE_PATH);
+)
+  .replaceAll("__ADMIN_BASE__", () => ADMIN_BASE_PATH)
+  .replace(/<html lang="[^"]*">/, `<html lang="${ADMIN_DEFAULT_LOCALE}">`)
+  .replace(
+    /<meta name="brand-self-label"[^>]*>/,
+    `$&\n    <meta name="admin-default-locale" content="${ADMIN_DEFAULT_LOCALE}" />${ADMIN_HIDE_SLACK ? '\n    <meta name="admin-hide-slack" content="1" />' : ""}`,
+  );
 const ADMIN_SCRIPT = BASE_HTML.match(/<script>([\s\S]*?)<\/script>/)?.[1] ?? "";
 const ADMIN_CSP = [
   "default-src 'self'",

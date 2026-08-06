@@ -77,7 +77,7 @@ test("mobile admin navigation keeps the active section visible and controls touc
 });
 
 test("admin history previews quote the first message instead of saying started", () => {
-  assert.equal((html.match(/\?\s*"> "\s*\+\s*s\.firstMessage\s*:\s*"created "/g) || []).length, 1);
+  assert.equal((html.match(/\?\s*"> "\s*\+\s*s\.firstMessage\s*:\s*t\("created "\)\s*\+\s*fmtHistoryCreated/g) || []).length, 1);
   assert.doesNotMatch(html, /\? "started " \+ s\.firstMessage : "created "/);
 });
 
@@ -189,7 +189,7 @@ test("governance makes unenforced egress a draft instead of an effective control
   assert.match(html, /id="egress-capability"/);
   assert.match(html, />\s*Save draft\s*<\/button\s*>/);
   assert.match(html, /data\.egressEnforcement/);
-  assert.match(html, /enforcement\.active \? "Save policy" : "Save draft"/);
+  assert.match(html, /enforcement\.active \? t\("Save policy"\) : t\("Save draft"\)/);
   assert.match(html, /enforcement\.reason === "control_plane_unconfigured"/);
   assert.match(html, /control plane cannot mint a reachable proxy token/);
   assert.match(html, /Backend supports policy; control plane inactive/);
