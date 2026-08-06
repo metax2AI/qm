@@ -5012,6 +5012,11 @@
         "Version history": "版本历史",
         "History begins with the next saved revision.": "历史从下次保存的修订开始。",
         "Version ": "版本 ",
+        "Last access": "最近访问",
+        "The Admin area is limited to governance admins. Your account is signed in and verified — it just isn't granted admin rights.": "管理后台仅限治理管理员使用。您的账号已登录并通过验证——只是未授予管理员权限。",
+        "Admin rights come from your organization's admin grants. If you need access, ask an existing admin to grant it.": "管理员权限来自组织的管理员授权。如需访问,请向现有管理员申请授权。",
+        "Point QM at any OpenAI- or Anthropic-compatible endpoint — a vendor like DeepSeek, or a gateway like LiteLLM fronting many models. Keys are validated, stored write-only, and the models join the picker.": "将 QM 指向任意 OpenAI 或 Anthropic 兼容端点——如 DeepSeek 等厂商,或 LiteLLM 等聚合网关。密钥经校验后仅可写入存储,模型会加入选择器。",
+        "Validate key against the endpoint (untick for gateways without a models listing)": "对端点验证密钥(无模型列表的网关请取消勾选)",
         "Current": "当前",
         "Restore": "恢复",
         "Restore SOUL version ": "恢复 SOUL 版本 ",
@@ -5231,7 +5236,6 @@
         "Trying again resolves most cases. If this keeps happening, the core service may be down.": "重试通常可以解决。如果持续发生,核心服务可能已停止。",
         "Try again": "重试",
         "You don't have admin access": "您没有管理员权限",
-        "The Admin area is limited to governance admins. Your account is signed in and verified — it just isn't granted admin rights.": "管理后台仅限治理管理员使用。您的账号已登录并通过验证——只是未授予管理员权限。",
         "Signed in as": "已登录为",
         "Admin rights come from your organization's admin grants. If you need access, ask an existing admin to grant it.": "管理员权限来自组织的管理员授权。如需访问,请向现有管理员申请授权。",
         "Back to your surfaces": "返回您的界面",
@@ -5387,7 +5391,6 @@
         "Validate and save": "验证并保存",
         "Disable this provider": "停用此服务商",
         "Custom providers": "自定义服务商",
-        "Point QM at any OpenAI- or Anthropic-compatible endpoint — a vendor like DeepSeek, or a gateway like LiteLLM fronting many models. Keys are validated, stored write-only, and the models join the picker.": "将 QM 指向任意 OpenAI 或 Anthropic 兼容端点——如 DeepSeek 等厂商,或 LiteLLM 等聚合网关。密钥经校验后仅可写入存储,模型会加入选择器。",
         "Provider": "服务商",
         "Protocol": "协议",
         "Endpoint": "端点",
@@ -5402,7 +5405,6 @@
         "API key": "API 密钥",
         "Write-only; blank on edit keeps the stored key": "仅可写入;编辑时留空保留已存密钥",
         "Models (one per line: id | name | context | maxTokens)": "模型(每行一个:id | 名称 | 上下文 | 最大令牌)",
-        "Validate key against the endpoint (untick for gateways without a models listing)": "对端点验证密钥(无模型列表的网关请取消勾选)",
         "Save provider": "保存服务商",
         "Write-only API key": "仅可写入的 API 密钥",
         "set — enter a replacement": "已设置——输入新值以替换",
@@ -5538,15 +5540,16 @@
       const t = (en) => (LOCALE === "zh-Hans" && DICT[en] ? DICT[en] : en);
       function applyStaticTranslations() {
         if (LOCALE !== "zh-Hans") return;
+        const collapse = (text) => String(text ?? "").replace(/\s+/g, " ").trim();
         const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
           acceptNode(node) {
-            const text = node.nodeValue?.trim();
+            const text = collapse(node.nodeValue);
             return text && DICT[text] ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
           },
         });
         const hits = [];
         while (walker.nextNode()) hits.push(walker.currentNode);
-        for (const node of hits) node.nodeValue = DICT[node.nodeValue.trim()];
+        for (const node of hits) node.nodeValue = DICT[collapse(node.nodeValue)];
         for (const el of document.querySelectorAll("[placeholder],[title]")) {
           for (const attr of ["placeholder", "title"]) {
             const value = el.getAttribute(attr);
@@ -5560,10 +5563,10 @@
       const EFFECT_LABELS = { allow: t("Allow"), deny: t("Deny"), require_approval: t("Require approval") };
       const SECTIONS = [
         { views: ["history", "slack", "judgments"] },
-        { label: "Artifacts", views: ["files", "skills", "memory", "deployments", "crons"] },
-        { label: "System", views: ["metrics"] },
-        { label: "Admin", views: ["onboarding", "governance", "connectors", "users", "keychain", "egress", "audit"] },
-        { label: "Insights", views: ["retention"] },
+        { label: t("Artifacts"), views: ["files", "skills", "memory", "deployments", "crons"] },
+        { label: t("System"), views: ["metrics"] },
+        { label: t("Admin"), views: ["onboarding", "governance", "connectors", "users", "keychain", "egress", "audit"] },
+        { label: t("Insights"), views: ["retention"] },
       ];
       const HIDE_SLACK =
         typeof document !== "undefined" &&
@@ -7814,16 +7817,18 @@
         renderOnboardingProviderOptions(baseProvider);
         renderOnboardingModelOptions(baseModel);
 
-        onboardingBadge(
-          "onboarding-slack-badge",
-          slack.data.configured ? t("Connected") : t("Optional"),
-          Boolean(slack.data.configured),
-          true,
-        );
-        $("onboarding-slack-summary").textContent = slack.data.configured
-          ? t("Connected to ") + (slack.data.teamName || slack.data.teamId || t("a Slack workspace")) + "."
-          : t("Create the QM app, install it, then add its bot and Socket Mode tokens.");
-        if (slack.data.createUrl) $("onboarding-slack-create").href = slack.data.createUrl;
+        if (!HIDE_SLACK) {
+          onboardingBadge(
+            "onboarding-slack-badge",
+            slack.data.configured ? t("Connected") : t("Optional"),
+            Boolean(slack.data.configured),
+            true,
+          );
+          $("onboarding-slack-summary").textContent = slack.data.configured
+            ? t("Connected to ") + (slack.data.teamName || slack.data.teamId || t("a Slack workspace")) + "."
+            : t("Create the QM app, install it, then add its bot and Socket Mode tokens.");
+          if (slack.data.createUrl) $("onboarding-slack-create").href = slack.data.createUrl;
+        }
 
         const configured = (catalog.data.catalog || []).filter((item) => item.configured);
         onboardingBadge(
@@ -8637,7 +8642,7 @@
               ) {
                 throw new Error(
                   label +
-                    t(' contains invalid host "') +
+                    t('contains invalid host "') +
                     host +
                     t('". Enter a hostname or IP only—no scheme, path, port, or wildcard.'),
                 );
@@ -12399,7 +12404,7 @@
             note.className = "statline";
             const toggle = document.createElement("a");
             toggle.href = "#";
-            toggle.textContent = plural(total, t("error")) + t(" logged in this scope");
+            toggle.textContent = plural(total, t("error")) + " " + t("logged in this scope");
             note.appendChild(toggle);
             errNote.appendChild(note);
             let box = null;
@@ -13904,7 +13909,7 @@
             "scope=" + encodeURIComponent(scope) + "&sessionId=" + encodeURIComponent(sessionId),
           );
           if (!errs.length || !errStrip.isConnected) return;
-          errStrip.appendChild(errorStripBox(errs, plural(errs.length, t("error")) + t(" logged in this session"), 5));
+          errStrip.appendChild(errorStripBox(errs, plural(errs.length, t("error")) + " " + t("logged in this session"), 5));
         })();
 
         const originPromptSeq = origin && !serverHasMore ? entries.find((e) => e.type === "user")?.seq : null;

@@ -23,13 +23,14 @@ function resolveView(pathname: string, search: string): string {
     URLSearchParams,
     API_BASE: "/admin",
     scope: "org",
+    t: (x: string) => x,
     location: { pathname, search },
   });
   return vm.runInContext(src, context);
 }
 
 test("onboarding is a navigable view", () => {
-  assert.match(html, /\{ label: "Admin", views: \["onboarding",/);
+  assert.match(html, /\{ label: t\("Admin"\), views: \["onboarding",/);
 });
 
 test("/admin/onboarding resolves to the onboarding view", () => {
