@@ -309,7 +309,10 @@ describe("connectors are grantable like any keychain record", () => {
       mode: "once",
       purpose: "p",
     });
-    await assert.rejects(k2.materialize(g2.id, G1, "carol@x"), (e: KeychainError) => e.status === 410);
+    await assert.rejects(
+      k2.materialize(g2.id, G1, "carol@x"),
+      (e: KeychainError) => e.status === 410 && e.code === "credential_expired",
+    );
   });
 
   it("a still-valid token within the refresh margin is refreshed; one with ample life is reused", async () => {
@@ -958,6 +961,7 @@ describe("/v1/keychain routes (capability-authed)", () => {
       workspace: built.workspace,
       auditLog: built.auditLog,
       credentialUsage: built.credentialUsage,
+      sessions: built.sessions,
     });
     await new Promise<void>((resolve) => server.listen(0, resolve));
     base = `http://localhost:${(server.address() as AddressInfo).port}`;
@@ -1088,6 +1092,31 @@ describe("/v1/keychain routes (capability-authed)", () => {
     assert.notEqual(res.status, 200);
   });
 
+  it("missing keychain resources return stable domain codes", async () => {
+    const deleted = await fetch(`${base}/v1/keychain/credentials/missing`, {
+      method: "DELETE",
+      headers: { "x-agent-capability": await capFor("MISSING") },
+    });
+    assert.equal(deleted.status, 404);
+    assert.equal(((await deleted.json()) as { error: string }).error, "credential_not_found");
+
+    const revoked = await post(
+      "/v1/keychain/grants/missing/revoke",
+      {},
+      await capFor("MISSING", scopeId("channel", "C_MISSING")),
+    );
+    assert.equal(revoked.status, 404);
+    assert.equal(((await revoked.json()) as { error: string }).error, "grant_not_found");
+
+    const asked = await post(
+      "/v1/keychain/asks",
+      { credential: "missing", purpose: "test the stable error contract" },
+      await capFor("MISSING", scopeId("channel", "C_MISSING")),
+    );
+    assert.equal(asked.status, 404);
+    assert.equal(((await asked.json()) as { error: string }).error, "credential_not_found");
+  });
+
   it("grant: only mintable on the OWNER's own turn; use is scope-bound and returns sourceable env text", async () => {
     const { credential } = (await (
       await post(
@@ -1116,13 +1145,16 @@ describe("/v1/keychain routes (capability-authed)", () => {
 
     const elsewhere = await post("/v1/keychain/use", { grant: g.grant.id }, await capFor("U3", "channel:OTHER"));
     assert.equal(elsewhere.status, 403);
+    assert.equal(((await elsewhere.json()) as { error: string }).error, "grant_scope_mismatch");
 
     const used = await post("/v1/keychain/use", { grant: g.grant.id }, await capFor("U3", "channel:C7"));
     assert.equal(used.status, 200);
     assert.match(used.headers.get("content-type") ?? "", /text\/plain/);
     assert.equal(await used.text(), "export GH_GRANT='ghp_grant'\n");
 
-    assert.equal((await post("/v1/keychain/use", { grant: g.grant.id }, await capFor("U3", "channel:C7"))).status, 410);
+    const reused = await post("/v1/keychain/use", { grant: g.grant.id }, await capFor("U3", "channel:C7"));
+    assert.equal(reused.status, 410);
+    assert.equal(((await reused.json()) as { error: string }).error, "grant_used");
 
     const usage = await built.credentialUsage.list({});
     assert.ok(
@@ -1156,6 +1188,31 @@ describe("/v1/keychain routes (capability-authed)", () => {
     assert.equal(body.grants[0].purpose, "deploy the reporting app");
     assert.equal(body.usage[0].credentialId, credential.id);
     assert.ok(!JSON.stringify(body).includes("never-return-this"));
+  });
+
+  it("overview resolves grant scope ids to human-readable names when known", async () => {
+    const owner = "SCOPENAME_OWNER";
+    const { credential } = (await (
+      await post(
+        "/v1/keychain/credentials",
+        { service: "scopenames", secret: "shh", envKey: "SCOPENAME_TOKEN" },
+        await capFor(owner),
+      )
+    ).json()) as any;
+    await built.sessions.getOrCreateByThread("slack:C_NAMED:1", "channel", "channel:C_NAMED", "pilot-portal");
+    await post(
+      "/v1/keychain/grants",
+      { credential: credential.id, mode: "standing", purpose: "named channel work" },
+      await capFor(owner, "channel:C_NAMED"),
+    );
+    await post(
+      "/v1/keychain/grants",
+      { credential: credential.id, mode: "standing", purpose: "unnamed channel work" },
+      await capFor(owner, "channel:C_MYSTERY"),
+    );
+    const body = (await (await get("/v1/keychain/overview", await capFor(owner))).json()) as any;
+    assert.equal(body.scopeNames["channel:C_NAMED"], "#pilot-portal");
+    assert.equal(body.scopeNames["channel:C_MYSTERY"], undefined);
   });
 
   it("overview includes safe connector metadata so its grants remain visible and revocable", async () => {

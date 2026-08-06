@@ -54,6 +54,12 @@ test("installSeedSkills publishes the repository starter catalog into org scope"
   assert.deepEqual(rerun.updated, []);
 });
 
+test("browse runner maps DeepSeek to its OpenAI-compatible endpoint", () => {
+  const browse = readFileSync("skills-seed/browse/SKILL.md", "utf8");
+  assert.match(browse, /`BROWSE_LAB_DEEPSEEK_KEY`/);
+  assert.match(browse, /"deepseek": \("BROWSE_LAB_DEEPSEEK_KEY", "https:\/\/api\.deepseek\.com"\),/);
+});
+
 test("every licence shipped with a seed skill is MIT, and no tracked source carries Apache licence text", () => {
   const seedDir = "skills-seed";
   const licences: string[] = [];

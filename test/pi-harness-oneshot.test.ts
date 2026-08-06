@@ -116,6 +116,7 @@ test("piHarnessConfigOptions maps every Config knob the harness consumes, field 
       detectModelId: "model-detect",
       titleModelId: "model-title",
       anthropicApiKey: "sk-test",
+      deepseekApiKey: "sk-deepseek-test",
       piCaptureRequests: false,
       piSystemCacheSplit: true,
       scratchExecEnabled: true,
@@ -135,6 +136,7 @@ test("piHarnessConfigOptions maps every Config knob the harness consumes, field 
     detectModelId: "model-detect",
     titleModelId: "model-title",
     apiKey: "sk-test",
+    deepseekApiKey: "sk-deepseek-test",
     captureRequests: false,
     systemCacheSplit: true,
     scratchExec: true,
@@ -169,7 +171,7 @@ test("piHarnessConfigOptions leaves controlTools off unless a self-API (signing 
 
 test("piHarnessConfigOptions omits the optional fields when the config leaves them unset", () => {
   const opts = piHarnessConfigOptions(testConfig());
-  for (const key of ["defaultModelId", "detectModelId", "titleModelId", "apiKey"] as const) {
+  for (const key of ["defaultModelId", "detectModelId", "titleModelId", "apiKey", "deepseekApiKey"] as const) {
     assert.equal(key in opts, false, `${key} must be omitted, not undefined`);
   }
 });
@@ -248,6 +250,60 @@ test("oneShot completes an authenticated Pi 0.82 turn", async (t) => {
   assert.equal(apiKey, "test-key");
   assert.match(requestBody, /system/);
   assert.match(requestBody, /hello/);
+});
+
+test("oneShot sends DeepSeek's strict chat-completions schema", async () => {
+  const realFetch = globalThis.fetch;
+  let authorization = "";
+  let payload: Record<string, unknown> = {};
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    authorization = new Headers(init?.headers).get("authorization") ?? "";
+    payload = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    const messages = payload.messages as Array<{ content?: unknown }> | undefined;
+    if (
+      "max_completion_tokens" in payload ||
+      !(typeof payload.max_tokens === "number") ||
+      !messages?.every((message) => typeof message.content === "string")
+    ) {
+      return Response.json({ error: { message: "invalid DeepSeek request" } }, { status: 400 });
+    }
+    const chunks = [
+      {
+        id: "chatcmpl-deepseek-oneshot",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "deepseek-v4-flash",
+        choices: [{ index: 0, delta: { role: "assistant", content: "handled" }, finish_reason: null }],
+      },
+      {
+        id: "chatcmpl-deepseek-oneshot",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "deepseek-v4-flash",
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        usage: { prompt_tokens: 2, completion_tokens: 1, total_tokens: 3 },
+      },
+    ];
+    return new Response(`${chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("")}data: [DONE]\n\n`, {
+      headers: { "content-type": "text/event-stream" },
+    });
+  }) as typeof globalThis.fetch;
+  try {
+    assert.equal(
+      await oneShot(
+        "pi-deepseek-oneshot",
+        getRequiredModel("deepseek-v4-flash"),
+        { deepseek: "sk-deepseek-test" },
+        "system",
+        "hello",
+      ),
+      "handled",
+    );
+    assert.equal(authorization, "Bearer sk-deepseek-test");
+    assert.equal(payload.model, "deepseek-v4-flash");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 test("Pi assistant error messages fail the turn instead of becoming a blank reply", () => {

@@ -32,7 +32,7 @@ test("the org allowed-models list restricts the runtime-config picker and cleari
     modelCredentials: built.modelCredentials,
     modelCredentialFetch,
     harnessId: "pi",
-    providerKeys: { anthropic: false, openai: false, openrouter: true },
+    providerKeys: { anthropic: false, deepseek: false, openai: false, openrouter: true },
     admin: built.admin,
     auditLog: built.auditLog,
   });
@@ -66,6 +66,54 @@ test("the org allowed-models list restricts the runtime-config picker and cleari
     const restored = await runtimeModels();
     assert.ok(restored.includes("anthropic/claude-sonnet-4.5"));
     assert.ok(restored.includes("deepseek/deepseek-chat-v3.1"));
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test("an unconfigured Web allowlist accepts every model advertised by the default picker", async () => {
+  const built = buildApp(testConfig({ dataDir: mkdtempSync(join(tmpdir(), "webui-custom-default-")) }));
+  const server = createInsecureTestServer(built.app, {
+    config: built.config,
+    modelCredentials: built.modelCredentials,
+    customProviders: built.customProviders,
+    refreshCustomProviders: built.refreshCustomProviders,
+    harnessId: "pi",
+    providerKeys: { anthropic: true, deepseek: false, openai: false, openrouter: false },
+    admin: built.admin,
+    auditLog: built.auditLog,
+  });
+  server.listen(0);
+  const base = `http://localhost:${(server.address() as AddressInfo).port}`;
+  try {
+    const registered = await fetch(`${base}/v1/admin/custom-providers/acme-gateway`, {
+      method: "PUT",
+      headers: ADMIN,
+      body: JSON.stringify({
+        name: "Acme Gateway",
+        protocol: "openai",
+        baseUrl: "https://gateway.example.com/v1",
+        apiKey: "custom-key",
+        validate: false,
+        models: [{ id: "acme-large" }],
+      }),
+    });
+    assert.equal(registered.status, 200);
+    const surface = await fetch(`${base}/v1/surface-config`);
+    assert.ok(((await surface.json()) as { webuiModels: string[] }).webuiModels.includes("acme-large"));
+    const turn = await fetch(`${base}/v1/turns`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        surface: "web",
+        actor: { externalId: "alice" },
+        conversation: { kind: "dm", threadRef: "web:alice:custom-model" },
+        text: "hello",
+        model: "acme-large",
+      }),
+    });
+    assert.equal(turn.status, 200);
+    assert.notEqual(((await turn.json()) as { reasonCode?: string }).reasonCode, "model_not_enabled");
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }

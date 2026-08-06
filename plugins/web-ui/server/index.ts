@@ -20,6 +20,7 @@ import {
 } from "../../chassis/src/http.ts";
 import { verifyPortalIdentity, PORTAL_IDENTITY_HEADER } from "../../chassis/src/portal-identity.ts";
 import { createBrandingCache, injectBranding } from "../../chassis/src/branding.ts";
+import { defaultWebLocale, injectDefaultLocale } from "./localization.ts";
 import {
   CORE_API_URL as CORE,
   CORE_ORG_ID as ORG,
@@ -35,6 +36,7 @@ const ALLOW_UNSIGNED_TEST_IDENTITY =
   process.env.NODE_ENV === "test" && process.env.ALLOW_UNSIGNED_TEST_IDENTITY === "1";
 const COOKIE_AUTH = !CORE_SIGNING_SECRET || ALLOW_UNSIGNED_TEST_IDENTITY;
 const AUTH_MODE = COOKIE_AUTH ? "dev" : "portal";
+const DEFAULT_LOCALE = defaultWebLocale(process.env.WEB_UI_DEFAULT_LOCALE);
 const ALLOW = (process.env.WEB_UI_PRINCIPALS ?? "")
   .split(",")
   .map((s) => s.trim())
@@ -56,9 +58,10 @@ const brandingCache = createBrandingCache(async () => {
 
 async function brandIndexHtml(html: string): Promise<string> {
   const branding = await brandingCache.forRender();
-  const branded = injectBranding(html, branding);
+  let branded = injectBranding(html, branding);
   const label = branding.selfLabel?.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return label ? branded.replace(/<title>[^<]*<\/title>/, () => `<title>${label} · Web</title>`) : branded;
+  if (label) branded = branded.replace(/<title>[^<]*<\/title>/, () => `<title>${label}</title>`);
+  return injectDefaultLocale(branded, DEFAULT_LOCALE);
 }
 
 const portalTokenStore = new AsyncLocalStorage<string | undefined>();
@@ -222,7 +225,7 @@ function callbackHtml(query: string): string {
     /[&<>"']/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
   );
-  return `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=../../../?${safe}"><title>Connector</title>`;
+  return `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=../../../?${safe}"><title>QM</title>`;
 }
 
 function conversationForScope(
@@ -847,7 +850,7 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (e instanceof PayloadTooLargeError) throw e;
         return json(res, 400, { error: "bad_request" });
       }
-      if (!name) return json(res, 400, { error: "bad_request", message: "name required" });
+      if (!name) return json(res, 400, { error: "invalid_name", message: "name required" });
       const r = await coreFetch("POST", "/v1/projects", JSON.stringify({ principalId: user, name }));
       return relay(res, r);
     }
@@ -863,7 +866,7 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (e instanceof PayloadTooLargeError) throw e;
         return json(res, 400, { error: "bad_request" });
       }
-      if (!name) return json(res, 400, { error: "bad_request", message: "name required" });
+      if (!name) return json(res, 400, { error: "invalid_name", message: "name required" });
       const r = await coreFetch(
         "PATCH",
         `/v1/projects/${encodeURIComponent(id)}`,
@@ -883,7 +886,7 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (e instanceof PayloadTooLargeError) throw e;
         return json(res, 400, { error: "bad_request" });
       }
-      if (!memberId) return json(res, 400, { error: "bad_request", message: "memberId required" });
+      if (!memberId) return json(res, 400, { error: "invalid_member", message: "memberId required" });
       const r = await coreFetch(
         "POST",
         `/v1/projects/${encodeURIComponent(id)}/members`,
@@ -1487,7 +1490,7 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
         if (e instanceof PayloadTooLargeError) throw e;
       }
       if (!text.trim() && attachments.length === 0 && !approval && !proactiveOpener)
-        return json(res, 400, { error: "empty message" });
+        return json(res, 400, { error: "empty_message" });
 
       if (!threadRef.startsWith(ownPrefix) && !(scope?.startsWith("channel:") || scope?.startsWith("group:"))) {
         return json(res, 403, {

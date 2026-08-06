@@ -402,7 +402,11 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
       const turnTimezone = isValidCapabilityTimezone(input.timezone) ? input.timezone : undefined;
 
       if (!deps.identity.isInternal(actor)) {
-        return { status: "refused", reason: "internal-only: non-internal principals cannot interact" };
+        return {
+          status: "refused",
+          reasonCode: "internal_access_denied",
+          reason: "internal-only: non-internal principals cannot interact",
+        };
       }
       const managedGroupRef =
         conversation.kind === "group" &&
@@ -432,7 +436,11 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         return result;
       };
       if (!(await managedRosterIsCurrent())) {
-        return { status: "refused", reason: "project membership changed; retry from the current project" };
+        return {
+          status: "refused",
+          reasonCode: "project_membership_changed",
+          reason: "project membership changed; retry from the current project",
+        };
       }
       if (conversation.kind !== "dm" && !deps.identity.audienceIsAllInternal(conversation.audience)) {
         const externalAllowed =
@@ -441,6 +449,7 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         if (!externalAllowed) {
           return {
             status: "refused",
+            reasonCode: "internal_access_denied",
             reason: "internal-only: shared audience includes a non-internal participant",
           };
         }
@@ -450,6 +459,8 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
       if (!rl.allowed) {
         return {
           status: "refused",
+          reasonCode: "rate_limited",
+          retryAfterMs: rl.retryAfterMs ?? 0,
           reason: `rate limit exceeded — try again in ${Math.ceil((rl.retryAfterMs ?? 0) / 1000)}s`,
         };
       }
@@ -459,6 +470,8 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         if (!b.allowed) {
           return {
             status: "refused",
+            reasonCode: "budget_exceeded",
+            budget: { spentUsd: b.spentUsd, limitUsd: b.limitUsd },
             reason: `budget exceeded ($${b.spentUsd.toFixed(2)} of $${b.limitUsd}); try again later`,
           };
         }
@@ -683,7 +696,12 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
             ...(input.runId ? { runId: input.runId } : {}),
             ...(input.surface ? { surface: input.surface } : {}),
           });
-          return { status: "refused", sessionId: session.id, reason: "session busy (another turn is in progress)" };
+          return {
+            status: "refused",
+            sessionId: session.id,
+            reasonCode: "session_busy",
+            reason: "session busy (another turn is in progress)",
+          };
         }
         try {
           await withManagedRosterVersion(async () => {
@@ -732,6 +750,7 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
             return {
               status: "refused",
               sessionId: session.id,
+              reasonCode: "project_membership_changed",
               reason: "project membership changed; retry from the current project",
             };
           }
@@ -742,6 +761,7 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         return {
           status: "refused",
           sessionId: session.id,
+          reasonCode: "security_quarantine",
           refusalKind: "security_quarantine",
           reason: "Auto quarantined suspicious or unscreenable external input before the agent ran.",
         };
@@ -1283,7 +1303,11 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
           ...(input.runId ? { runId: input.runId } : {}),
           ...(input.surface ? { surface: input.surface } : {}),
         });
-        return { status: "refused", reason: "session busy (another turn is in progress)" };
+        return {
+          status: "refused",
+          reasonCode: "session_busy",
+          reason: "session busy (another turn is in progress)",
+        };
       }
       let tailOwnsCleanup = false;
       let leaseReleased = false;
@@ -1309,6 +1333,7 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
             return {
               status: "refused",
               sessionId: session.id,
+              reasonCode: "approval_denied",
               reason: p?.command ? `approval denied for ${p.command}` : "approval denied",
             };
           } else if (p && p.sessionId === session.id) {
@@ -2769,6 +2794,7 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
           return {
             status: "refused",
             sessionId: session.id,
+            reasonCode: "project_membership_changed",
             reason: "project membership changed; retry from the current project",
           };
         }
@@ -2801,6 +2827,7 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
               return {
                 status: "refused",
                 sessionId: session.id,
+                reasonCode: "project_membership_changed",
                 reason: "project membership changed; retry from the current project",
               };
             }

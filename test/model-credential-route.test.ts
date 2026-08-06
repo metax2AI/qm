@@ -36,6 +36,7 @@ function start(
     harnessId: config.harness ?? "pi",
     providerKeys: {
       anthropic: Boolean(config.anthropicApiKey),
+      deepseek: Boolean(config.deepseekApiKey),
       openai: Boolean(config.openaiApiKey),
       openrouter: Boolean(config.openrouterApiKey),
     },
@@ -58,6 +59,7 @@ test("admin model credentials are encrypted, write-only, live, and removable", a
     assert.deepEqual(await initial.json(), {
       providers: [
         { provider: "anthropic", configured: true, source: "environment" },
+        { provider: "deepseek", configured: false, source: "absent" },
         { provider: "openai", configured: false, source: "absent" },
         { provider: "openrouter", configured: false, source: "absent" },
       ],
@@ -67,6 +69,8 @@ test("admin model credentials are encrypted, write-only, live, and removable", a
         { id: "claude-opus-4-8", name: "Claude Opus 4.8", provider: "anthropic" },
         { id: "claude-sonnet-5", name: "Claude Sonnet 5", provider: "anthropic" },
         { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", provider: "anthropic" },
+        { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", provider: "deepseek" },
+        { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", provider: "deepseek" },
         { id: "gpt-5.6-sol", name: "GPT-5.6 Sol", provider: "openai" },
         { id: "gpt-5.6-terra", name: "GPT-5.6 Terra", provider: "openai" },
         { id: "gpt-5.6-luna", name: "GPT-5.6 Luna", provider: "openai" },
@@ -110,6 +114,37 @@ test("admin model credentials are encrypted, write-only, live, and removable", a
     assert.equal(removed.status, 200);
     assert.equal(await srv.built.modelCredentials.resolve("openai"), null);
     assert.equal(await srv.built.modelCredentials.resolve("anthropic"), "deployment-anthropic-key");
+  } finally {
+    await srv.close();
+  }
+});
+
+test("DeepSeek validation uses its authenticated model endpoint and managed keys serve Pi immediately", async () => {
+  let requested = "";
+  let authorization = "";
+  const srv = start({}, async (input, init) => {
+    requested = String(input);
+    authorization = new Headers(init?.headers).get("authorization") ?? "";
+    return Response.json({ object: "list", data: [] });
+  });
+  try {
+    const saved = await fetch(`${srv.base}/v1/admin/model-providers/deepseek`, {
+      method: "PUT",
+      headers: ADMIN,
+      body: JSON.stringify({ apiKey: "admin-deepseek-key" }),
+    });
+    assert.equal(saved.status, 200);
+    assert.doesNotMatch(await saved.text(), /admin-deepseek-key/);
+    assert.equal(requested, "https://api.deepseek.com/models");
+    assert.equal(authorization, "Bearer admin-deepseek-key");
+    assert.equal(await srv.built.modelCredentials.resolve("deepseek"), "admin-deepseek-key");
+
+    const selected = await fetch(`${srv.base}/v1/admin/scopes/org%3Adefault-org/runtime`, {
+      method: "PUT",
+      headers: ADMIN,
+      body: JSON.stringify({ harnessId: "pi", modelId: "deepseek-v4-pro" }),
+    });
+    assert.equal(selected.status, 200);
   } finally {
     await srv.close();
   }
@@ -340,6 +375,15 @@ test("web turns gate the requested and scope-selected harness against its real k
     const requested = await turn("web:alice:requested-opencode", { harness: "opencode", model: "gpt-5.6-sol" });
     assert.equal(requested.status, "refused");
     assert.match(requested.reason ?? "", /provider isn't configured/);
+
+    srv.built.config.setApprovedHarnesses(["pi"]);
+    const unapproved = await turn("web:alice:unapproved-codex", { harness: "codex", model: "gpt-5.6-sol" });
+    assert.equal(unapproved.status, "refused");
+    assert.equal(unapproved.reasonCode, "runtime_not_approved");
+    const invalid = await turn("web:alice:invalid-runtime", { harness: "bogus", model: "unknown-model" });
+    assert.equal(invalid.status, "refused");
+    assert.equal(invalid.reasonCode, "runtime_not_approved");
+    srv.built.config.setApprovedHarnesses(["pi", "opencode"]);
 
     await srv.built.config.setRuntimeSelectionLatest("personal:alice", {
       harnessId: "opencode",

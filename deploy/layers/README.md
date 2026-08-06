@@ -2,12 +2,14 @@
 
 This directory is where an organization's own deployment material lives when qm is
 customized from a private fork: a standalone private repository whose history begins as
-a clone of qm, in which core stays identical to upstream and everything
-organization-specific is confined here, under `deploy/layers/<org>/`.
+a clone of qm. Organization-specific deployment material stays under
+`deploy/layers/<org>/`; a downstream product may also carry intentional, tested core
+changes while continuing to merge upstream.
 
 In upstream qm this directory holds nothing but this file, and it stays that way. A layer
-belongs to one organization's private fork and never travels upstream. The `upstream-pr` skill
-enforces that boundary; the `update-qm` skill merges upstream changes in around it.
+belongs to one organization's private fork and never travels upstream. The `upstream-pr`
+skill enforces that boundary; the `update-qm` skill merges upstream changes while preserving
+intentional downstream behavior.
 
 ## Creating a layer
 
@@ -52,8 +54,9 @@ is a place for organization material.
 
 ## The rule
 
-Nothing under `deploy/layers/` may reach upstream qm: not the config, not the sandbox
-tools, not the infrastructure coordinates, and not the names of systems or people that
-appear inside them. Secrets never enter Git at all, in this directory or any other. They
-belong in the provider's encrypted secret store, with local values only in the gitignored
-`.env`.
+Nothing organization-specific under `deploy/layers/` may reach upstream qm: not the config,
+not the sandbox tools, not the infrastructure coordinates, and not the names of systems or
+people that appear inside them. Customer-independent core fixes may be contributed upstream
+from a clean upstream branch. Secrets never enter Git at all, in this directory or any
+other. They belong in the provider's encrypted secret store, with local values only in the
+gitignored `.env`.

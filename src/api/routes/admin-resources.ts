@@ -352,6 +352,7 @@ export const ADMIN_RESOURCES: readonly AdminResource[] = [
     enumValues: SELECTABLE_BASE_MODELS,
     get: (deps, scope) => deps.config!.getBaseModel(scope),
     apply: async (ctx, _actor, scope) => {
+      await ctx.deps.refreshCustomProviders?.();
       const raw = (ctx.body as { modelId?: unknown }).modelId;
       if (raw !== undefined && raw !== null && typeof raw !== "string")
         return { error: "base-model requires { modelId: string } (empty string clears the override)" };
@@ -396,6 +397,7 @@ export const ADMIN_RESOURCES: readonly AdminResource[] = [
     readKey: "runtime",
     get: (deps, scope) => deps.config!.getRuntimeSelection(scope),
     apply: async (ctx, _actor, scope) => {
+      await ctx.deps.refreshCustomProviders?.();
       if ((ctx.body as { inherit?: unknown }).inherit === true) {
         await ctx.deps.config!.setRuntimeSelectionLatest(scope, null);
         return { ok: true };
@@ -407,8 +409,9 @@ export const ADMIN_RESOURCES: readonly AdminResource[] = [
       if (!approved.includes(harnessId)) return { error: `harness ${harnessId} is not approved` };
       if (typeof modelId !== "string" || !modelSupportedByHarness(modelId, harnessId))
         return { error: `model ${String(modelId)} is not supported by ${harnessId}` };
-      const runtimeKeys = ctx.deps.providerKeys ?? ALL_PROVIDERS_AVAILABLE;
-      if (!modelServiceable(modelId, modelProviderAvailabilityFor(harnessId, runtimeKeys)))
+      const configuredKeys = ctx.deps.providerKeys ?? ALL_PROVIDERS_AVAILABLE;
+      const managedKeys = ctx.deps.modelCredentials ? await ctx.deps.modelCredentials.availability() : configuredKeys;
+      if (!modelServiceable(modelId, modelProviderAvailabilityFor(harnessId, configuredKeys, managedKeys)))
         return {
           error: `model ${modelId} isn't serviceable on this deployment: its provider key is not configured for the ${harnessId} harness`,
         };

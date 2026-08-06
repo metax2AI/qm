@@ -195,6 +195,7 @@ test("the sprites token is a catalog secret when the sandbox backend is sprites"
 test("naming a base model provider makes that provider's key a required deployment secret", () => {
   for (const [provider, key] of [
     ["anthropic", "ANTHROPIC_API_KEY"],
+    ["deepseek", "DEEPSEEK_API_KEY"],
     ["openai", "OPENAI_API_KEY"],
     ["openrouter", "OPENROUTER_API_KEY"],
   ] as const) {
@@ -206,6 +207,15 @@ test("naming a base model provider makes that provider's key a required deployme
       `${key} is uncommented in .env.example so setup collects it`,
     );
   }
+});
+
+test("env.core.MODEL_PROVIDER decides which provider key is required", () => {
+  const config = makeConfig({
+    modelProvider: "anthropic",
+    env: { core: { HARNESS: "pi", MODEL_PROVIDER: "deepseek" } },
+  });
+  assert.equal(secretByName(config, "DEEPSEEK_API_KEY").required, true);
+  assert.equal(secretByName(config, "ANTHROPIC_API_KEY").required, false);
 });
 
 test("the providers a deployment did not select stay optional", () => {

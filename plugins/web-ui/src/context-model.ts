@@ -1,4 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
+import { msg, str } from "@lit/localize";
 import { fetchRuntimeConfig, updateRuntimeConfig, type RuntimeConfig } from "./core-bridge";
 import { runtimeModelOptions, type ModelOption } from "./model-options";
 import { fieldSelect } from "./ui";
@@ -40,7 +41,7 @@ export async function loadContextModel(scopeId: string, onChange: () => void): P
   contextModelState.config = config;
   contextModelState.loading = false;
   if (!config) {
-    contextModelState.notice = "Couldn't load this project's model.";
+    contextModelState.notice = msg("Couldn't load this project's model.");
     contextModelState.noticeKind = "error";
   }
   redraw();
@@ -80,11 +81,13 @@ async function choose(scope: string, value: string): Promise<void> {
     );
     if (seq !== loadSeq) return;
     contextModelState.config = config;
-    contextModelState.notice = `Saved — new conversations here run on ${labelForRuntime(config, config.effective)}.`;
+    contextModelState.notice = msg(
+      str`Saved — new conversations here run on ${labelForRuntime(config, config.effective)}.`,
+    );
     contextModelState.noticeKind = "saved";
   } catch (e) {
     if (seq !== loadSeq) return;
-    contextModelState.notice = errMessage(e, "Couldn't change the model — try again.");
+    contextModelState.notice = errMessage(e, msg("Couldn't change the model — try again."));
     contextModelState.noticeKind = "error";
   } finally {
     if (seq === loadSeq) {
@@ -98,13 +101,13 @@ export function contextModelSection(scopeId: string): TemplateResult | typeof no
   if (contextModelState.scope !== scopeId) return nothing;
   if (contextModelState.loading)
     return html`<section class="context-panel context-model" aria-labelledby="context-model-title">
-      <h2 class="context-panel-title" id="context-model-title">Model</h2>
-      <div class="context-panel-loading">Loading…</div>
+      <h2 class="context-panel-title" id="context-model-title">${msg("Model")}</h2>
+      <div class="context-panel-loading">${msg("Loading…")}</div>
     </section>`;
   const config = contextModelState.config;
   if (!config)
     return html`<section class="context-panel context-model" aria-labelledby="context-model-title">
-      <h2 class="context-panel-title" id="context-model-title">Model</h2>
+      <h2 class="context-panel-title" id="context-model-title">${msg("Model")}</h2>
       <span class="context-model-status error" aria-live="polite">${contextModelState.notice}</span>
     </section>`;
   const options = optionsFor(config);
@@ -116,25 +119,27 @@ export function contextModelSection(scopeId: string): TemplateResult | typeof no
     <section class="context-panel context-model" aria-labelledby="context-model-title">
       <div class="context-panel-heading">
         <div>
-          <h2 class="context-panel-title" id="context-model-title">Model</h2>
-          <p class="context-panel-copy">The model every conversation here starts on.</p>
+          <h2 class="context-panel-title" id="context-model-title">${msg("Model")}</h2>
+          <p class="context-panel-copy">${msg("The model every conversation here starts on.")}</p>
         </div>
       </div>
       ${fieldSelect({
         id: "context-model-select",
         className: "context-model-select",
         focusKey: "context-model",
-        ariaLabel: "Default model for this project",
+        ariaLabel: msg("Default model for this project"),
         disabled: contextModelState.saving,
         value: selected,
         onChange: (value) => void choose(scopeId, value),
         options: [
-          html`<option value=${INHERIT}>Org default (${labelForRuntime(config, config.orgDefault)})</option>`,
+          html`<option value=${INHERIT}>
+            ${msg(str`Org default (${labelForRuntime(config, config.orgDefault)})`)}
+          </option>`,
           ...options.map((o) => html`<option value=${o.value}>${optionLabel(o, multiHarness)}</option>`),
           ...(stalePin
             ? [
                 html`<option value=${selected}>
-                  ${labelForRuntime(config, config.scopeOverride!)} — no longer offered
+                  ${msg(str`${labelForRuntime(config, config.scopeOverride!)} — no longer offered`)}
                 </option>`,
               ]
             : []),
@@ -143,10 +148,10 @@ export function contextModelSection(scopeId: string): TemplateResult | typeof no
       <p class="context-model-hint">
         ${
           selected === INHERIT
-            ? "Following the org default — it changes when the org's does."
-            : "Pinned for this project. Anyone in a chat can still pick a different model for that conversation."
+            ? msg("Following the org default — it changes when the org's does.")
+            : msg("Pinned for this project. Anyone in a chat can still pick a different model for that conversation.")
         }
-        ${isSlack ? " The channel description in Slack names this model." : ""}
+        ${isSlack ? msg(" The channel description in Slack names this model.") : ""}
       </p>
       ${
         contextModelState.notice

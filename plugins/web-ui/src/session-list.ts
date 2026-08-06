@@ -1,4 +1,6 @@
 import { sharedContextLabel, type CoreContext, type CoreProject, type CoreSession } from "./core-bridge.ts";
+import { msg, str } from "@lit/localize";
+import { formatNumber } from "./localization.ts";
 
 type ProjectAwareContext = CoreContext & { project?: CoreProject };
 
@@ -40,7 +42,7 @@ export function recentProjectSeeds(contexts: readonly ProjectAwareContext[]): Re
   return contexts.map((context): RecentProjectSeed => {
     if (context.project)
       return { scopeId: context.scopeId, name: context.project.name.trim() || null, kind: "project" };
-    if (context.kind === "personal") return { scopeId: context.scopeId, name: "Personal", kind: "personal" };
+    if (context.kind === "personal") return { scopeId: context.scopeId, name: msg("Personal"), kind: "personal" };
     if (context.kind === "group")
       return { scopeId: context.scopeId, name: sharedContextLabel(context.scopeId, context.name), kind: "group" };
     return { scopeId: context.scopeId, name: sharedContextLabel(context.scopeId, context.name), kind: "channel" };
@@ -86,15 +88,33 @@ export function groupProjectSessions(
 export function recencyGroup(ms: number, now = Date.now()): string {
   const d = new Date(now);
   const dayStart = (back: number): number => new Date(d.getFullYear(), d.getMonth(), d.getDate() - back).getTime();
-  if (ms >= dayStart(0)) return "Today";
-  if (ms >= dayStart(1)) return "Yesterday";
-  if (ms >= dayStart(6)) return "Previous 7 days";
-  if (ms >= dayStart(29)) return "Previous 30 days";
-  return "Older";
+  if (ms >= dayStart(0)) return msg("Today");
+  if (ms >= dayStart(1)) return msg("Yesterday");
+  if (ms >= dayStart(6)) return msg("Previous 7 days");
+  if (ms >= dayStart(29)) return msg("Previous 30 days");
+  return msg("Older");
 }
 
 export function withPendingSession(list: CoreSession[], pending: CoreSession): CoreSession[] {
   return [pending, ...list.filter((s) => s.threadRef !== pending.threadRef)];
+}
+
+/** An unsent new chat the user walked away from, with nothing worth keeping. */
+export function isAbandonedNewChat(state: {
+  threadRef: string | null;
+  nextThreadRef: string | null;
+  sessionId: string | null;
+  pendingSend: string | null;
+  hasHumanMessage: boolean;
+  draft: string;
+  attachments: number;
+}): boolean {
+  const ref = state.threadRef;
+  if (!ref || ref === state.nextThreadRef) return false;
+  if (state.sessionId !== null || state.pendingSend === ref) return false;
+  if (state.hasHumanMessage) return false;
+  if (state.draft.trim() || state.attachments > 0) return false;
+  return true;
 }
 
 export function withoutUnsentPending(list: CoreSession[], threadRef: string): CoreSession[] {
@@ -157,8 +177,14 @@ export function backgroundLabel(
   watches: number,
 ): { jobs: number; watches: number; label: string } | null {
   const parts: string[] = [];
-  if (jobs > 0) parts.push(`${jobs} background job${jobs === 1 ? "" : "s"} running`);
-  if (watches > 0) parts.push(`${watches} watch${watches === 1 ? "" : "es"} armed`);
+  if (jobs > 0) {
+    const count = formatNumber(jobs);
+    parts.push(jobs === 1 ? msg(str`${count} background job running`) : msg(str`${count} background jobs running`));
+  }
+  if (watches > 0) {
+    const count = formatNumber(watches);
+    parts.push(watches === 1 ? msg(str`${count} watch armed`) : msg(str`${count} watches armed`));
+  }
   return parts.length ? { jobs, watches, label: parts.join(" · ") } : null;
 }
 

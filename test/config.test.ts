@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import { baseModelProviders, boolEnv, loadConfig, numEnv, CONFIG_DEFAULTS } from "../src/config.ts";
+import {
+  baseModelProviders,
+  boolEnv,
+  loadConfig,
+  numEnv,
+  providerKeysPresent,
+  CONFIG_DEFAULTS,
+} from "../src/config.ts";
 
 const productionEnv = {
   NODE_ENV: "production",
@@ -373,7 +380,49 @@ test("maxClaims defaults from CONFIG_DEFAULTS and MAX_CLAIMS overrides", () => {
 test("MODEL_PROVIDER declares the vendor that bills the base model", () => {
   assert.equal(loadConfig({}).modelProvider, undefined);
   assert.equal(loadConfig({ MODEL_PROVIDER: " openrouter ", OPENROUTER_API_KEY: "k" }).modelProvider, "openrouter");
+  const deepseek = loadConfig({ MODEL_PROVIDER: " deepseek ", DEEPSEEK_API_KEY: "sk-deepseek" });
+  assert.equal(deepseek.modelProvider, "deepseek");
+  assert.equal(deepseek.deepseekApiKey, "sk-deepseek");
+  assert.equal(providerKeysPresent(deepseek).deepseek, true);
   assert.throws(() => loadConfig({ MODEL_PROVIDER: "bedrock" }), /MODEL_PROVIDER.*not recognized/);
+});
+
+test("MODEL_PROVIDER rejects an explicit PI_MODEL billed by another vendor", () => {
+  assert.throws(
+    () =>
+      loadConfig({
+        MODEL_PROVIDER: "deepseek",
+        DEEPSEEK_API_KEY: "sk-deepseek",
+        PI_MODEL: "claude-opus-4-8",
+      }),
+    /PI_MODEL=claude-opus-4-8 uses anthropic, not MODEL_PROVIDER=deepseek/,
+  );
+  assert.equal(
+    loadConfig({
+      MODEL_PROVIDER: "deepseek",
+      DEEPSEEK_API_KEY: "sk-deepseek",
+      PI_MODEL: "deepseek-v4-pro",
+    }).modelId,
+    "deepseek-v4-pro",
+  );
+  assert.doesNotThrow(() =>
+    loadConfig({
+      MODEL_PROVIDER: "openai",
+      OPENAI_API_KEY: "sk-openai",
+      HARNESS: "codex",
+      PI_MODEL: "claude-opus-4-8",
+    }),
+  );
+  assert.throws(
+    () =>
+      loadConfig({
+        MODEL_PROVIDER: "openai",
+        OPENAI_API_KEY: "sk-openai",
+        HARNESS: "codex",
+        CODEX_MODEL: "claude-opus-4-8",
+      }),
+    /CODEX_MODEL=claude-opus-4-8 uses anthropic, not MODEL_PROVIDER=openai/,
+  );
 });
 
 test("MODEL_PROVIDER is refused when the harness can never run that vendor's models", () => {
@@ -390,6 +439,10 @@ test("MODEL_PROVIDER is refused when the harness can never run that vendor's mod
     /cannot serve a base model on HARNESS=opencode/,
     "opencode has no OpenRouter route",
   );
+  assert.throws(
+    () => loadConfig({ MODEL_PROVIDER: "deepseek", HARNESS: "opencode", DEEPSEEK_API_KEY: "k" }),
+    /cannot serve a base model on HARNESS=opencode/,
+  );
   assert.equal(
     loadConfig({ MODEL_PROVIDER: "openai", HARNESS: "codex", OPENAI_API_KEY: "k" }).modelProvider,
     "openai",
@@ -400,7 +453,7 @@ test("MODEL_PROVIDER is refused when the harness can never run that vendor's mod
 test("baseModelProviders constrains the base model only when a provider is declared", () => {
   assert.deepEqual(
     baseModelProviders(loadConfig({ MODEL_PROVIDER: "openrouter", OPENROUTER_API_KEY: "k", ANTHROPIC_API_KEY: "k" })),
-    { anthropic: false, openai: false, openrouter: true },
+    { anthropic: false, deepseek: false, openai: false, openrouter: true },
     "the declaration outranks a stray key from another vendor",
   );
   assert.equal(

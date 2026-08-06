@@ -22,7 +22,7 @@ test("policy controls use product language and persistent accessible labels", ()
   assert.match(policy, /<label class="ambient-field-label" for="ambient-orders">/);
   assert.match(policy, /aria-describedby="ambient-orders-hint"/);
   assert.match(policy, /describedBy: "ambient-enabled-hint"/);
-  assert.match(policy, /aria-label="Bot name"/);
+  assert.match(policy, /aria-label=\$\{msg\("Bot name"\)\}/);
   assert.match(policy, /required/);
 });
 

@@ -20,15 +20,27 @@ test("every selectable base model resolves against the pi-ai registry", () => {
     const model = getRequiredModel(m.id);
     assert.equal(model.id, m.id);
     assert.ok(
-      ["anthropic", "openai", "openrouter"].includes(String(model.provider)),
+      ["anthropic", "deepseek", "openai", "openrouter"].includes(String(model.provider)),
       `${m.id} has unexpected provider ${model.provider}`,
     );
   }
 });
 
+test("DeepSeek V4 models are native Pi models and Flash is the provider default", () => {
+  const flash = getRequiredModel("deepseek-v4-flash");
+  const pro = getRequiredModel("deepseek-v4-pro");
+  assert.equal(flash.provider, "deepseek");
+  assert.equal(flash.api, "openai-completions");
+  assert.equal(pro.provider, "deepseek");
+  assert.equal((flash.compat as { maxTokensField?: string } | undefined)?.maxTokensField, "max_tokens");
+  assert.equal((pro.compat as { maxTokensField?: string } | undefined)?.maxTokensField, "max_tokens");
+  assert.equal(defaultModelForProvider("pi", "deepseek"), "deepseek-v4-flash");
+});
+
 test("selectable models span providers (multi-provider is wired)", () => {
   const providers = new Set(SELECTABLE_BASE_MODELS.map((m) => getRequiredModel(m.id).provider));
   assert.ok(providers.has("anthropic"), "expected at least one Anthropic model");
+  assert.ok(providers.has("deepseek"), "expected DeepSeek V4 models");
   assert.ok(providers.has("openai"), "expected at least one OpenAI model (gpt-5.6)");
   assert.ok(providers.has("openrouter"), "expected an OpenRouter-hosted open-model option");
 });
@@ -43,6 +55,8 @@ test("native harnesses reject cross-provider pins and choose their own defaults"
   assert.equal(modelSupportedByHarness("gpt-5.6-sol", "claude"), false);
   assert.equal(modelSupportedByHarness("gpt-5.6-sol", "codex"), true);
   assert.equal(modelSupportedByHarness("claude-opus-4-8", "codex"), false);
+  assert.equal(modelSupportedByHarness("deepseek-v4-flash", "opencode"), false);
+  assert.equal(modelSupportedByHarness("gpt-5.6-sol", "opencode"), true);
   assert.equal(modelSupportedByHarness("claude-future-9", "claude"), true);
   assert.equal(modelSupportedByHarness("gpt-future-9", "codex"), true);
   assert.equal(defaultModelForHarness("codex", "claude-opus-4-8"), "gpt-5.6-sol");
@@ -59,6 +73,7 @@ test("the default base model follows the providers a deployment can actually bil
     );
   }
   assert.equal(defaultModelForHarness("pi", undefined, onlyProvider("openrouter")), "openrouter/auto");
+  assert.equal(defaultModelForHarness("pi", undefined, onlyProvider("deepseek")), "deepseek-v4-flash");
   assert.equal(defaultModelForHarness("pi", undefined, onlyProvider("openai")), "gpt-5.6-sol");
 });
 
@@ -71,7 +86,7 @@ test("provider-blind callers and explicit pins keep the shipped default", () => 
     "an explicit pin is never silently swapped — the mismatch is rejected at config load instead",
   );
   assert.equal(
-    defaultModelForHarness("pi", undefined, { anthropic: false, openai: false, openrouter: false }),
+    defaultModelForHarness("pi", undefined, { anthropic: false, deepseek: false, openai: false, openrouter: false }),
     "claude-opus-5",
     "with no provider at all the shipped default stands rather than an arbitrary pick",
   );
@@ -79,11 +94,13 @@ test("provider-blind callers and explicit pins keep the shipped default", () => 
 
 test("a provider that cannot serve a harness has no default model for it", () => {
   assert.equal(defaultModelForProvider("pi", "openrouter"), "openrouter/auto");
+  assert.equal(defaultModelForProvider("pi", "deepseek"), "deepseek-v4-flash");
   assert.equal(defaultModelForProvider("codex", "openai"), "gpt-5.6-sol");
   assert.equal(defaultModelForProvider("claude", "anthropic"), "claude-opus-5");
   assert.equal(defaultModelForProvider("codex", "anthropic"), undefined, "the Codex CLI runs no Anthropic model");
   assert.equal(defaultModelForProvider("claude", "openrouter"), undefined, "the Claude CLI runs no OpenRouter model");
   assert.equal(defaultModelForProvider("opencode", "openrouter"), undefined, "opencode has no OpenRouter route");
+  assert.equal(defaultModelForProvider("opencode", "deepseek"), undefined, "opencode has no DeepSeek route");
 });
 
 test("the curated catalog contains only current model families", () => {
@@ -95,6 +112,8 @@ test("the curated catalog contains only current model families", () => {
       "claude-opus-4-8",
       "claude-sonnet-5",
       "claude-haiku-4-5",
+      "deepseek-v4-flash",
+      "deepseek-v4-pro",
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-luna",
@@ -118,11 +137,13 @@ test("auxiliary models come from the configured base model's own provider", () =
     "an OpenAI deployment gets an OpenAI auxiliary, never Haiku",
   );
   assert.equal(auxiliaryModelFor("gpt-5.6-terra"), "gpt-5.6-luna");
+  assert.equal(auxiliaryModelFor("deepseek-v4-pro"), "deepseek-v4-flash");
 });
 
 test("the Anthropic auxiliary is resolvable by provider, so Anthropic-only surfaces keep working", () => {
   assert.equal(auxiliaryModelForProvider("anthropic"), "claude-haiku-4-5");
   assert.equal(auxiliaryModelForProvider("openai"), "gpt-5.6-luna");
+  assert.equal(auxiliaryModelForProvider("deepseek"), "deepseek-v4-flash");
   assert.equal(auxiliaryModelForProvider("nope"), undefined);
 });
 
@@ -141,10 +162,11 @@ test("auxiliary selection falls back to the base model when its provider has no 
 
 test("an auxiliary is never less serviceable than the base model it was derived from", () => {
   const providerSets = [
-    { anthropic: true, openai: false, openrouter: false },
-    { anthropic: false, openai: true, openrouter: false },
-    { anthropic: false, openai: false, openrouter: true },
-    { anthropic: false, openai: false, openrouter: false },
+    { anthropic: true, deepseek: false, openai: false, openrouter: false },
+    { anthropic: false, deepseek: true, openai: false, openrouter: false },
+    { anthropic: false, deepseek: false, openai: true, openrouter: false },
+    { anthropic: false, deepseek: false, openai: false, openrouter: true },
+    { anthropic: false, deepseek: false, openai: false, openrouter: false },
   ];
   for (const m of SELECTABLE_BASE_MODELS) {
     const auxiliary = auxiliaryModelFor(m.id);

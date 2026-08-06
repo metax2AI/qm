@@ -1,4 +1,5 @@
 import { existsSync, readdirSync } from "node:fs";
+import { providerBaseUrlsFromEnv, type ProviderBaseUrls } from "./model/provider-endpoints.ts";
 import { join, resolve } from "node:path";
 import {
   parseMemoryCaptureMode,
@@ -16,6 +17,7 @@ import {
   defaultModelForProvider,
   isModelProvider,
   onlyProvider,
+  resolveModel,
   type ModelProvider,
   type ModelProviderAvailability,
 } from "./model/pi-models.ts";
@@ -47,9 +49,11 @@ export interface Config {
   titleModelId?: string;
   judgeModelId?: string;
   anthropicApiKey?: string;
+  deepseekApiKey?: string;
   openaiApiKey?: string;
   openrouterApiKey?: string;
   modelProvider?: ModelProvider;
+  providerBaseUrls: ProviderBaseUrls;
   piCaptureRequests: boolean;
   piSystemCacheSplit: boolean;
   sessionTapeMode: "shadow" | "serve";
@@ -153,6 +157,7 @@ export function configuredModelForHarness(config: Config, harness: string): stri
 export function providerKeysPresent(config: Config): ModelProviderAvailability {
   return {
     anthropic: Boolean(config.anthropicApiKey),
+    deepseek: Boolean(config.deepseekApiKey),
     openai: Boolean(config.openaiApiKey),
     openrouter: Boolean(config.openrouterApiKey),
   };
@@ -547,6 +552,25 @@ function modelProviderEnvStrict(env: NodeJS.ProcessEnv): ModelProvider | undefin
       `MODEL_PROVIDER=${declared} cannot serve a base model on HARNESS=${harness} — that harness runs no ${declared} model, so every turn would be refused.`,
     );
   }
+  let configuredName = "PI_MODEL";
+  let configuredValue = env.PI_MODEL;
+  if (harness === "opencode" && env.OPENCODE_MODEL) {
+    configuredName = "OPENCODE_MODEL";
+    configuredValue = env.OPENCODE_MODEL;
+  } else if (harness === "codex") {
+    configuredName = "CODEX_MODEL";
+    configuredValue = env.CODEX_MODEL;
+  } else if (harness === "claude") {
+    configuredName = "CLAUDE_MODEL";
+    configuredValue = env.CLAUDE_MODEL;
+  }
+  const configured = configuredValue?.trim();
+  if (configured) {
+    const provider = resolveModel(configured)?.provider;
+    if (provider && provider !== declared) {
+      throw new Error(`${configuredName}=${configured} uses ${provider}, not MODEL_PROVIDER=${declared}.`);
+    }
+  }
   return declared;
 }
 
@@ -636,6 +660,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const deployProvider: "aws" | "docker" = env.DEPLOY_PROVIDER === "aws" ? "aws" : "docker";
   let runStore: "memory" | "postgres" = env.SESSION_STORE === "postgres" ? "postgres" : "memory";
   if (env.RUN_STORE === "memory" || env.RUN_STORE === "postgres") runStore = env.RUN_STORE;
+  const providerBaseUrls = providerBaseUrlsFromEnv(env);
   const codexProcessEnv = Object.fromEntries(
     [
       "PATH",
@@ -650,7 +675,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       "NO_PROXY",
       "ALL_PROXY",
       "OPENAI_API_KEY",
-      "OPENAI_BASE_URL",
       "CODEX_ACCESS_TOKEN",
       "HOME",
       "CODEX_HOME",
@@ -671,10 +695,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       "ALL_PROXY",
       "ANTHROPIC_API_KEY",
       "ANTHROPIC_AUTH_TOKEN",
-      "ANTHROPIC_BASE_URL",
       "CLAUDE_CODE_OAUTH_TOKEN",
     ].flatMap((name) => (env[name] === undefined ? [] : [[name, env[name]]])),
   ) as NodeJS.ProcessEnv;
+  if (providerBaseUrls.openai) codexProcessEnv.OPENAI_BASE_URL = providerBaseUrls.openai;
+  if (providerBaseUrls.anthropic) claudeProcessEnv.ANTHROPIC_BASE_URL = providerBaseUrls.anthropic;
   const turnWallClockMs =
     (numEnvStrict("TURN_WALL_CLOCK_SEC", env.TURN_WALL_CLOCK_SEC) ?? CONFIG_DEFAULTS.turnWallClockSec) * 1000;
   const runMaxAgeMs =
@@ -725,9 +750,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     ...(env.PI_TITLE_MODEL ? { titleModelId: env.PI_TITLE_MODEL } : {}),
     ...(env.PI_JUDGE_MODEL ? { judgeModelId: env.PI_JUDGE_MODEL } : {}),
     ...(env.ANTHROPIC_API_KEY ? { anthropicApiKey: env.ANTHROPIC_API_KEY } : {}),
+    ...(env.DEEPSEEK_API_KEY ? { deepseekApiKey: env.DEEPSEEK_API_KEY } : {}),
     ...(env.OPENAI_API_KEY ? { openaiApiKey: env.OPENAI_API_KEY } : {}),
     ...(env.OPENROUTER_API_KEY ? { openrouterApiKey: env.OPENROUTER_API_KEY } : {}),
     ...(modelProvider ? { modelProvider } : {}),
+    providerBaseUrls,
     ...(env.ADMIN_GRANTS ? { adminGrants: env.ADMIN_GRANTS } : {}),
     piCaptureRequests: boolEnvStrict("PI_CAPTURE_REQUESTS", env.PI_CAPTURE_REQUESTS) ?? true,
     piSystemCacheSplit: boolEnvStrict("PI_SYSTEM_CACHE_SPLIT", env.PI_SYSTEM_CACHE_SPLIT) ?? false,

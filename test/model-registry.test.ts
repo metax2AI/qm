@@ -55,47 +55,78 @@ test("FAST_MODE_MODEL_IDS derives from the registry — the web-ui client reads 
 });
 
 test("exposure is provider-key-aware: a model whose provider is unconfigured is not serviceable", () => {
-  const noOpenai = { anthropic: true, openai: false, openrouter: false };
+  const noOpenai = { anthropic: true, deepseek: false, openai: false, openrouter: false };
   assert.equal(modelServiceable("gpt-5.6-sol", noOpenai), false);
   assert.equal(modelServiceable("claude-opus-4-8", noOpenai), true);
   assert.deepEqual(serviceableModelIds(["claude-opus-4-8", "gpt-5.6-sol"], noOpenai), ["claude-opus-4-8"]);
 });
 
 test("provider-key gating applies only to key-authed harnesses (no over-hiding on CLI-auth harnesses)", () => {
-  const noKeys = { anthropic: false, openai: false, openrouter: false };
+  const noKeys = { anthropic: false, deepseek: false, openai: false, openrouter: false };
   assert.deepEqual(modelProviderAvailabilityFor("pi", noKeys), noKeys);
   assert.deepEqual(modelProviderAvailabilityFor("opencode", noKeys), noKeys);
-  assert.deepEqual(modelProviderAvailabilityFor("pi", noKeys, { anthropic: false, openai: true, openrouter: true }), {
-    anthropic: false,
-    openai: true,
-    openrouter: true,
-  });
+  assert.deepEqual(
+    modelProviderAvailabilityFor("pi", noKeys, {
+      anthropic: false,
+      deepseek: true,
+      openai: true,
+      openrouter: true,
+    }),
+    {
+      anthropic: false,
+      deepseek: true,
+      openai: true,
+      openrouter: true,
+    },
+  );
   assert.deepEqual(
     modelProviderAvailabilityFor(
       "opencode",
-      { anthropic: true, openai: true, openrouter: true },
-      { anthropic: false, openai: false, openrouter: false },
+      { anthropic: true, deepseek: true, openai: true, openrouter: true },
+      { anthropic: false, deepseek: false, openai: false, openrouter: false },
     ),
-    { anthropic: true, openai: true, openrouter: false },
+    { anthropic: true, deepseek: false, openai: true, openrouter: false },
   );
   assert.deepEqual(modelProviderAvailabilityFor("codex", noKeys), noKeys);
-  assert.deepEqual(modelProviderAvailabilityFor("codex", { anthropic: false, openai: true, openrouter: false }), {
-    anthropic: false,
+  assert.deepEqual(
+    modelProviderAvailabilityFor("codex", { anthropic: false, deepseek: false, openai: true, openrouter: false }),
+    { anthropic: false, deepseek: false, openai: true, openrouter: false },
+  );
+  assert.deepEqual(modelProviderAvailabilityFor("claude", noKeys), {
+    anthropic: true,
+    deepseek: true,
     openai: true,
-    openrouter: false,
+    openrouter: true,
   });
-  assert.deepEqual(modelProviderAvailabilityFor("claude", noKeys), { anthropic: true, openai: true, openrouter: true });
-  assert.deepEqual(modelProviderAvailabilityFor("mock", noKeys), { anthropic: true, openai: true, openrouter: true });
+  assert.deepEqual(modelProviderAvailabilityFor("mock", noKeys), {
+    anthropic: true,
+    deepseek: true,
+    openai: true,
+    openrouter: true,
+  });
 });
 
 test("web-turn gate refuses a keyless model cleanly, accepts it once the provider is configured", () => {
-  const noOpenai = { anthropic: true, openai: false, openrouter: false };
+  const noOpenai = { anthropic: true, deepseek: false, openai: false, openrouter: false };
   const refused = validateWebTurnModelOptions({ model: "gpt-5.6-sol" }, null, noOpenai);
-  assert.match(refused ?? "", /provider isn't configured/);
+  assert.match(refused?.reason ?? "", /provider isn't configured/);
+  assert.equal(refused?.reasonCode, "model_provider_unavailable");
   assert.equal(
-    validateWebTurnModelOptions({ model: "gpt-5.6-sol" }, null, { anthropic: true, openai: true, openrouter: false }),
+    validateWebTurnModelOptions({ model: "gpt-5.6-sol" }, null, {
+      anthropic: true,
+      deepseek: false,
+      openai: true,
+      openrouter: false,
+    }),
     null,
   );
+});
+
+test("DeepSeek models require a DeepSeek key and stay unavailable to OpenCode", () => {
+  const noKeys = { anthropic: false, deepseek: false, openai: false, openrouter: false };
+  assert.equal(modelServiceable("deepseek-v4-flash", noKeys), false);
+  assert.equal(modelServiceable("deepseek-v4-flash", { ...noKeys, deepseek: true }), true);
+  assert.equal(modelProviderAvailabilityFor("opencode", { ...noKeys, deepseek: true }).deepseek, false);
 });
 
 test("fast-mode support is registry-driven", () => {

@@ -57,5 +57,8 @@ test("a principal over budget is refused by the app", async () => {
   assert.equal(first.status, "ok");
   const second = await app.turn(dm("again"));
   assert.equal(second.status, "refused");
+  assert.equal(second.reasonCode, "budget_exceeded");
+  assert.equal(second.budget?.limitUsd, 0.00001);
+  assert.ok((second.budget?.spentUsd ?? 0) >= 0.00001);
   assert.match(second.reason ?? "", /budget exceeded/);
 });

@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { sanitizeTitle, TITLE_GENERATION_PROMPT } from "./pi-harness.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -8,13 +9,15 @@ import { pathToFileURL } from "node:url";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk";
 import { CONFIG_DEFAULTS, type Config } from "../config.ts";
+import { isCustomModelId } from "../model/custom-providers.ts";
+import type { CustomProviderSpec } from "../model/custom-providers.ts";
 import { DEFAULT_AGENT_MODEL_ID, resolveModel } from "../model/pi-models.ts";
 import { startSignalPoll, type RunSignalStore } from "../runs/run-signal-store.ts";
 import type { LlmCallUsage } from "../sessions/session-store.ts";
 import type { ScopeId, SessionEntry } from "../types.ts";
 import type { TaskStore } from "../tasks/task-store.ts";
 import { errMessage, swallow } from "../util/errors.ts";
-import { sleep } from "../util/async.ts";
+import { createKeyedQueue, sleep } from "../util/async.ts";
 import { NonRetryableTurnError } from "../core/turn-error.ts";
 import { defineHarness, type Harness, type HarnessTurnInput, type HarnessTurnResult } from "./harness.ts";
 import { coreToolOptions, createPiTools, type PiToolsOptions, type ToolContextRef } from "./pi-tools.ts";
@@ -44,6 +47,7 @@ export interface OpenCodeHarnessOptions {
   binaryPath?: string;
   startupTimeoutMs?: number;
   tasks?: TaskStore;
+  resolveCustomProviders?: () => Promise<Array<{ spec: CustomProviderSpec; apiKey?: string }>>;
 }
 
 export function openCodeHarnessConfigOptions(config: Config): OpenCodeHarnessOptions {
@@ -156,7 +160,14 @@ function sessionToken(secret: string, sessionId: string): string {
   return createHmac("sha256", secret).update(sessionId).digest("base64url");
 }
 
-function modelRef(id: string): { providerID: string; modelID: string } {
+export function modelRef(id: string): { providerID: string; modelID: string } {
+  // A registered custom model wins before slash-splitting: gateway model ids
+  // routinely contain slashes (e.g. "bedrock/claude-x" behind LiteLLM), and
+  // those must route to the registered provider, not a phantom "bedrock".
+  if (isCustomModelId(id)) {
+    const resolved = resolveModel(id);
+    if (resolved?.provider) return { providerID: String(resolved.provider), modelID: id };
+  }
   const slash = id.indexOf("/");
   if (slash > 0) return { providerID: id.slice(0, slash), modelID: id.slice(slash + 1) };
   const resolved = resolveModel(id);
@@ -447,7 +458,10 @@ export function createOpenCodeHarness(opts: OpenCodeHarnessOptions = {}): Harnes
     DEFAULT_AGENT_MODEL_ID;
   const defaultTurnWallClockMs = opts.turnWallClockMs ?? CONFIG_DEFAULTS.turnWallClockSec * 1000;
   let runtime: Runtime | null = null;
-  let starting: Promise<Runtime> | null = null;
+  let runtimeUsers = 0;
+  let runtimeCustomProvidersSignature = "";
+  const runtimeQueue = createKeyedQueue<"runtime">();
+  const runtimeContext = new AsyncLocalStorage<Runtime>();
 
   const childState = (parent: ActiveTurn): ActiveTurn => ({
     ...parent,
@@ -539,10 +553,11 @@ export function createOpenCodeHarness(opts: OpenCodeHarnessOptions = {}): Harnes
     await operation;
   };
 
-  const ensureRuntime = async (): Promise<Runtime> => {
-    if (runtime && runtime.process.exitCode === null) return runtime;
-    if (starting) return await starting;
-    starting = (async () => {
+  const startRuntime = async (
+    custom: Array<{ spec: CustomProviderSpec; apiKey?: string }>,
+    customSignature: string,
+  ): Promise<Runtime> =>
+    await (async () => {
       const jail = mkdtempSync(join(tmpdir(), "qm-opencode-"));
       const bridge = createServer(async (req, res) => {
         try {
@@ -628,6 +643,32 @@ export function createOpenCodeHarness(opts: OpenCodeHarnessOptions = {}): Harnes
         const bridgeUrl = `http://127.0.0.1:${address.port}`;
         const pluginUrl = pathToFileURL(join(import.meta.dirname, "opencode-plugin.ts")).href;
         const enabledTools = Object.fromEntries(definitions.map((item) => [item.name, true]));
+        const customProviderConfig = Object.fromEntries(
+          custom.map(({ spec, apiKey }) => [
+            spec.id,
+            {
+              npm: spec.protocol === "anthropic" ? "@ai-sdk/anthropic" : "@ai-sdk/openai-compatible",
+              name: spec.name,
+              options: { baseURL: spec.baseUrl, ...(apiKey ? { apiKey } : {}) },
+              models: Object.fromEntries(
+                spec.models.map((m) => [
+                  m.id,
+                  {
+                    name: m.name ?? m.id,
+                    ...(m.contextWindow || m.maxTokens
+                      ? {
+                          limit: {
+                            context: m.contextWindow ?? 128_000,
+                            output: m.maxTokens ?? 8_192,
+                          },
+                        }
+                      : {}),
+                  },
+                ]),
+              ),
+            },
+          ]),
+        );
         const config = {
           plugin: [pluginUrl],
           autoupdate: false,
@@ -636,10 +677,11 @@ export function createOpenCodeHarness(opts: OpenCodeHarnessOptions = {}): Harnes
           lsp: false,
           formatter: false,
           instructions: [],
-          enabled_providers: ["anthropic", "openai"],
+          enabled_providers: ["anthropic", "openai", ...custom.map(({ spec }) => spec.id)],
           provider: {
             anthropic: { options: { apiKey: opts.apiKey ?? "" } },
             openai: { options: { apiKey: opts.openaiApiKey ?? "" } },
+            ...customProviderConfig,
           },
           tools: {
             ...enabledTools,
@@ -755,10 +797,12 @@ export function createOpenCodeHarness(opts: OpenCodeHarnessOptions = {}): Harnes
           abortEvents.abort();
           if (runtime !== created) return;
           runtime = null;
+          runtimeCustomProvidersSignature = "";
           bridge.close();
           rmSync(jail, { recursive: true, force: true });
         });
         runtime = created;
+        runtimeCustomProvidersSignature = customSignature;
         return created;
       } catch (error) {
         if (proc) await terminateProcess(proc);
@@ -767,16 +811,33 @@ export function createOpenCodeHarness(opts: OpenCodeHarnessOptions = {}): Harnes
         throw error;
       }
     })();
-    try {
-      return await starting;
-    } finally {
-      starting = null;
+
+  const ensureRuntime = (): Promise<Runtime> => {
+    const owned = runtimeContext.getStore();
+    if (owned) {
+      runtimeUsers += 1;
+      return Promise.resolve(owned);
     }
+    return runtimeQueue("runtime", async () => {
+      const custom = (await opts.resolveCustomProviders?.()) ?? [];
+      const customSignature = createHmac("sha256", bridgeSecret).update(JSON.stringify(custom)).digest("base64url");
+      if (runtime && runtime.process.exitCode === null && runtimeCustomProvidersSignature === customSignature) {
+        runtimeUsers += 1;
+        return runtime;
+      }
+      while (runtimeUsers > 0) await sleep(50);
+      if (runtime) {
+        const stale = runtime;
+        runtime = null;
+        await stale.close();
+      }
+      const created = await startRuntime(custom, customSignature);
+      runtimeUsers += 1;
+      return created;
+    });
   };
 
-  const runPrompt = async (turn: HarnessTurnInput): Promise<HarnessTurnResult> => {
-    if (turn.cancel?.aborted) return { reply: "", stopped: true };
-    const rt = await ensureRuntime();
+  const runPromptWithRuntime = async (turn: HarnessTurnInput, rt: Runtime): Promise<HarnessTurnResult> => {
     if (turn.cancel?.aborted) return { reply: "", stopped: true };
     const selectedModel = turn.model ?? resolveModelId(turn.scopeLabel);
     const model = modelRef(selectedModel);
@@ -1046,6 +1107,16 @@ export function createOpenCodeHarness(opts: OpenCodeHarnessOptions = {}): Harnes
     }
   };
 
+  const runPrompt = async (turn: HarnessTurnInput): Promise<HarnessTurnResult> => {
+    if (turn.cancel?.aborted) return { reply: "", stopped: true };
+    const rt = await ensureRuntime();
+    try {
+      return await runtimeContext.run(rt, () => runPromptWithRuntime(turn, rt));
+    } finally {
+      runtimeUsers -= 1;
+    }
+  };
+
   const single = async (
     system: string,
     prompt: string,
@@ -1092,9 +1163,11 @@ export function createOpenCodeHarness(opts: OpenCodeHarnessOptions = {}): Harnes
     {
       runTurn: runPrompt,
       close: async () => {
-        await starting?.catch(() => undefined);
-        await runtime?.close();
-        runtime = null;
+        await runtimeQueue("runtime", async () => {
+          await runtime?.close();
+          runtime = null;
+          runtimeCustomProvidersSignature = "";
+        });
       },
       resetSession: () => {},
       oneShot: single,

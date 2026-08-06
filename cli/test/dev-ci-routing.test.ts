@@ -5,6 +5,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { devCiModelProvider } from "../src/backends/dev-ci.ts";
 
 const cliDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const bin = join(cliDir, "bin", "qm.ts");
@@ -54,4 +55,18 @@ test("'dev --ci=down' routes to CI teardown (no pool lease)", () => {
   const r = runCli(["dev", "--ci=down"]);
   assert.equal(r.code, 0);
   assert.match(r.stdout, /ci instance down|nothing to tear down/);
+});
+
+test("CI model provider inference makes a DeepSeek-only key runnable", () => {
+  assert.equal(devCiModelProvider({ DEEPSEEK_API_KEY: "sk-deepseek" }), "deepseek");
+  assert.equal(devCiModelProvider({ OPENAI_API_KEY: "sk-openai" }), "openai");
+  assert.equal(devCiModelProvider({ ANTHROPIC_API_KEY: "sk-anthropic", DEEPSEEK_API_KEY: "sk-deepseek" }), "anthropic");
+  assert.throws(
+    () => devCiModelProvider({ MODEL_PROVIDER: "deepseek", ANTHROPIC_API_KEY: "sk-anthropic" }),
+    /DEEPSEEK_API_KEY required when MODEL_PROVIDER=deepseek/,
+  );
+  assert.throws(
+    () => devCiModelProvider({ DEEPSEEK_API_KEY: "sk-deepseek", OPENAI_API_KEY: "sk-openai" }),
+    /MODEL_PROVIDER required when multiple non-Anthropic provider keys are set/,
+  );
 });

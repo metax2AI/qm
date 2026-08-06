@@ -108,7 +108,9 @@ test("revisioned saves reject stale editors without losing a newer capture", asy
       body: JSON.stringify({ principalId: "U1", revision: head.revision, content: "# Memory\n\n- stale edit\n" }),
     });
     assert.equal(stale.status, 409);
-    assert.match((await json(stale)).content, /New fact from another conversation/);
+    const conflict = await json(stale);
+    assert.equal(conflict.error, "memory_revision_conflict");
+    assert.match(conflict.content, /New fact from another conversation/);
     assert.match(await s.built.memory.read(scopeId("personal", "U1")), /New fact from another conversation/);
   } finally {
     await s.close();

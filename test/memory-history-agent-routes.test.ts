@@ -108,6 +108,14 @@ describe("agent memory history and restore", () => {
     );
     assert.equal(restored.status, 200);
     assert.equal(await memory.read(mine), "first version\n");
+
+    const stale = await post(
+      "/v1/memory/restore",
+      { revision: revisions[0]?.revision, expectedRevision: revisions[0]?.revision },
+      token,
+    );
+    assert.equal(stale.status, 409);
+    assert.equal(((await stale.json()) as { error: string }).error, "memory_revision_conflict");
   });
 
   it("does not expose or restore another principal's notebook", async () => {

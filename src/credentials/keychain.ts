@@ -307,10 +307,12 @@ export type MaterializedCred = ({ kind: "env" } & MaterializedEnvCred) | ({ kind
 
 export class KeychainError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  readonly code: string;
+  constructor(status: number, message: string, code = "keychain") {
     super(message);
     this.name = "KeychainError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -790,6 +792,7 @@ export function createKeychain(deps: {
       throw new KeychainError(
         410,
         "connector token expired and could not be refreshed — its owner must reconnect the app",
+        "credential_expired",
       );
     }
     return {
@@ -812,7 +815,7 @@ export function createKeychain(deps: {
         : { kind: "env" as const, ...decryptToEnv(c, extra) },
     );
     if (!materialized) {
-      throw new KeychainError(422, "credential does not decrypt under the current key");
+      throw new KeychainError(422, "credential does not decrypt under the current key", "credential_unavailable");
     }
     return materialized;
   }
@@ -822,18 +825,19 @@ export function createKeychain(deps: {
     if (!deps.grants.update) throw new KeychainError(503, "grant store does not support atomic one-time use");
     const usedAt = now();
     const claimed = await deps.grants.update(grant.id, (current) => {
-      if (current.audienceScopeId !== scopeId) throw new KeychainError(403, "grant is for a different conversation");
-      if (current.status === "revoked") throw new KeychainError(410, "grant was revoked");
-      if (current.status === "used") throw new KeychainError(410, "one-time grant already used");
-      if (expired(current, usedAt)) throw new KeychainError(410, "grant is expired");
+      if (current.audienceScopeId !== scopeId)
+        throw new KeychainError(403, "grant is for a different conversation", "grant_scope_mismatch");
+      if (current.status === "revoked") throw new KeychainError(410, "grant was revoked", "grant_revoked");
+      if (current.status === "used") throw new KeychainError(410, "one-time grant already used", "grant_used");
+      if (expired(current, usedAt)) throw new KeychainError(410, "grant is expired", "grant_expired");
       return { ...current, status: "used", usedAt, usedBy };
     });
-    if (!claimed) throw new KeychainError(404, "unknown grant");
+    if (!claimed) throw new KeychainError(404, "unknown grant", "grant_not_found");
   }
 
   async function mintGrant(input: CreateGrantInput): Promise<KeychainGrant> {
     const cred = await deps.creds.get(input.credentialId);
-    if (!cred) throw new KeychainError(404, "unknown credential");
+    if (!cred) throw new KeychainError(404, "unknown credential", "credential_not_found");
     if (cred.kind === "broker") {
       throw new KeychainError(400, "broker credentials are org-owned and used via the credential broker, not grants");
     }
@@ -846,7 +850,8 @@ export function createKeychain(deps: {
     const purpose = input.purpose.trim();
     if (!purpose) throw new KeychainError(400, "purpose required — record the owner's approval verbatim");
     const t = now();
-    if (!cred.managed && credExpired(cred, t)) throw new KeychainError(410, "credential is expired");
+    if (!cred.managed && credExpired(cred, t))
+      throw new KeychainError(410, "credential is expired", "credential_expired");
     const grant: KeychainGrant = {
       id: hashId([cred.id, input.audienceScopeId, String(t), purpose]),
       credentialId: cred.id,
@@ -955,12 +960,20 @@ export function createKeychain(deps: {
       const purpose = input.purpose.trim();
       if (!purpose) throw new KeychainError(400, "purpose required — record the requester's words verbatim");
       const cred = await deps.creds.get(input.credentialId);
-      if (!cred || cred.kind === "broker") throw new KeychainError(404, "unknown credential");
+      if (!cred || cred.kind === "broker") throw new KeychainError(404, "unknown credential", "credential_not_found");
       const t = now();
       if (!cred.managed && credExpired(cred, t))
-        throw new KeychainError(410, "credential is expired — its owner must re-auth before it can be asked for");
+        throw new KeychainError(
+          410,
+          "credential is expired — its owner must re-auth before it can be asked for",
+          "credential_expired",
+        );
       if (samePerson(cred.ownerId, input.requesterId)) {
-        throw new KeychainError(400, "you own this credential — grant it directly instead of asking yourself");
+        throw new KeychainError(
+          400,
+          "you own this credential — grant it directly instead of asking yourself",
+          "ask_self",
+        );
       }
       for (const rec of await deps.asks.all()) {
         const a = await freshAsk(rec, t);
@@ -1007,10 +1020,10 @@ export function createKeychain(deps: {
 
     async approveAsk(input) {
       const rec = await deps.asks.get(input.askId);
-      if (!rec) throw new KeychainError(404, "unknown ask");
+      if (!rec) throw new KeychainError(404, "unknown ask", "ask_not_found");
       const t = now();
       const ask = await freshAsk(rec, t);
-      if (ask.status !== "pending") throw new KeychainError(410, `ask already ${ask.status}`);
+      if (ask.status !== "pending") throw new KeychainError(410, `ask already ${ask.status}`, "ask_resolved");
       const grant = await mintGrant({
         credentialId: ask.credentialId,
         ownerId: input.ownerId,
@@ -1027,12 +1040,12 @@ export function createKeychain(deps: {
 
     async declineAsk(input) {
       const rec = await deps.asks.get(input.askId);
-      if (!rec) throw new KeychainError(404, "unknown ask");
+      if (!rec) throw new KeychainError(404, "unknown ask", "ask_not_found");
       if (!samePerson(rec.ownerId, input.ownerId))
         throw new KeychainError(403, "only the credential's owner can decline an ask");
       const t = now();
       const ask = await freshAsk(rec, t);
-      if (ask.status !== "pending") throw new KeychainError(410, `ask already ${ask.status}`);
+      if (ask.status !== "pending") throw new KeychainError(410, `ask already ${ask.status}`, "ask_resolved");
       const note = input.note?.trim();
       const patch = { status: "declined" as const, resolvedAt: t, ...(note ? { note } : {}) };
       await deps.asks.merge(ask.id, patch);
@@ -1179,13 +1192,14 @@ export function createKeychain(deps: {
 
     async materialize(grantId, scopeId, usedBy) {
       const grant = await deps.grants.get(grantId);
-      if (!grant) throw new KeychainError(404, "unknown grant");
-      if (grant.audienceScopeId !== scopeId) throw new KeychainError(403, "grant is for a different conversation");
-      if (grant.status === "revoked") throw new KeychainError(410, "grant was revoked");
-      if (grant.status === "used") throw new KeychainError(410, "one-time grant already used");
-      if (expired(grant, now())) throw new KeychainError(410, "grant is expired");
+      if (!grant) throw new KeychainError(404, "unknown grant", "grant_not_found");
+      if (grant.audienceScopeId !== scopeId)
+        throw new KeychainError(403, "grant is for a different conversation", "grant_scope_mismatch");
+      if (grant.status === "revoked") throw new KeychainError(410, "grant was revoked", "grant_revoked");
+      if (grant.status === "used") throw new KeychainError(410, "one-time grant already used", "grant_used");
+      if (expired(grant, now())) throw new KeychainError(410, "grant is expired", "grant_expired");
       const cred = await deps.creds.get(grant.credentialId);
-      if (!cred) throw new KeychainError(404, "credential no longer exists");
+      if (!cred) throw new KeychainError(404, "credential no longer exists", "credential_not_found");
       if (cred.kind === "broker") {
         throw new KeychainError(403, "broker credentials are not grantable — they are used via the credential broker");
       }
@@ -1195,7 +1209,7 @@ export function createKeychain(deps: {
         await claimOnceGrant(grant, scopeId, usedBy);
         return m;
       }
-      if (credExpired(cred, now())) throw new KeychainError(410, "credential is expired");
+      if (credExpired(cred, now())) throw new KeychainError(410, "credential is expired", "credential_expired");
       const materialized = materializeDecrypted(cred, extra);
       await claimOnceGrant(grant, scopeId, usedBy);
       return materialized;
@@ -1209,12 +1223,13 @@ export function createKeychain(deps: {
         );
       }
       const cred = await deps.creds.get(credentialId);
-      if (!cred || !samePerson(cred.ownerId, ownerId)) throw new KeychainError(404, "unknown credential");
+      if (!cred || !samePerson(cred.ownerId, ownerId))
+        throw new KeychainError(404, "unknown credential", "credential_not_found");
       if (cred.kind === "broker") {
         throw new KeychainError(403, "broker credentials are used via the credential broker, never materialized");
       }
       if (cred.managed === "connector") return materializeConnectorEnv(cred);
-      if (credExpired(cred, now())) throw new KeychainError(410, "credential is expired");
+      if (credExpired(cred, now())) throw new KeychainError(410, "credential is expired", "credential_expired");
       return materializeDecrypted(cred);
     },
 
@@ -1321,7 +1336,13 @@ export function renderAskNotice(
 ): string {
   const { ask, credential } = input;
   const who = input.requesterName ? `${input.requesterName} (${ask.requesterId})` : ask.requesterId;
-  const where = input.channelName ? `**#${input.channelName}**` : `\`${ask.requesterScopeId}\``;
+  // Never surface a raw Slack scope id to a person — describe the place instead.
+  let where: string;
+  if (input.channelName) where = `**#${input.channelName.replace(/^#/, "")}**`;
+  else if (ask.requesterScopeId.startsWith("group:")) where = "a group DM";
+  else if (ask.requesterScopeId.startsWith("channel:")) where = "a Slack channel";
+  else if (ask.requesterScopeId.startsWith("personal:")) where = "their own conversation";
+  else where = "a shared conversation";
   const account = credential.accountLabel ? ` (${credential.accountLabel})` : "";
   const mode = ask.requestedMode === "standing" ? "as a standing grant for that conversation" : "one time";
   return (

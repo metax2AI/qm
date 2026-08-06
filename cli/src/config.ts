@@ -104,17 +104,19 @@ export function awsWorkloadArchitecture(config: QmConfig, workload: string): "ar
   return service.architecture ?? "arm64";
 }
 
-export const MODEL_PROVIDERS = ["anthropic", "openai", "openrouter"] as const;
+export const MODEL_PROVIDERS = ["anthropic", "deepseek", "openai", "openrouter"] as const;
 export type ModelProvider = (typeof MODEL_PROVIDERS)[number];
 
 export const MODEL_PROVIDER_KEYS: Readonly<Record<ModelProvider, string>> = {
   anthropic: "ANTHROPIC_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
   openai: "OPENAI_API_KEY",
   openrouter: "OPENROUTER_API_KEY",
 };
 
 export const MODEL_PROVIDER_HARNESSES: Readonly<Record<ModelProvider, readonly string[]>> = {
   anthropic: ["pi", "opencode", "claude", "mock"],
+  deepseek: ["pi", "mock"],
   openai: ["pi", "opencode", "codex", "mock"],
   openrouter: ["pi", "mock"],
 };
@@ -714,6 +716,11 @@ function configuredHarness(config: QmConfig): string {
   return config.env.core?.HARNESS?.trim() || (config.target === "fly" ? "pi" : "mock");
 }
 
+export function effectiveModelProvider(config: QmConfig): ModelProvider | undefined {
+  const override = config.env.core?.MODEL_PROVIDER?.trim();
+  return isModelProvider(override) ? override : config.modelProvider;
+}
+
 export function mockHarnessWarning(config: QmConfig): string | undefined {
   if (configuredHarness(config) !== "mock") return undefined;
   const unset = !config.env.core?.HARNESS?.trim();
@@ -727,13 +734,28 @@ function validateModelProvider(config: QmConfig, path: string): void {
       `${path}: env.core.MODEL_PROVIDER must be one of ${MODEL_PROVIDERS.join(", ")}, or unset to use "modelProvider"`,
     );
   }
-  const provider = isModelProvider(override) ? override : config.modelProvider;
+  const provider = effectiveModelProvider(config);
   if (!provider) return;
   const harness = configuredHarness(config);
   if (!MODEL_PROVIDER_HARNESSES[provider].includes(harness)) {
     throw new CliError(
       `${path}: model provider "${provider}" cannot serve a base model on env.core.HARNESS "${harness}" — that harness runs no ${provider} model, so every agent turn would be refused. Use ${MODEL_PROVIDER_HARNESSES[provider].join(", ")}, or pick a provider that harness can bill.`,
     );
+  }
+  const coreEnv = config.env.core ?? {};
+  const piModel = coreEnv.PI_MODEL !== undefined ? coreEnv.PI_MODEL.trim() : config.model?.trim();
+  let model = piModel;
+  if (harness === "opencode") model = coreEnv.OPENCODE_MODEL?.trim() || piModel;
+  else if (harness === "codex") model = coreEnv.CODEX_MODEL?.trim();
+  else if (harness === "claude") model = coreEnv.CLAUDE_MODEL?.trim();
+  if (!model) return;
+  let modelProvider: ModelProvider | undefined;
+  if (model === "openrouter/auto") modelProvider = "openrouter";
+  else if (/^claude-/i.test(model)) modelProvider = "anthropic";
+  else if (/^deepseek-/i.test(model)) modelProvider = "deepseek";
+  else if (/^(?:gpt-|o\d|codex)/i.test(model)) modelProvider = "openai";
+  if (modelProvider && modelProvider !== provider) {
+    throw new CliError(`${path}: model ${JSON.stringify(model)} uses ${modelProvider}, not ${provider}`);
   }
 }
 

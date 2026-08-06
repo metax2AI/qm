@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -48,6 +48,7 @@ import {
   modelSupportsFastMode,
   contextTokenBudgetForModel,
 } from "../model/pi-models.ts";
+import { customModelsJson, customProvidersVersion } from "../model/custom-providers.ts";
 import {
   defineHarness,
   type Harness,
@@ -83,6 +84,7 @@ export interface PiHarnessOptions {
   titleModelId?: string;
   judgeModelId?: string;
   apiKey?: string;
+  deepseekApiKey?: string;
   openaiApiKey?: string;
   openrouterApiKey?: string;
   resolveProviderKeys?: () => Promise<ProviderKeys>;
@@ -108,6 +110,7 @@ export function piHarnessConfigOptions(config: Config): PiHarnessOptions {
     ...(config.titleModelId ? { titleModelId: config.titleModelId } : {}),
     ...(config.judgeModelId ? { judgeModelId: config.judgeModelId } : {}),
     ...(config.anthropicApiKey ? { apiKey: config.anthropicApiKey } : {}),
+    ...(config.deepseekApiKey ? { deepseekApiKey: config.deepseekApiKey } : {}),
     ...(config.openaiApiKey ? { openaiApiKey: config.openaiApiKey } : {}),
     ...(config.openrouterApiKey ? { openrouterApiKey: config.openrouterApiKey } : {}),
     captureRequests: config.piCaptureRequests,
@@ -588,6 +591,33 @@ interface PiAgentWithPayloadHook {
   ) => Promise<{ terminate?: boolean } | undefined> | { terminate?: boolean } | undefined;
 }
 
+function normalizeProviderPayload(payload: unknown, model: unknown): unknown {
+  const provider = model && typeof model === "object" ? (model as { provider?: unknown }).provider : undefined;
+  if (provider !== "deepseek" || !payload || typeof payload !== "object") return payload;
+  const request = payload as Record<string, unknown>;
+  if (!Array.isArray(request.messages)) return payload;
+  const normalized: Record<string, unknown> = {
+    ...request,
+    messages: request.messages.map((message) => {
+      if (!message || typeof message !== "object") return message;
+      const shaped = message as { role?: unknown; content?: unknown; tool_calls?: unknown };
+      if (shaped.role === "assistant" && shaped.content === null && Array.isArray(shaped.tool_calls)) {
+        return { ...shaped, content: "" };
+      }
+      if (shaped.role !== "user" || !Array.isArray(shaped.content)) return message;
+      const text = shaped.content.map((part) =>
+        part && typeof part === "object" && (part as { type?: unknown }).type === "text"
+          ? (part as { text?: unknown }).text
+          : undefined,
+      );
+      if (text.some((part) => typeof part !== "string")) return message;
+      return { ...shaped, content: text.join("\n\n") };
+    }),
+  };
+  delete normalized.tool_choice;
+  return normalized;
+}
+
 interface PiSeedTarget {
   agent?: { state?: { messages?: unknown[] } };
   sessionManager?: { appendMessage?: (message: unknown) => unknown };
@@ -973,19 +1003,43 @@ function removeIsolatedDirs(dirs: { cwd: string; agentDir: string }): void {
 
 export interface ProviderKeys {
   anthropic?: string;
+  deepseek?: string;
   openai?: string;
   openrouter?: string;
+  /** Admin-registered custom providers, keyed by provider slug. */
+  [provider: string]: string | undefined;
+}
+
+// buildModelRuntime runs per turn; the models.json only changes when the
+// custom-provider registry does, so cache the materialized file per registry
+// version instead of leaking a temp dir per turn.
+let cachedCustomModels: { version: number; path: string | null } | null = null;
+function customModelsPath(): string | null {
+  const version = customProvidersVersion();
+  if (cachedCustomModels?.version === version) return cachedCustomModels.path;
+  const custom = customModelsJson();
+  let path: string | null = null;
+  if (custom) {
+    path = join(mkdtempSync(join(tmpdir(), "pi-custom-models-")), "models.json");
+    writeFileSync(path, JSON.stringify(custom));
+  }
+  cachedCustomModels = { version, path };
+  return path;
 }
 
 async function buildModelRuntime(keys: ProviderKeys | string): Promise<ModelRuntime> {
   const k: ProviderKeys = typeof keys === "string" ? { anthropic: keys } : keys;
+  // Custom providers must exist in the runtime's own registry — a runtime
+  // API key alone is invisible to its availability checks. models.json is
+  // the sanctioned vocabulary, so materialize one when any are registered.
+  const modelsPath = customModelsPath();
   const runtime = await ModelRuntime.create({
     credentials: new InMemoryCredentialStore(),
-    modelsPath: null,
+    modelsPath,
   });
-  if (k.anthropic) await runtime.setRuntimeApiKey("anthropic", k.anthropic, { allowNetwork: false });
-  if (k.openai) await runtime.setRuntimeApiKey("openai", k.openai, { allowNetwork: false });
-  if (k.openrouter) await runtime.setRuntimeApiKey("openrouter", k.openrouter, { allowNetwork: false });
+  for (const [provider, apiKey] of Object.entries(k)) {
+    if (apiKey) await runtime.setRuntimeApiKey(provider, apiKey, { allowNetwork: false });
+  }
   return runtime;
 }
 
@@ -1010,6 +1064,14 @@ export async function oneShot(
       cwd,
       agentDir,
     });
+    const agent = (session as unknown as { agent?: PiAgentWithPayloadHook }).agent;
+    if (agent) {
+      const prior = agent.onPayload;
+      agent.onPayload = async (payload, model) => {
+        const result = prior ? await prior(payload, model) : payload;
+        return normalizeProviderPayload(result ?? payload, model);
+      };
+    }
     const messagesBefore = session.messages.length;
     if (opts?.signal?.aborted) return undefined;
     const onAbort = () => {
@@ -1201,6 +1263,7 @@ export function createPiHarness(opts?: PiHarnessOptions): Harness {
     ? {}
     : {
         ...(opts?.apiKey ? { anthropic: opts.apiKey } : {}),
+        ...(opts?.deepseekApiKey ? { deepseek: opts.deepseekApiKey } : {}),
         ...(opts?.openaiApiKey ? { openai: opts.openaiApiKey } : {}),
         ...(opts?.openrouterApiKey ? { openrouter: opts.openrouterApiKey } : {}),
       };
@@ -1208,8 +1271,7 @@ export function createPiHarness(opts?: PiHarnessOptions): Harness {
     ...configuredProviderKeys,
     ...(await opts?.resolveProviderKeys?.()),
   });
-  const keyForModel = (keys: ProviderKeys, model: Model<Api>): string | undefined =>
-    keys[model.provider as keyof ProviderKeys];
+  const keyForModel = (keys: ProviderKeys, model: Model<Api>): string | undefined => keys[String(model.provider)];
   const captureRequests = opts?.captureRequests ?? true;
   const systemCacheSplit = opts?.systemCacheSplit ?? false;
   const scratchExec = opts?.scratchExec ?? false;
@@ -1361,7 +1423,7 @@ export function createPiHarness(opts?: PiHarnessOptions): Harness {
             );
           }
           const result = prior ? await prior(payload, model) : payload;
-          let finalPayload = result ?? payload;
+          let finalPayload = normalizeProviderPayload(result ?? payload, model);
           try {
             finalPayload = trimPayloadToByteBudget(finalPayload);
           } catch (e) {

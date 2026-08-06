@@ -6,6 +6,7 @@ import "./marked-dedupe";
 import "@mariozechner/mini-lit/dist/MarkdownBlock.js";
 import "@mariozechner/mini-lit/dist/CodeBlock.js";
 import { html, nothing, render, type TemplateResult } from "lit";
+import { msg, str } from "@lit/localize";
 import {
   Activity,
   Ban,
@@ -41,8 +42,13 @@ import {
   entriesToMessages,
   fetchEntry,
   fetchTranscript,
+  currentEarlierCount,
+  forkOriginDetails,
   forkCutSeq,
   forkSession,
+  inheritedRefreshEntries,
+  inheritedTranscript,
+  loadInheritedTranscript,
   makeCoreStreamFn,
   makeOpenerStreamFn,
   makeRunResumeStreamFn,
@@ -79,19 +85,23 @@ import {
   harnessSupportsFastMode,
 } from "./model-options";
 import { browserRenderableImage, formatBytes, icon, relTime } from "./ui";
+import { formatDateTime, formatNumber, syncMiniLitLocalization } from "./localization.ts";
 import { adminSessionLogUrl, appState, can, renderSidebarTop, syncUrlFromState } from "./shell";
 import {
   addPendingSession,
+  dropPendingSession,
   groupDmTitle,
   refreshSessions,
   renderList,
   sessionsState,
   sessionSlackUrl,
   surfaceOf,
+  openSession,
 } from "./sessions";
-import { backgroundLabel, clearWorking, conversationBackground, markWorking } from "./session-list";
+import { backgroundLabel, clearWorking, conversationBackground, isAbandonedNewChat, markWorking } from "./session-list";
 import { liveTurnThreadRef } from "./working-dot";
 import { newChatDraftKey, saveDraft, storedDraft } from "./drafts";
+import { createForkOriginController, forkOriginView } from "./fork-origin";
 
 installMarkdownSanitizer();
 
@@ -122,8 +132,13 @@ export function markConnectorConnected(provider: string): void {
   for (const hook of redrawHooks) hook();
 }
 
-export function createChatSurface(ctx: ConvCtx): ChatSurface {
+export function createChatSurface(
+  ctx: ConvCtx,
+  dependencies: { fetchTranscript?: typeof fetchTranscript; openSession?: typeof openSession } = {},
+): ChatSurface {
   const runSlot = createRunSlot();
+  const transcriptFetcher = dependencies.fetchTranscript ?? fetchTranscript;
+  const sessionOpener = dependencies.openSession ?? openSession;
 
   const chatState = {
     agent: null as Agent | null,
@@ -144,7 +159,37 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     transcriptAnchorSeq: null as number | null,
     earlierCount: 0,
     loadingEarlier: false,
+    forkSession: null as CoreSession | null,
+    inheritedMessages: [] as ReturnType<typeof entriesToMessages>,
+    inheritedExpanded: false,
+    inheritedLoaded: false,
   };
+  const forkOriginController = createForkOriginController({
+    state: chatState,
+    load: async () => {
+      const session = chatState.forkSession;
+      if (!session) return [];
+      const entries = await loadInheritedTranscript(session, [], transcriptFetcher);
+      return entriesToMessages(entries, transcriptModel());
+    },
+    navigate: async () => {
+      const sourceId = chatState.forkSession?.forkedFrom?.sessionId;
+      if (!sourceId) return;
+      const listed = sessionsState.list.find((session) => session.id === sourceId);
+      const page = await transcriptFetcher(sourceId, { tailTurns: TAIL_TURNS });
+      const source = listed ?? page.session;
+      if (!source) throw new Error("missing source session");
+      await sessionOpener(source, Promise.resolve(page));
+    },
+    current: () => Boolean(chatState.forkSession && chatState.sessionId === chatState.forkSession.id),
+    redraw: () => {
+      if (chatState.agent) drawActiveChat();
+      else readonlyRedraw?.();
+    },
+    setError: (error) => {
+      ctx.composer.state.error = error;
+    },
+  });
 
   let workTicker: ReturnType<typeof setInterval> | null = null;
   let revealedTailLen = 0;
@@ -163,6 +208,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
   let readOnlyView: { id: string; threadRef: string; session: CoreSession; anchorSeq: number | null } | null = null;
 
   function teardownActiveChat(): void {
+    forkOriginController.invalidateRefresh();
     readOnlyView = null;
     preserveOutgoingWorkingDot(null);
     detachActiveAgent();
@@ -183,6 +229,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
   }
 
   function resetChatState(): void {
+    dropAbandonedNewChat(null);
     teardownActiveChat();
     proactiveOpenerStarted = false;
     chatState.rememberedThreadRef = null;
@@ -200,10 +247,27 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     const carried = storedDraft(newChatDraftKey(user));
     if (carried) saveDraft(threadRef, carried);
     ctx.composer.resetComposer();
+    forkOriginController.reset();
     mountContinuable(threadRef, null, context?.scopeId ?? null, [], context?.name ?? null);
     renderList();
     ctx.composer.focusComposerEnd();
     return threadRef;
+  }
+
+  function dropAbandonedNewChat(nextThreadRef: string | null): void {
+    const ref = chatState.threadRef;
+    if (
+      isAbandonedNewChat({
+        threadRef: ref,
+        nextThreadRef,
+        sessionId: chatState.sessionId,
+        pendingSend: chatState.pendingSend,
+        hasHumanMessage: (chatState.agent?.state.messages ?? []).some((m) => !(m as { opener?: boolean }).opener),
+        draft: ctx.composer.state.draft || storedDraft(ref ?? ""),
+        attachments: ctx.composer.state.attachments.length,
+      })
+    )
+      dropPendingSession(ref!);
   }
 
   function preserveOutgoingWorkingDot(nextThreadRef: string | null): void {
@@ -228,17 +292,25 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     scopeId: string | null,
     messages: ReturnType<typeof entriesToMessages>,
     contextName: string | null = null,
+    session?: CoreSession,
+    inheritedMessages: ReturnType<typeof entriesToMessages> = [],
   ): void {
     const container = ctx.claimContainer();
     if (!container) return;
     readOnlyView = null;
     preserveOutgoingWorkingDot(threadRef);
+    dropAbandonedNewChat(threadRef);
     detachActiveAgent();
     ctx.composer.resetComposer();
+    forkOriginController.reset();
     chatState.threadRef = threadRef;
     chatState.sessionId = sessionId;
     chatState.scopeId = scopeId;
     chatState.contextName = contextName;
+    chatState.forkSession = session ?? null;
+    chatState.inheritedMessages = inheritedMessages;
+    chatState.inheritedExpanded = false;
+    chatState.inheritedLoaded = !session?.forkedFrom;
     chatState.rememberedThreadRef = threadRef;
     chatState.rememberedSessionId = sessionId;
     chatState.rememberedScopeId = scopeId;
@@ -261,7 +333,11 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
         messages,
         tools: [],
       },
-      convertToLlm: (messages) => import("@earendil-works/pi-web-ui").then((m) => m.defaultConvertToLlm(messages)),
+      convertToLlm: async (messages) => {
+        const module = await import("@earendil-works/pi-web-ui");
+        syncMiniLitLocalization();
+        return module.defaultConvertToLlm(messages);
+      },
     });
     chatState.agent = agent;
     clearLiveWork();
@@ -345,7 +421,8 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       try {
         await agent.continue();
       } catch (err) {
-        if (agent === chatState.agent) ctx.composer.state.error = errMessage(err, "Could not start the conversation.");
+        if (agent === chatState.agent)
+          ctx.composer.state.error = errMessage(err, msg("Could not start the conversation."));
       } finally {
         if (agent === chatState.agent) {
           agent.streamFn = normalStreamFn;
@@ -377,18 +454,39 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     };
   }
 
+  function inheritedHeader(): TemplateResult | typeof nothing {
+    const origin = chatState.forkSession
+      ? forkOriginDetails(chatState.forkSession, chatState.inheritedLoaded ? chatState.inheritedMessages.length : 0)
+      : null;
+    return forkOriginView(
+      origin
+        ? {
+            title: origin.title,
+            messageCount: origin.messageCount,
+            expanded: chatState.inheritedExpanded,
+            icon: icon(GitFork, 14),
+            navigate: () => void forkOriginController.navigate(),
+            toggle: () => void forkOriginController.toggle().catch(() => {}),
+          }
+        : null,
+    );
+  }
+
   function onDelivery(threadRef: string): void {
     const ro = readOnlyView;
     if (ro && threadRef === ro.threadRef) {
       void fetchTranscript(ro.id, ro.anchorSeq !== null ? { sinceSeq: ro.anchorSeq } : { tailTurns: TAIL_TURNS })
         .then((page) => {
           if (readOnlyView?.id !== ro.id) return;
-          const earlier = page.earlierEntries ?? 0;
+          const split = inheritedTranscript(ro.session, page.entries ?? []);
+          const rawEarlier = page.earlierEntries ?? 0;
+          const earlier = currentEarlierCount(ro.session, rawEarlier);
           mountReadOnly(
             readOnlyView.session,
-            entriesToMessages(page.entries ?? [], transcriptModel()),
+            entriesToMessages(split.current, transcriptModel()),
             earlier,
-            earlier > 0 ? (page.entries?.[0]?.seq ?? null) : null,
+            rawEarlier > 0 ? (page.entries?.[0]?.seq ?? null) : null,
+            entriesToMessages(split.inherited, transcriptModel()),
           );
         })
         .catch(() => {});
@@ -438,7 +536,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       );
     } catch (err) {
       if (agent === chatState.agent) {
-        ctx.composer.state.error = err instanceof Error ? err.message : "Could not send the approval.";
+        ctx.composer.state.error = err instanceof Error ? err.message : msg("Could not send the approval.");
         drawActiveChat(agent);
       }
     } finally {
@@ -480,13 +578,30 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
   async function refreshTranscriptFromEntries(agent: Agent): Promise<void> {
     const sessionId = chatState.sessionId;
     if (!sessionId || agent !== chatState.agent || agent.state.isStreaming) return drawActiveChat(agent);
+    const generation = forkOriginController.beginRefresh();
     const last = agent.state.messages[agent.state.messages.length - 1] as { stopReason?: string } | undefined;
     if (last?.stopReason === "error" || last?.stopReason === "aborted") return drawActiveChat(agent);
     try {
       const anchor = chatState.transcriptAnchorSeq;
-      const page = await fetchTranscript(sessionId, anchor !== null ? { sinceSeq: anchor } : undefined);
-      if (agent !== chatState.agent || agent.state.isStreaming) return;
-      const messages = entriesToMessages(page.entries ?? [], transcriptModel());
+      const page = await transcriptFetcher(sessionId, anchor !== null ? { sinceSeq: anchor } : undefined);
+      if (
+        !forkOriginController.isCurrentRefresh(generation) ||
+        sessionId !== chatState.sessionId ||
+        agent !== chatState.agent ||
+        agent.state.isStreaming
+      )
+        return;
+      const split = inheritedTranscript(chatState.forkSession ?? {}, page.entries ?? []);
+      const messages = entriesToMessages(split.current, transcriptModel());
+      const refreshedInherited = inheritedRefreshEntries(
+        chatState.forkSession ?? {},
+        page.entries ?? [],
+        chatState.inheritedLoaded,
+      );
+      forkOriginController.applyRefresh(
+        generation,
+        refreshedInherited ? entriesToMessages(refreshedInherited, transcriptModel()) : null,
+      );
       try {
         const r = await api<{ approvals: PendingApproval[] }>(
           `/api/sessions/${encodeURIComponent(sessionId)}/approvals`,
@@ -495,10 +610,17 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       } catch {
         void 0;
       }
-      if (agent !== chatState.agent || agent.state.isStreaming) return;
+      if (
+        !forkOriginController.isCurrentRefresh(generation) ||
+        sessionId !== chatState.sessionId ||
+        agent !== chatState.agent ||
+        agent.state.isStreaming
+      )
+        return;
       agent.state.messages = messages;
-      chatState.earlierCount = page.earlierEntries ?? 0;
-      chatState.transcriptAnchorSeq = chatState.earlierCount > 0 ? (page.entries?.[0]?.seq ?? null) : null;
+      const rawEarlier = page.earlierEntries ?? 0;
+      chatState.earlierCount = currentEarlierCount(chatState.forkSession ?? {}, rawEarlier);
+      chatState.transcriptAnchorSeq = rawEarlier > 0 ? (page.entries?.[0]?.seq ?? null) : null;
     } catch {
       void 0;
     }
@@ -551,7 +673,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       await agent.continue();
     } catch (err) {
       if (agent === chatState.agent)
-        ctx.composer.state.error = err instanceof Error ? err.message : "Could not reconnect to the running task.";
+        ctx.composer.state.error = err instanceof Error ? err.message : msg("Could not reconnect to the running task.");
     } finally {
       if (agent === chatState.agent) {
         agent.streamFn = normalStreamFn;
@@ -627,18 +749,28 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     messages: ReturnType<typeof entriesToMessages>,
     earlierCount = 0,
     anchorSeq: number | null = null,
+    inheritedMessages: ReturnType<typeof entriesToMessages> = [],
   ): void {
     const container = ctx.claimContainer();
     if (!container) return;
     preserveOutgoingWorkingDot(s.threadRef);
+    dropAbandonedNewChat(s.threadRef);
     detachActiveAgent();
     chatState.agent = null;
     clearLiveWork();
     chatState.host = null;
     ctx.composer.resetComposer();
+    const sameSession = chatState.sessionId === s.id && chatState.threadRef === null;
+    if (!sameSession) forkOriginController.reset();
     chatState.threadRef = null;
     chatState.sessionId = s.id;
     chatState.scopeId = s.scopeId;
+    chatState.forkSession = s;
+    if (!(sameSession && chatState.inheritedLoaded)) {
+      chatState.inheritedMessages = inheritedMessages;
+      chatState.inheritedLoaded = !s.forkedFrom;
+    }
+    if (!sameSession) chatState.inheritedExpanded = false;
     syncLocation();
 
     resetBackgroundPanel();
@@ -652,24 +784,24 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
             <div class="readonly-banner">
               ${
                 surfaceOf(s) === "slack"
-                  ? html`This conversation lives in Slack. Replies happen
-                    there.${
+                  ? html`${msg("This conversation lives in Slack. Replies happen there.")}${
                       sessionSlackUrl(s)
                         ? html` <a
                             class="readonly-banner-link"
                             href=${sessionSlackUrl(s)!}
                             target="_blank"
                             rel="noreferrer"
-                            >Open in Slack</a
+                            >${msg("Open in Slack")}</a
                           >`
                         : nothing
                     }`
-                  : "This conversation is read-only here."
+                  : msg("This conversation is read-only here.")
               }
             </div>
             ${backgroundActivityStrip()}
             <section class="chat-scroll readonly-scroll">
               <div class="message-stack">
+                ${inheritedHeader()}
                 ${
                   earlierCount > 0
                     ? html`<div class="earlier-messages">
@@ -678,7 +810,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
                           @click=${async (e: Event) => {
                             const btn = e.currentTarget as HTMLButtonElement;
                             btn.disabled = true;
-                            btn.textContent = "Loading earlier messages\u2026";
+                            btn.textContent = msg("Loading earlier messages…");
                             try {
                               const page = await fetchTranscript(
                                 s.id,
@@ -688,12 +820,18 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
                               const scroller = container?.querySelector<HTMLElement>(".chat-scroll");
                               const priorHeight = scroller?.scrollHeight ?? 0;
                               const priorTop = scroller?.scrollTop ?? 0;
-                              const remaining = page.earlierEntries ?? 0;
+                              const rawRemaining = page.earlierEntries ?? 0;
+                              const remaining = currentEarlierCount(s, rawRemaining);
+                              const split = inheritedTranscript(s, page.entries ?? []);
                               mountReadOnly(
                                 s,
-                                [...entriesToMessages(page.entries ?? [], transcriptModel()), ...messages],
+                                [...entriesToMessages(split.current, transcriptModel()), ...messages],
                                 remaining,
-                                remaining > 0 ? (page.entries?.[0]?.seq ?? null) : null,
+                                rawRemaining > 0 ? (page.entries?.[0]?.seq ?? null) : null,
+                                [
+                                  ...entriesToMessages(split.inherited, transcriptModel()),
+                                  ...chatState.inheritedMessages,
+                                ],
                               );
                               requestAnimationFrame(() => {
                                 const scrollerNow = container?.querySelector<HTMLElement>(".chat-scroll");
@@ -702,16 +840,23 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
                               });
                             } catch {
                               btn.disabled = false;
-                              btn.textContent = "Show earlier messages";
+                              btn.textContent = msg("Show earlier messages");
                             }
                           }}
                         >
-                          Show earlier messages
+                          ${msg("Show earlier messages")}
                         </button>
                       </div>`
                     : nothing
                 }
-                ${messages.length ? messages.map((m, i) => chatMessage(m, i)) : html`<div class="empty compact">No readable messages in this conversation.</div>`}
+                ${
+                  (chatState.inheritedExpanded ? [...chatState.inheritedMessages, ...messages] : messages).length
+                    ? (chatState.inheritedExpanded ? [...chatState.inheritedMessages, ...messages] : messages).map(
+                        (m, i) => chatMessage(m, i),
+                      )
+                    : html`<div class="empty compact">${msg("No readable messages in this conversation.")}</div>`
+                }
+                ${ctx.composer.state.error ? html`<div class="composer-error inline">${ctx.composer.state.error}</div>` : nothing}
               </div>
             </section>
           </div>
@@ -732,9 +877,9 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
         <div class="assistant-body">
           <div class="streaming-text">
             ${markdown(
-              "Hi — I'm your AI teammate 👋\n\n" +
-                "I run tasks on a computer of my own and work across your connected tools — Slack, Google Workspace, GitHub, Linear, and the open web — and I remember what we work on together.\n\n" +
-                "Want to get set up? Tell me your name and what you're working on, and I'll take it from there — or just ask me anything to dive straight in.",
+              msg(
+                "Hi — I'm your AI teammate 👋\n\nI run tasks on a computer of my own and work across your connected tools — Slack, Google Workspace, GitHub, Linear, and the open web — and I remember what we work on together.\n\nWant to get set up? Tell me your name and what you're working on, and I'll take it from there — or just ask me anything to dive straight in.",
+              ),
             )}
           </div>
         </div>
@@ -742,8 +887,8 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     `;
   }
 
-  function setTranscriptWindow(anchorSeq: number | null, earlierCount: number): void {
-    chatState.transcriptAnchorSeq = earlierCount > 0 ? anchorSeq : null;
+  function setTranscriptWindow(anchorSeq: number | null, earlierCount: number, hasEarlier = earlierCount > 0): void {
+    chatState.transcriptAnchorSeq = hasEarlier ? anchorSeq : null;
     chatState.earlierCount = earlierCount;
     if (chatState.agent) drawActiveChat(chatState.agent);
   }
@@ -755,7 +900,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
         ?disabled=${chatState.loadingEarlier || agent.state.isStreaming}
         @click=${() => void loadEarlierMessages()}
       >
-        ${chatState.loadingEarlier ? "Loading earlier messages…" : "Show earlier messages"}
+        ${chatState.loadingEarlier ? msg("Loading earlier messages…") : msg("Show earlier messages")}
       </button>
     </div>`;
   }
@@ -770,14 +915,20 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     try {
       const page = await fetchTranscript(sessionId, { beforeSeq: anchor, tailTurns: TAIL_TURNS });
       if (agent !== chatState.agent || agent.state.isStreaming) return;
-      const earlierMessages = entriesToMessages(page.entries ?? [], transcriptModel());
+      const split = inheritedTranscript(chatState.forkSession ?? {}, page.entries ?? []);
+      const earlierMessages = entriesToMessages(split.current, transcriptModel());
+      if (!chatState.inheritedLoaded)
+        chatState.inheritedMessages = [
+          ...entriesToMessages(split.inherited, transcriptModel()),
+          ...chatState.inheritedMessages,
+        ];
       const scroller = chatState.host?.querySelector<HTMLElement>(".chat-scroll");
       const priorHeight = scroller?.scrollHeight ?? 0;
       const priorTop = scroller?.scrollTop ?? 0;
       agent.state.messages = [...earlierMessages, ...agent.state.messages];
-      const remaining = page.earlierEntries ?? 0;
-      chatState.transcriptAnchorSeq = remaining > 0 ? (page.entries?.[0]?.seq ?? null) : null;
-      chatState.earlierCount = remaining;
+      const rawRemaining = page.earlierEntries ?? 0;
+      chatState.transcriptAnchorSeq = rawRemaining > 0 ? (page.entries?.[0]?.seq ?? null) : null;
+      chatState.earlierCount = currentEarlierCount(chatState.forkSession ?? {}, rawRemaining);
       chatState.loadingEarlier = false;
       drawActiveChat(agent);
       requestAnimationFrame(() => {
@@ -818,7 +969,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     const snippet = last ? messageText(last).trim() : "";
     if (tier === "strip") {
       return html`
-        <button type="button" class="pane-strip" title="Expand this pane" @click=${() => ctx.onExpand?.()}>
+        <button type="button" class="pane-strip" title=${msg("Expand this pane")} @click=${() => ctx.onExpand?.()}>
           <span class="pane-strip-text">${now ?? snippet}</span>
           ${icon(Maximize2, 13)}
         </button>
@@ -826,19 +977,25 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     }
     return html`
       <section class="pane-card" aria-live="polite">
-        ${now ? html`<div class="pane-card-now"><span class="pane-card-now-label">Now</span><span class="pane-card-now-text">${now}</span></div>` : nothing}
+        ${
+          now
+            ? html`<div class="pane-card-now">
+                <span class="pane-card-now-label">${msg("Now")}</span><span class="pane-card-now-text">${now}</span>
+              </div>`
+            : nothing
+        }
         ${snippet ? html`<div class="pane-card-last">${snippet}</div>` : nothing}
       </section>
     `;
   }
 
   function paneNowLine(agent: Agent): string | null {
-    if (activePendingApprovals().length) return "Needs your approval";
+    if (activePendingApprovals().length) return msg("Needs your approval");
     if (agent.state.isStreaming || chatState.resolvingApprovals.size > 0) {
       const work = chatState.liveWork ?? { status: "thinking", activity: [] };
       const summary = liveWorkSummary(work);
-      if (!summary) return "Thinking…";
-      return summary.detail ? `${summary.label} — ${summary.detail}` : summary.label;
+      if (!summary) return msg("Thinking…");
+      return summary.detail ? msg(str`${summary.label} — ${summary.detail}`) : summary.label;
     }
     return null;
   }
@@ -847,12 +1004,16 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
 
   function drawActiveChat(agent = chatState.agent, opts: { forceScroll?: boolean } = {}): void {
     if (!agent || agent !== chatState.agent || !chatState.host || appState.currentView !== "chats") return;
-    const messages = visibleMessages(agent);
+    const currentMessages = visibleMessages(agent);
+    const messages = chatState.inheritedExpanded
+      ? [...chatState.inheritedMessages, ...currentMessages]
+      : currentMessages;
     const isNewUser = sessionsState.list.filter((s) => s.id).length === 0;
     let messageContent: Array<TemplateResult | typeof nothing> | TemplateResult | typeof nothing = nothing;
+    const inheritedOffset = chatState.inheritedExpanded ? chatState.inheritedMessages.length : 0;
     if (messages.length) {
       messageContent = messages.map((m, i) =>
-        settledChatMessage(m, i, agent.state.isStreaming && m === agent.state.streamingMessage),
+        settledChatMessage(m, i - inheritedOffset, agent.state.isStreaming && m === agent.state.streamingMessage),
       );
     } else if (isNewUser) {
       messageContent = welcomeGreeting();
@@ -871,7 +1032,9 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
           ${
             ctx.composer.state.dragging
               ? html`<div class="drop-overlay">
-                  <div class="drop-overlay-card">${icon(Files, 30)}<span>Drop files or folders to attach</span></div>
+                  <div class="drop-overlay-card">
+                    ${icon(Files, 30)}<span>${msg("Drop files or folders to attach")}</span>
+                  </div>
                 </div>`
               : nothing
           }
@@ -880,8 +1043,9 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
             glanceTier
               ? paneGlance(agent, messages, glanceTier)
               : html`<section class="chat-scroll" @scroll=${onTranscriptScroll}>
-                  <div class="message-stack ${messages.length ? "" : "empty-stack"}">
-                    ${chatState.earlierCount > 0 ? earlierNotice(agent) : nothing} ${messageContent}
+                  <div class="message-stack ${messages.length || chatState.forkSession ? "" : "empty-stack"}">
+                    ${inheritedHeader()} ${chatState.earlierCount > 0 ? earlierNotice(agent) : nothing}
+                    ${messageContent}
                     ${showStateError(messages, agent.state.errorMessage) ? html`<div class="composer-error inline">${agent.state.errorMessage}</div>` : nothing}
                   </div>
                 </section>`
@@ -942,25 +1106,32 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     const glyph = chatState.scopeId?.startsWith("group:") ? Users : Hash;
     return html`<div
       class="context-banner"
-      title="This chat runs in the ${label} context — the agent works with that context's files and memory, separate from your personal context."
+      title=${msg(
+        str`This chat runs in the ${label} context — the agent works with that context's files and memory, separate from your personal context.`,
+      )}
     >
-      ${icon(glyph, 13)}<span><strong>${label}</strong> context</span>
+      ${icon(glyph, 13)}<span><strong>${label}</strong> ${msg("context")}</span>
     </div>`;
   }
 
   function chatHeader(title: string | TemplateResult, detail: string, readOnly: boolean): TemplateResult {
+    let subtitle = detail;
+    if (readOnly) subtitle = msg("Read-only");
+    else if (detail === "slack") subtitle = msg("Slack");
+    else if (detail === "web") subtitle = msg("Web");
+    else if (detail === "core") subtitle = msg("Core");
     return html`
       <header class="chat-topbar">
         <div class="chat-heading">
           <div class="chat-title">${title}</div>
-          <div class="chat-subtitle">${readOnly ? "Read-only" : detail}</div>
+          <div class="chat-subtitle">${subtitle}</div>
         </div>
         <div class="topbar-actions">
           ${
             chatState.sessionId && can("admin")
               ? html`<a
                   class="icon-btn subtle"
-                  title="View session log (admin)"
+                  title=${msg("View session log (admin)")}
                   href=${adminSessionLogUrl(chatState.sessionId, chatState.scopeId ?? `org:${appState.me?.org ?? ""}`)}
                   target="_blank"
                   rel="noreferrer"
@@ -970,7 +1141,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
           }
           <button
             class="icon-btn subtle"
-            title="Refresh conversations"
+            title=${msg("Refresh conversations")}
             @click=${() => void refreshSessions({ refreshContexts: true })}
           >
             ${icon(RefreshCw, 17)}
@@ -991,7 +1162,11 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     index: number,
     isStreaming: boolean,
   ): TemplateResult | typeof nothing {
-    const msg = message as AssistantWork & { stopReason?: string; errorMessage?: string; approvalDecision?: string };
+    const msg = message as AssistantWork & {
+      stopReason?: string;
+      errorMessage?: string;
+      approvalDecision?: string;
+    };
     const work = msg.work;
     const cacheable =
       !isStreaming &&
@@ -1037,7 +1212,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       const steered = Boolean((message as { steered?: boolean }).steered);
       return html`
         <article class="message-row user-row ${steered ? "steered-row" : ""}" data-index=${index}>
-          ${steered ? html`<div class="steer-label">↪ steered the running task</div>` : nothing}
+          ${steered ? html`<div class="steer-label">${msg("↪ steered the running task")}</div>` : nothing}
           <div class="message-bubble user-bubble">
             ${markdown(messageText(message))}
             ${attachments.length ? html`<div class="message-files">${attachments.map(userAttachmentBadge)}</div>` : nothing}
@@ -1047,26 +1222,35 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       `;
     }
     if (role === "assistant") {
-      const msg = message as AssistantMessage;
-      const work = isStreaming ? null : (msg as AssistantWork).work;
-      const text = messageText(msg).trim();
+      const assistantMessage = message as AssistantMessage;
+      const work = isStreaming ? null : (assistantMessage as AssistantWork).work;
+      const text = messageText(assistantMessage).trim();
       const hasText = Boolean(text);
-      const showWork = shouldShowApprovalWork(msg, work, text) && shouldShowWork(work, hasText);
-      const deliveredFiles = (msg as AssistantWork).deliveredFiles;
+      const showWork = shouldShowApprovalWork(assistantMessage) && shouldShowWork(work, hasText);
+      const deliveredFiles = (assistantMessage as AssistantWork).deliveredFiles;
       const hasVisibleContent =
         showWork ||
         hasText ||
         Boolean(deliveredFiles?.length) ||
-        msg.content.some((chunk) => chunk.type === "thinking" && chunk.thinking.trim());
-      if (!hasVisibleContent && msg.stopReason !== "error" && msg.stopReason !== "aborted") return nothing;
+        assistantMessage.content.some((chunk) => chunk.type === "thinking" && chunk.thinking.trim());
+      if (!hasVisibleContent && assistantMessage.stopReason !== "error" && assistantMessage.stopReason !== "aborted")
+        return nothing;
       return html`
         <article class="message-row assistant-row ${isStreaming ? "streaming" : ""}" data-index=${index}>
           <div class="assistant-body">
-            ${showWork ? workBlock(work, isStreaming) : nothing} ${assistantContent(msg, isStreaming, showWork)}
-            ${assistantFileList(deliveredFiles)}
-            ${msg.stopReason === "error" && msg.errorMessage ? html`<div class="composer-error inline">${msg.errorMessage}</div>` : nothing}
-            ${msg.stopReason === "aborted" ? html`<div class="stopped-note">${icon(Ban, 13)}<span>Stopped</span></div>` : nothing}
-            ${isStreaming ? nothing : messageMeta(msg, index)}
+            ${showWork ? workBlock(work, isStreaming) : nothing}
+            ${assistantContent(assistantMessage, isStreaming, showWork)} ${assistantFileList(deliveredFiles)}
+            ${
+              assistantMessage.stopReason === "error" && assistantMessage.errorMessage
+                ? html`<div class="composer-error inline">${assistantMessage.errorMessage}</div>`
+                : nothing
+            }
+            ${
+              assistantMessage.stopReason === "aborted"
+                ? html`<div class="stopped-note">${icon(Ban, 13)}<span>${msg("Stopped")}</span></div>`
+                : nothing
+            }
+            ${isStreaming ? nothing : messageMeta(assistantMessage, index)}
           </div>
         </article>
       `;
@@ -1078,7 +1262,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     const text = messageText(message).trim();
     const ts = (message as { timestamp?: number }).timestamp;
     if (!text && ts === undefined) return nothing;
-    const forkable = Boolean(chatState.threadRef && chatState.sessionId && chatState.agent);
+    const forkable = Boolean(index >= 0 && chatState.threadRef && chatState.sessionId && chatState.agent);
     return html`
       <div class="message-meta">
         ${ts !== undefined ? html`<span class="message-time">${formatClock(ts)}</span>` : nothing}
@@ -1087,8 +1271,8 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
             ? html`<button
                 class="msg-copy"
                 type="button"
-                title="Copy"
-                aria-label="Copy message"
+                title=${msg("Copy")}
+                aria-label=${msg("Copy message")}
                 @click=${(e: Event) => void copyMessage(text, e.currentTarget as HTMLButtonElement)}
               >
                 ${icon(Copy, 13)}
@@ -1100,8 +1284,8 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
             ? html`<button
                 class="msg-copy msg-fork"
                 type="button"
-                title="Fork conversation from here"
-                aria-label="Fork conversation from here"
+                title=${msg("Fork conversation from here")}
+                aria-label=${msg("Fork conversation from here")}
                 @click=${() => void forkFromMessage(index)}
               >
                 ${icon(GitFork, 13)}
@@ -1132,25 +1316,28 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       if (anchor !== null) userOrdinal += userMessagesBefore(entries ?? [], anchor);
       const upToSeq = forkCutSeq(entries ?? [], userOrdinal, isUser);
       const forked = await forkSession(sessionId, upToSeq);
+      const split = inheritedTranscript(forked.session, forked.entries ?? []);
       ctx.composer.carryModelPick(sourceThreadRef, forked.session.threadRef);
       mountContinuable(
         forked.session.threadRef,
         forked.session.id,
         forked.session.scopeId,
-        entriesToMessages(forked.entries ?? [], transcriptModel()),
+        entriesToMessages(split.current, transcriptModel()),
         forked.session.channelName ?? null,
+        forked.session,
+        entriesToMessages(split.inherited, transcriptModel()),
       );
       await refreshSessions({ silent: true });
       renderList();
     } catch (err) {
-      ctx.composer.state.error = errMessage(err, "Could not fork the conversation.");
+      ctx.composer.state.error = errMessage(err, msg("Could not fork the conversation."));
       drawActiveChat();
     }
   }
 
   function formatClock(ms: number): string {
     try {
-      return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      return formatDateTime(ms, { hour: "numeric", minute: "2-digit" });
     } catch {
       return "";
     }
@@ -1180,19 +1367,20 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
   function connectorWidget(link: ConnectorLink): TemplateResult {
     const name =
       CONNECTOR_NAMES[link.provider] ??
-      (link.provider ? link.provider[0]!.toUpperCase() + link.provider.slice(1) : "your account");
+      (link.provider ? link.provider[0]!.toUpperCase() + link.provider.slice(1) : msg("your account"));
     if (link.provider && connectedConnectors.has(link.provider)) {
       return html`<div class="connector-widget connected" role="status">
         <span class="connector-widget-icon">${icon(Check, 18)}</span>
         <span class="connector-widget-text"
-          ><strong>Connected ${name}</strong><small>Authorized — its tools work here now</small></span
+          ><strong>${msg(str`Connected ${name}`)}</strong
+          ><small>${msg("Authorized — its tools work here now")}</small></span
         >
       </div>`;
     }
     return html`<a class="connector-widget" href=${withReturnTo(link.url)} target="_blank" rel="noreferrer">
       <span class="connector-widget-icon">${icon(Plug, 18)}</span>
       <span class="connector-widget-text"
-        ><strong>Connect ${name}</strong><small>Authorize access in a new tab</small></span
+        ><strong>${msg(str`Connect ${name}`)}</strong><small>${msg("Authorize access in a new tab")}</small></span
       >
       ${icon(ChevronRight, 16)}
     </a>`;
@@ -1215,7 +1403,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       if (chunk.type === "thinking" && chunk.thinking.trim()) {
         parts.push(
           html`<details class="thinking">
-            <summary>${sheenLabel("Thinking", isStreaming)}</summary>
+            <summary>${sheenLabel(msg("Thinking"), isStreaming)}</summary>
             ${markdown(chunk.thinking)}
           </details>`,
         );
@@ -1273,7 +1461,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
   }
 
   function typingRow(): TemplateResult {
-    return html`<div class="thinking-placeholder">${sheenLabel("Thinking", true)}</div>`;
+    return html`<div class="thinking-placeholder">${sheenLabel(msg("Thinking"), true)}</div>`;
   }
 
   function syncWorkTicker(): void {
@@ -1299,14 +1487,8 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     return work.status === "thinking" && !hasText;
   }
 
-  function shouldShowApprovalWork(
-    message: AssistantMessage,
-    work: WorkBlock | null | undefined,
-    text: string,
-  ): boolean {
+  function shouldShowApprovalWork(message: AssistantMessage): boolean {
     if ((message as AssistantWork & { approvalDecision?: "denied" }).approvalDecision === "denied") return false;
-    if (text === "Denied." && work?.activity.some((a) => a.type === "tool_call" || a.type === "approval_request"))
-      return false;
     return true;
   }
 
@@ -1397,7 +1579,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       bgPanel.error = "";
     } catch (e) {
       if (seq !== bgPanel.fetchSeq) return;
-      bgPanel.error = errMessage(e, "Failed to load background activity.");
+      bgPanel.error = errMessage(e, msg("Failed to load background activity."));
     } finally {
       if (seq === bgPanel.fetchSeq) {
         bgPanel.loading = false;
@@ -1458,9 +1640,11 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
 
   function timeLeft(expiresAt: number): string {
     const mins = Math.round((expiresAt - Date.now()) / 60_000);
-    if (mins <= 0) return "expiring";
-    if (mins < 60) return `${mins}m left`;
-    return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m left`;
+    if (mins <= 0) return msg("expiring");
+    if (mins < 60) return msg(str`${formatNumber(mins)}m left`);
+    return msg(
+      str`${formatNumber(Math.floor(mins / 60))}h ${formatNumber(mins % 60, { minimumIntegerDigits: 2 })}m left`,
+    );
   }
 
   function backgroundActivityStrip(): TemplateResult | typeof nothing {
@@ -1477,10 +1661,14 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
           type="button"
           class="bg-activity-strip"
           aria-expanded=${String(bgPanel.open)}
-          title=${bgPanel.open ? "Hide background activity" : "Work continuing on the agent's computer — click to inspect"}
+          title=${
+            bgPanel.open
+              ? msg("Hide background activity")
+              : msg("Work continuing on the agent's computer — click to inspect")
+          }
           @click=${toggleBackgroundPanel}
         >
-          ${icon(Activity, 13)}<span class="bg-activity-label">${label ?? "Background activity"}</span>
+          ${icon(Activity, 13)}<span class="bg-activity-label">${label ?? msg("Background activity")}</span>
           <span class="bg-activity-toggle">${icon(ChevronRight, 14)}</span>
         </button>
         ${bgPanel.open ? backgroundPanelBody() : nothing}
@@ -1491,10 +1679,14 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
   function backgroundPanelBody(): TemplateResult {
     const d = bgPanel.detail;
     const empty = d && d.jobs.length === 0 && d.watches.length === 0;
-    return html`<div class="bg-panel" role="region" aria-label="Background activity">
+    return html`<div class="bg-panel" role="region" aria-label=${msg("Background activity")}>
       ${bgPanel.error ? html`<div class="bg-panel-note">${bgPanel.error}</div>` : nothing}
-      ${!d && bgPanel.loading ? html`<div class="bg-panel-note">Loading…</div>` : nothing}
-      ${empty && !bgPanel.error ? html`<div class="bg-panel-note">Nothing running here anymore.</div>` : nothing}
+      ${!d && bgPanel.loading ? html`<div class="bg-panel-note">${msg("Loading…")}</div>` : nothing}
+      ${
+        empty && !bgPanel.error
+          ? html`<div class="bg-panel-note">${msg("Nothing running here anymore.")}</div>`
+          : nothing
+      }
       ${d ? d.jobs.map((j) => backgroundJobRow(j)) : nothing}
       ${d ? d.watches.map((w) => backgroundWatchRow(w)) : nothing}
     </div>`;
@@ -1503,41 +1695,49 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
   function backgroundJobRow(j: SessionBackgroundView["jobs"][number]): TemplateResult {
     const open = bgPanel.openJob === j.processId;
     const out = bgPanel.output.get(j.processId);
-    const status =
-      out?.state === "exited"
-        ? `exited${out.exitCode !== undefined ? ` (${out.exitCode})` : ""}`
-        : timeLeft(j.expiresAt);
+    let status = timeLeft(j.expiresAt);
+    if (out?.state === "exited") {
+      status = msg("exited");
+      if (out.exitCode !== undefined) status = msg(str`exited (${out.exitCode})`);
+    }
     return html`
       <div class="bg-row ${open ? "open" : ""}">
         <button
           type="button"
           class="bg-row-head"
           aria-expanded=${String(open)}
-          title=${open ? "Hide output" : "Show live output"}
+          title=${open ? msg("Hide output") : msg("Show live output")}
           @click=${() => toggleJobOutput(j.processId)}
         >
           ${icon(Terminal, 13)}
           <code class="bg-row-cmd">${j.command}</code>
-          <span class="bg-row-meta">started ${relTime(j.startedAt)} · ${status}</span>
+          <span class="bg-row-meta">${msg(str`started ${relTime(j.startedAt)} · ${status}`)}</span>
           <span class="bg-row-toggle">${icon(ChevronRight, 13)}</span>
         </button>
-        ${open ? html`<pre class="bg-row-output">${out ? out.text || "(no output yet)" : "Loading output…"}</pre>` : nothing}
+        ${
+          open
+            ? html`<pre class="bg-row-output">
+${out ? out.text || msg("(no output yet)") : msg("Loading output…")}</pre>`
+            : nothing
+        }
       </div>
     `;
   }
 
   function backgroundWatchRow(w: SessionBackgroundView["watches"][number]): TemplateResult {
-    const what = w.pattern ? `output matching /${w.pattern}/` : "any new output";
+    const what = w.pattern ? msg(str`output matching /${w.pattern}/`) : msg("any new output");
     const note = w.instructions?.trim();
+    const armed = w.lastFiredAt
+      ? msg(str`armed ${relTime(w.createdAt)} · last fired ${relTime(w.lastFiredAt)} · ${timeLeft(w.expiresAt)}`)
+      : msg(str`armed ${relTime(w.createdAt)} · ${timeLeft(w.expiresAt)}`);
     return html`
       <div class="bg-row watch">
         <div class="bg-row-head static">
           ${icon(Radar, 13)}
-          <span class="bg-row-cmd">Watch — wakes on ${what}${note ? ` · “${note}”` : ""}</span>
-          <span class="bg-row-meta"
-            >armed ${relTime(w.createdAt)}${w.lastFiredAt ? ` · last fired ${relTime(w.lastFiredAt)}` : ""} ·
-            ${timeLeft(w.expiresAt)}</span
+          <span class="bg-row-cmd"
+            >${note ? msg(str`Watch — wakes on ${what} · “${note}”`) : msg(str`Watch — wakes on ${what}`)}</span
           >
+          <span class="bg-row-meta">${armed}</span>
         </div>
       </div>
     `;
@@ -1551,7 +1751,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     const expandable = Boolean(summary?.detail);
     const expanded = expandable && liveWorkExpanded;
     let title = "";
-    if (expandable) title = liveWorkExpanded ? "Show less" : "Show more";
+    if (expandable) title = liveWorkExpanded ? msg("Show less") : msg("Show more");
     return html`
       <section class="live-work-dock ${expanded ? "expanded" : ""}" aria-live="polite">
         <button
@@ -1564,7 +1764,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
         >
           ${summary ? html`<span class="tool-icon">${icon(summary.icon, 15)}</span>` : nothing}
           <span class="live-work-label"
-            >${summary ? summary.label : sheenLabel(`Thinking${usedToolsSuffix(work)}`, true)}</span
+            >${summary ? summary.label : sheenLabel(msg(str`Thinking${usedToolsSuffix(work)}`), true)}</span
           >
           ${summary?.detail ? html`<span class="live-work-detail">${summary.detail}</span>` : nothing}
           ${expandable ? html`<span class="live-work-toggle">${icon(ChevronRight, 14)}</span>` : nothing}
@@ -1586,7 +1786,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       const verb = active ? (TOOL_META[tool] ?? UNKNOWN_TOOL).active : null;
       return {
         icon: RefreshCw,
-        label: verb ? `${verb} interrupted — resuming…` : "Interrupted — resuming…",
+        label: verb ? msg(str`${verb} interrupted — resuming…`) : msg("Interrupted — resuming…"),
         detail: active ? toolDetail(tool, call, (active.result?.payload ?? {}) as ToolPayload) : "",
       };
     }
@@ -1611,7 +1811,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     const secs = elapsedSeconds(row.call?.createdAt) || workSeconds(work);
     return {
       icon: meta.icon,
-      label: secs > 0 ? `${meta.active} for ${secs}s` : meta.active,
+      label: secs > 0 ? msg(str`${meta.active} for ${formatNumber(secs)}s`) : meta.active,
       detail: toolDetail(tool, call, result),
     };
   }
@@ -1629,14 +1829,17 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
 
   function usedToolsSuffix(work: WorkBlock): string {
     const n = work.activity.filter((a) => a.type === "tool_call").length;
-    return n > 0 ? ` (used ${n} tool${n === 1 ? "" : "s"})` : "";
+    if (n === 1) return msg(str` (used ${formatNumber(n)} tool)`);
+    return n > 1 ? msg(str` (used ${formatNumber(n)} tools)`) : "";
   }
 
   function workLabel(work: WorkBlock): string {
-    if (work.stale && (work.status === "thinking" || work.status === "working")) return "Interrupted — resuming…";
-    if (work.status === "thinking") return "Thinking";
+    if (work.stale && (work.status === "thinking" || work.status === "working")) return msg("Interrupted — resuming…");
+    if (work.status === "thinking") return msg("Thinking");
     const secs = workSeconds(work);
-    return work.status === "working" ? `Working for ${secs}s` : `Worked for ${secs}s`;
+    return work.status === "working"
+      ? msg(str`Working for ${formatNumber(secs)}s`)
+      : msg(str`Worked for ${formatNumber(secs)}s`);
   }
 
   function workBlock(work: WorkBlock, isStreaming: boolean): TemplateResult {
@@ -1688,9 +1891,12 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
 
   function segmentSummaryLabel(items: TimelineItem[], work: WorkBlock): string {
     const tools = items.filter((it) => it.kind === "tool").length;
-    if (tools > 0) return `${tools} tool call${tools === 1 ? "" : "s"}`;
+    if (tools === 1) return msg(str`${formatNumber(tools)} tool call`);
+    if (tools > 1) return msg(str`${formatNumber(tools)} tool calls`);
     const secs = workSeconds(work);
-    return work.status === "failed" ? `Failed after ${secs}s` : `Worked for ${secs}s`;
+    return work.status === "failed"
+      ? msg(str`Failed after ${formatNumber(secs)}s`)
+      : msg(str`Worked for ${formatNumber(secs)}s`);
   }
 
   function approvalSummaryView(a: PendingApproval, expanded = false): TemplateResult {
@@ -1698,11 +1904,15 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     const truncated = a.command.includes("\n") || a.command.length > 80;
     return html`
       <div class="approval-head">
-        <span class="approval-title">Approval needed</span>
+        <span class="approval-title">${msg("Approval needed")}</span>
         ${a.reason ? html`<span class="approval-reason-badge">${a.reason}</span>` : nothing}
       </div>
       ${a.summary ? html`<div class="approval-summary-line">${a.summary}</div>` : nothing}
-      ${a.purpose ? html`<div class="approval-why"><span class="approval-why-label">Why</span>${a.purpose}</div>` : nothing}
+      ${
+        a.purpose
+          ? html`<div class="approval-why"><span class="approval-why-label">${msg("Why")}</span>${a.purpose}</div>`
+          : nothing
+      }
       ${
         expanded
           ? html`<code class="approval-cmd approval-cmd-full">${a.command}</code>`
@@ -1711,7 +1921,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       ${
         a.matched
           ? html`<div class="approval-match">
-              <span class="approval-match-label">Triggered by</span
+              <span class="approval-match-label">${msg("Triggered by")}</span
               ><code class="approval-match-snippet">${a.matched}</code>
             </div>`
           : nothing
@@ -1719,7 +1929,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       ${
         !expanded && truncated
           ? html`<details class="approval-full">
-              <summary>Show full command</summary>
+              <summary>${msg("Show full command")}</summary>
               <code class="approval-cmd">${a.command}</code>
             </details>`
           : nothing
@@ -1759,26 +1969,46 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
   }
 
   const TOOL_META: Record<string, { icon: IconNode; active: string; done: string; attempted: string }> = {
-    execute: { icon: Terminal, active: "Running command", done: "Ran command", attempted: "Tried command" },
-    read: { icon: FileText, active: "Reading file", done: "Read file", attempted: "Tried reading file" },
-    write: { icon: Pencil, active: "Writing file", done: "Wrote file", attempted: "Tried writing file" },
-    publish: { icon: Rocket, active: "Publishing", done: "Published", attempted: "Tried publishing" },
-    recall: { icon: Brain, active: "Searching memory", done: "Searched memory", attempted: "Tried searching memory" },
-    memory: { icon: Brain, active: "Using memory", done: "Used memory", attempted: "Tried using memory" },
+    execute: {
+      icon: Terminal,
+      active: msg("Running command"),
+      done: msg("Ran command"),
+      attempted: msg("Tried command"),
+    },
+    read: { icon: FileText, active: msg("Reading file"), done: msg("Read file"), attempted: msg("Tried reading file") },
+    write: { icon: Pencil, active: msg("Writing file"), done: msg("Wrote file"), attempted: msg("Tried writing file") },
+    publish: { icon: Rocket, active: msg("Publishing"), done: msg("Published"), attempted: msg("Tried publishing") },
+    recall: {
+      icon: Brain,
+      active: msg("Searching memory"),
+      done: msg("Searched memory"),
+      attempted: msg("Tried searching memory"),
+    },
+    memory: {
+      icon: Brain,
+      active: msg("Using memory"),
+      done: msg("Used memory"),
+      attempted: msg("Tried using memory"),
+    },
     history: {
       icon: ScrollText,
-      active: "Searching history",
-      done: "Searched history",
-      attempted: "Tried searching history",
+      active: msg("Searching history"),
+      done: msg("Searched history"),
+      attempted: msg("Tried searching history"),
     },
     background: {
       icon: Terminal,
-      active: "Managing process",
-      done: "Managed process",
-      attempted: "Tried managing process",
+      active: msg("Managing process"),
+      done: msg("Managed process"),
+      attempted: msg("Tried managing process"),
     },
   };
-  const UNKNOWN_TOOL = { icon: Wrench, active: "Working", done: "Finished step", attempted: "Tried step" };
+  const UNKNOWN_TOOL = {
+    icon: Wrench,
+    active: msg("Working"),
+    done: msg("Finished step"),
+    attempted: msg("Tried step"),
+  };
 
   function firstLine(s: string, max = 72): string {
     const line = s.split("\n")[0] ?? "";
@@ -1801,16 +2031,20 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       case "recall":
       case "history": {
         const q = call.query ?? result.query ?? "";
-        return result.count !== undefined ? `${q} · ${result.count} result${result.count === 1 ? "" : "s"}` : q;
+        if (result.count === 1) return msg(str`${q} · ${formatNumber(result.count)} result`);
+        return result.count !== undefined ? msg(str`${q} · ${formatNumber(result.count)} results`) : q;
       }
       case "memory": {
         const action = call.action ?? result.action ?? "";
         const q = call.query ?? result.query ?? "";
         let detail = q;
         if (result.count !== undefined) {
-          detail = `${q} · ${result.count} result${result.count === 1 ? "" : "s"}`;
+          detail =
+            result.count === 1
+              ? msg(str`${q} · ${formatNumber(result.count)} result`)
+              : msg(str`${q} · ${formatNumber(result.count)} results`);
         } else if (result.added !== undefined) {
-          detail = `${result.added} saved`;
+          detail = msg(str`${formatNumber(result.added)} saved`);
         }
         return [action, detail].filter(Boolean).join(" ");
       }
@@ -1830,8 +2064,9 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       return html`<div class="tool-row tool-approval">
         <span class="tool-icon">${icon(Wrench, 15)}</span>
         <span class="tool-label"
-          >Approval
-          needed${p.reason ? html` <span class="tool-detail">${firstLine(p.reason, 90)}</span>` : nothing}</span
+          >${msg("Approval needed")}${
+            p.reason ? html` <span class="tool-detail">${firstLine(p.reason, 90)}</span>` : nothing
+          }</span
         >
       </div>`;
     }
@@ -1841,14 +2076,14 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
     const meta = TOOL_META[tool] ?? UNKNOWN_TOOL;
     const kind = toolRowKind(row, status);
     let label = meta.attempted;
-    if (kind === "approval") label = "Approval needed";
-    else if (kind === "running") label = stale ? `${meta.active} — interrupted` : meta.active;
+    if (kind === "approval") label = msg("Approval needed");
+    else if (kind === "running") label = stale ? msg(str`${meta.active} — interrupted`) : meta.active;
     else if (kind === "ok") label = meta.done;
     let why = "";
     if (kind === "approval") why = firstLine(result.reason ?? "", 90);
     else if (kind === "failed") why = firstLine(result.error ?? result.reason ?? "", 90);
     const base = kind === "approval" ? "" : toolDetail(tool, call, result);
-    const attempts = row.attempts && row.attempts > 1 ? `${row.attempts} attempts` : "";
+    const attempts = row.attempts && row.attempts > 1 ? msg(str`${formatNumber(row.attempts)} attempts`) : "";
     const detail = [base, why, attempts].filter(Boolean).join(" · ");
     const classes = ["tool-row", `tool-${kind}`].join(" ");
     const head = html`<span class="tool-icon">${icon(meta.icon, 15)}</span>
@@ -1868,11 +2103,11 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
       <div class="code-card-head"><span class="code-card-lang">bash</span></div>
       <pre class="code-card-body">${out}</pre>
       <div class="code-card-foot">
-        exit ${result.code ?? 0}${result.timedOut ? " · timed out" : ""}
+        ${msg(str`exit ${result.code ?? 0}`)}${result.timedOut ? msg(" · timed out") : ""}
         ${
           activity?.truncated
             ? html`<button class="show-full-btn" type="button" @click=${() => void loadFullEntry(work, activity)}>
-                Show full output
+                ${msg("Show full output")}
               </button>`
             : nothing
         }
@@ -1894,7 +2129,7 @@ export function createChatSurface(ctx: ConvCtx): ChatSurface {
         a === activity ? { ...a, payload: full.payload, truncated: false } : a,
       );
     } catch (err) {
-      ctx.composer.state.error = errMessage(err, "Couldn't load the full output.");
+      ctx.composer.state.error = errMessage(err, msg("Couldn't load the full output."));
     }
     redrawTranscript();
   }

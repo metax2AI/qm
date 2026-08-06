@@ -1,5 +1,7 @@
 import { getBuiltinModel } from "@earendil-works/pi-ai/providers/all";
 import type { Api, Model } from "@earendil-works/pi-ai";
+import { providerBaseUrl } from "./provider-endpoints.ts";
+import { isCustomModelId, resolveCustomModel } from "./custom-providers.ts";
 
 const getModel = getBuiltinModel as unknown as (provider: string, id: string) => Model<Api> | undefined;
 
@@ -9,7 +11,7 @@ export const THINKING_LEVELS = ["auto", "low", "medium", "high", "xhigh", "max",
 export const HARNESS_IDS = ["pi", "opencode", "codex", "claude", "mock"] as const;
 export type HarnessId = (typeof HARNESS_IDS)[number];
 
-export const MODEL_PROVIDERS = ["anthropic", "openai", "openrouter"] as const;
+export const MODEL_PROVIDERS = ["anthropic", "deepseek", "openai", "openrouter"] as const;
 export type ModelProvider = (typeof MODEL_PROVIDERS)[number];
 
 export function isModelProvider(value: unknown): value is ModelProvider {
@@ -62,6 +64,15 @@ export const MODEL_REGISTRY: readonly ModelEntry[] = [
   { id: "claude-sonnet-5", name: "Claude Sonnet 5", fastMode: false, webui: true, base: true },
   { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", fastMode: false, webui: true, base: true, auxiliary: true },
   {
+    id: "deepseek-v4-flash",
+    name: "DeepSeek V4 Flash",
+    fastMode: false,
+    webui: true,
+    base: true,
+    auxiliary: true,
+  },
+  { id: "deepseek-v4-pro", name: "DeepSeek V4 Pro", fastMode: false, webui: true, base: true },
+  {
     id: "gpt-5.6-sol",
     name: "GPT-5.6 Sol",
     fastMode: false,
@@ -106,7 +117,12 @@ export const SELECTABLE_BASE_MODELS: ReadonlyArray<{ id: string; name: string }>
 function builtinModel(id: string): PiModel | undefined {
   for (const provider of MODEL_PROVIDERS) {
     const m = getModel(provider, id);
-    if (m) return m;
+    if (!m) continue;
+    // Endpoint overrides apply here, at the single choke point every
+    // resolution passes through — including clones, whose template is
+    // spread by cloneModel, so an overridden template covers its clones.
+    const override = providerBaseUrl(String(m.provider ?? provider));
+    return override ? { ...m, baseUrl: override } : m;
   }
   return undefined;
 }
@@ -142,7 +158,10 @@ export function resolveModel(id: string): PiModel | undefined {
         })
       : undefined;
   }
-  return builtinModel(id);
+  const model = builtinModel(id);
+  if (!model) return resolveCustomModel(id) as unknown as PiModel | undefined;
+  if (model.provider !== "deepseek") return model;
+  return { ...model, compat: { ...model.compat, maxTokensField: "max_tokens" } };
 }
 
 export function auxiliaryModelForProvider(provider: string): string | undefined {
@@ -168,8 +187,11 @@ export function contextTokenBudgetForModel(id: string): number | undefined {
 
 export function modelSupportedByHarness(id: string | undefined, harness: string): boolean {
   if (!id) return false;
-  if (harness === "pi" || harness === "opencode" || harness === "mock") return Boolean(resolveModel(id));
+  if (isCustomModelId(id) && !REGISTRY_BY_ID.has(id))
+    return harness === "pi" || harness === "opencode" || harness === "mock";
+  if (harness === "pi" || harness === "mock") return Boolean(resolveModel(id));
   const provider = resolveModel(id)?.provider;
+  if (harness === "opencode") return provider === "anthropic" || provider === "openai";
   if (harness === "claude") return provider === "anthropic" || /^claude-/i.test(id);
   if (harness === "codex") return provider === "openai" || /^(?:gpt-|o\d|codex|openai\/)/i.test(id);
   return false;
@@ -191,6 +213,7 @@ export function defaultModelForHarness(
 
 export interface ModelProviderAvailability {
   anthropic: boolean;
+  deepseek: boolean;
   openai: boolean;
   openrouter: boolean;
 }
@@ -198,8 +221,10 @@ export interface ModelProviderAvailability {
 export function modelServiceable(id: string, providers: ModelProviderAvailability): boolean {
   const provider = resolveModel(id)?.provider;
   if (!provider) return false;
+  if (isCustomModelId(id) && !REGISTRY_BY_ID.has(id)) return true;
   if (provider === "openai") return providers.openai;
   if (provider === "anthropic") return providers.anthropic;
+  if (provider === "deepseek") return providers.deepseek;
   if (provider === "openrouter") return providers.openrouter;
   return true;
 }
@@ -208,7 +233,12 @@ export function serviceableModelIds(ids: readonly string[], providers: ModelProv
   return ids.filter((id) => modelServiceable(id, providers));
 }
 
-export const ALL_PROVIDERS_AVAILABLE: ModelProviderAvailability = { anthropic: true, openai: true, openrouter: true };
+export const ALL_PROVIDERS_AVAILABLE: ModelProviderAvailability = {
+  anthropic: true,
+  deepseek: true,
+  openai: true,
+  openrouter: true,
+};
 
 export function modelProviderAvailabilityFor(
   harness: string,
@@ -216,13 +246,13 @@ export function modelProviderAvailabilityFor(
   managedKeys: ModelProviderAvailability = configKeys,
 ): ModelProviderAvailability {
   if (harness === "pi") return managedKeys;
-  if (harness === "opencode") return { ...configKeys, openrouter: false };
+  if (harness === "opencode") return { ...configKeys, deepseek: false, openrouter: false };
   if (harness === "codex") return configKeys;
   return ALL_PROVIDERS_AVAILABLE;
 }
 
 export function onlyProvider(provider: ModelProvider): ModelProviderAvailability {
-  return { anthropic: false, openai: false, openrouter: false, [provider]: true };
+  return { anthropic: false, deepseek: false, openai: false, openrouter: false, [provider]: true };
 }
 
 export function defaultModelForProvider(harness: string, provider: ModelProvider): string | undefined {

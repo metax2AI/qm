@@ -13,8 +13,8 @@ import {
   modelProviderAvailabilityFor,
   modelServiceable,
 } from "../model/pi-models.ts";
-import { selectableCatalogForHarness, selectableModelCatalog } from "../model/model-catalog.ts";
-import { resolveRuntimeChoiceDurable } from "../harness/harness-router.ts";
+import { builtInModelCatalog, selectableCatalogForHarness, selectableModelCatalog } from "../model/model-catalog.ts";
+import { resolveRuntimeChoiceDurable, RuntimeChoiceError } from "../harness/harness-router.ts";
 import { errMessage } from "../util/errors.ts";
 
 import type { App, AppDeps } from "./app-types.ts";
@@ -54,6 +54,7 @@ export function createTurnMethods(
   const { shouldRouteToSpine, markTriggerHandled, addressedWakeText } = ambient;
   return {
     async turn(req: TurnRequest): Promise<TurnResult> {
+      await deps.refreshCustomProviders?.();
       await deps.identity.refresh();
       const actor: Principal = deps.identity.resolve(req.actor);
       let projectAudience: Principal[] | undefined;
@@ -66,22 +67,39 @@ export function createTurnMethods(
 
       if (projectGroup) {
         if (!deps.identity.isInternal(actor)) {
-          return { status: "refused", reason: "you're not a member of that context" };
+          return {
+            status: "refused",
+            reasonCode: "context_access_denied",
+            reason: "you're not a member of that context",
+          };
         }
-        if (!projectId) return { status: "refused", reason: "you're not a member of that context" };
+        if (!projectId)
+          return {
+            status: "refused",
+            reasonCode: "context_access_denied",
+            reason: "you're not a member of that context",
+          };
         const project = await deps.projects?.get(projectId);
         if (
           !project ||
           project.orgId !== orgIdOf() ||
           !deps.identity.isInternal(deps.identity.classify(project.ownerId))
         ) {
-          return { status: "refused", reason: "you're not a member of that context" };
+          return {
+            status: "refused",
+            reasonCode: "context_access_denied",
+            reason: "you're not a member of that context",
+          };
         }
         const activeMemberIds = project.memberIds.filter((memberId) =>
           deps.identity.isInternal(deps.identity.classify(memberId)),
         );
         if (!activeMemberIds.includes(actor.id))
-          return { status: "refused", reason: "you're not a member of that context" };
+          return {
+            status: "refused",
+            reasonCode: "context_access_denied",
+            reason: "you're not a member of that context",
+          };
         projectAudience = await Promise.all(
           activeMemberIds.map(async (memberId) => {
             if (memberId === actor.id) return actor;
@@ -95,7 +113,11 @@ export function createTurnMethods(
         sessionParticipantIds = [...activeMemberIds];
       } else if (req.surface === "web" && req.conversation.kind !== "dm") {
         if (!conversationRef || !(await mayUseSharedScope(req.conversation.kind, conversationRef, actor))) {
-          return { status: "refused", reason: "you're not a member of that context" };
+          return {
+            status: "refused",
+            reasonCode: "context_access_denied",
+            reason: "you're not a member of that context",
+          };
         }
       }
 
@@ -114,10 +136,18 @@ export function createTurnMethods(
               ? scopeId("personal", actor.id)
               : scopeId(req.conversation.kind, req.conversation.channelRef ?? threadRef);
           if (existing.scopeId !== claimed) {
-            return { status: "refused", reason: "that conversation lives in a different context" };
+            return {
+              status: "refused",
+              reasonCode: "conversation_context_mismatch",
+              reason: "that conversation lives in a different context",
+            };
           }
         } else if (threadRef.startsWith("web:") && !threadRef.startsWith(`web:${actor.id}:`)) {
-          return { status: "refused", reason: "you can only start a new conversation on your own thread" };
+          return {
+            status: "refused",
+            reasonCode: "thread_owner_mismatch",
+            reason: "you can only start a new conversation on your own thread",
+          };
         }
         const org = scopeId("org", orgIdOf());
         const targetScope =
@@ -129,6 +159,13 @@ export function createTurnMethods(
           harnessId: fallbackHarness,
           modelId: defaultModelForHarness(fallbackHarness),
         };
+        if (req.harness && !isHarnessId(req.harness)) {
+          return {
+            status: "refused",
+            reasonCode: "runtime_not_approved",
+            reason: `runtime ${req.harness} is not approved`,
+          };
+        }
         let orgRuntime;
         let configuredRuntime;
         let runtime;
@@ -146,13 +183,14 @@ export function createTurnMethods(
                 })
               : configuredRuntime;
         } catch (error) {
-          return { status: "refused", reason: errMessage(error) };
-        }
-        if (req.harness && !isHarnessId(req.harness)) {
-          return { status: "refused", reason: `runtime ${req.harness} is not approved` };
+          return {
+            status: "refused",
+            ...(error instanceof RuntimeChoiceError ? { reasonCode: error.reasonCode } : {}),
+            reason: errMessage(error),
+          };
         }
         const configuredKeys = deps.providerKeys ??
-          deps.modelProviders ?? { anthropic: false, openai: false, openrouter: false };
+          deps.modelProviders ?? { anthropic: false, deepseek: false, openai: false, openrouter: false };
         let providers = deps.modelProviders;
         if (deps.modelCredentials) {
           providers = modelProviderAvailabilityFor(
@@ -166,15 +204,16 @@ export function createTurnMethods(
         if (providers && !modelServiceable(runtime.modelId, providers)) {
           return {
             status: "refused",
+            reasonCode: "model_provider_unavailable",
             reason: "that model isn't available on this deployment (its provider isn't configured)",
           };
         }
         const configuredWebuiModels = await deps.config.getWebuiModelsDurable(org);
-        let enabledWebuiModels: string[] | null = null;
-        if (configuredWebuiModels?.length) {
-          enabledWebuiModels = [...new Set([...configuredWebuiModels, orgRuntime.modelId])];
-        } else if (providers?.openrouter) {
-          enabledWebuiModels = [
+        const enabledWebuiModels = await (async () => {
+          if (configuredWebuiModels?.length) return [...new Set([...configuredWebuiModels, orgRuntime.modelId])];
+          if (!providers?.openrouter)
+            return selectableCatalogForHarness(builtInModelCatalog(), runtime.harnessId).map((model) => model.id);
+          return [
             ...new Set([
               ...selectableCatalogForHarness(
                 await selectableModelCatalog(deps.modelCredentialFetch),
@@ -183,11 +222,11 @@ export function createTurnMethods(
               ...(orgRuntime.harnessId === runtime.harnessId ? [orgRuntime.modelId] : []),
             ]),
           ];
-        }
+        })();
         const invalidModelOption =
           validateWebTurnModelOptions(req, enabledWebuiModels, providers) ??
           webTurnRuntimeModelRefusal(runtime.modelId, orgRuntime.modelId, configuredWebuiModels);
-        if (invalidModelOption) return { status: "refused", reason: invalidModelOption };
+        if (invalidModelOption) return { status: "refused", ...invalidModelOption };
       }
 
       const rawAudience = req.conversation.audience ?? [req.actor];
@@ -265,7 +304,11 @@ export function createTurnMethods(
           !(await approvalRecordIsCurrent(approval, approvalSession)) ||
           !(await approvalVisibleToViewer(approvalSession, actor.id, approval))
         ) {
-          return { status: "refused", reason: "approval isn't visible in your project tenure" };
+          return {
+            status: "refused",
+            reasonCode: "approval_not_visible",
+            reason: "approval isn't visible in your project tenure",
+          };
         }
       }
       const blocked = await pendingApprovalResultForThread(conversation.threadRef, projectGroup ? actor.id : undefined);
@@ -334,7 +377,11 @@ export function createTurnMethods(
               return live.id;
             });
             if (!routedRunId)
-              return { status: "refused", reason: "project membership changed; retry from the current project" };
+              return {
+                status: "refused",
+                reasonCode: "project_membership_changed",
+                reason: "project membership changed; retry from the current project",
+              };
             if (route.kind === "steer") {
               const after = await deps.runs.get(live.id);
               if (!after || isTerminal(after.status)) {
@@ -380,7 +427,11 @@ export function createTurnMethods(
               return liveAmbient.id;
             });
             if (!routedRunId)
-              return { status: "refused", reason: "project membership changed; retry from the current project" };
+              return {
+                status: "refused",
+                reasonCode: "project_membership_changed",
+                reason: "project membership changed; retry from the current project",
+              };
             const after = await deps.runs.get(liveAmbient.id);
             if (!after || isTerminal(after.status)) {
               const own = (await replayOrphanedRunSignals(liveAmbient.id)).find(
@@ -409,7 +460,12 @@ export function createTurnMethods(
           ...(dedupKey ? { dedupKey } : {}),
         });
       const enqueued = await withCurrentProjectRoster(enqueue);
-      if (!enqueued) return { status: "refused", reason: "project membership changed; retry from the current project" };
+      if (!enqueued)
+        return {
+          status: "refused",
+          reasonCode: "project_membership_changed",
+          reason: "project membership changed; retry from the current project",
+        };
       const { run, deduped } = enqueued;
       if (!deduped) {
         deps.sessionStateBus?.emit({

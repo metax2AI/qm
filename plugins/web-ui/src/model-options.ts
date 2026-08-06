@@ -1,4 +1,5 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
+import { msg } from "@lit/localize";
 import { getBaseModel } from "./pi-models.ts";
 
 export type ModelOptionValue = string;
@@ -36,6 +37,14 @@ const MODEL_CATALOG: Record<string, ModelMeta> = {
   "claude-fable-5": {
     label: "Fable 5",
     buttonLabel: "Fable 5",
+  },
+  "deepseek-v4-flash": {
+    label: "DeepSeek V4 Flash",
+    buttonLabel: "V4 Flash",
+  },
+  "deepseek-v4-pro": {
+    label: "DeepSeek V4 Pro",
+    buttonLabel: "V4 Pro",
   },
   "gpt-5.6-sol": {
     label: "GPT-5.6 Sol",
@@ -191,13 +200,13 @@ export function transcriptModel(scopeKey?: string | null): Model<Api> {
 export type EffortLevel = "low" | "medium" | "high" | "xhigh" | "max" | "ultracode" | "auto";
 
 export const EFFORT_LEVELS: Array<{ value: EffortLevel; label: string }> = [
-  { value: "auto", label: "Auto" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "xhigh", label: "XHigh" },
-  { value: "max", label: "Max" },
-  { value: "ultracode", label: "Ultracode" },
+  { value: "auto", label: msg("Auto") },
+  { value: "low", label: msg("Low") },
+  { value: "medium", label: msg("Medium") },
+  { value: "high", label: msg("High") },
+  { value: "xhigh", label: msg("XHigh") },
+  { value: "max", label: msg("Max") },
+  { value: "ultracode", label: msg("Ultracode") },
 ];
 
 export function effortLabel(level: EffortLevel): string {

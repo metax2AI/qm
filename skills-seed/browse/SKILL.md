@@ -57,8 +57,9 @@ becoming the default):
 - Your provider key — `KERNEL_API_KEY`, `ANCHOR_API_KEY`, or `BROWSERBASE_API_KEY`, the
   org key for creating the stealth browser.
 - The model key that drives the inner browser agent, named for the provider core resolved:
-  `BROWSE_LAB_ANTHROPIC_KEY`, `BROWSE_LAB_OPENAI_KEY`, or `BROWSE_LAB_OPENROUTER_KEY`. Core sets
-  `BROWSE_LAB_MODEL_PROVIDER` alongside it so the runner picks the matching client.
+  `BROWSE_LAB_ANTHROPIC_KEY`, `BROWSE_LAB_DEEPSEEK_KEY`, `BROWSE_LAB_OPENAI_KEY`, or
+  `BROWSE_LAB_OPENROUTER_KEY`. Core sets `BROWSE_LAB_MODEL_PROVIDER` alongside it so the
+  runner picks the matching client.
 - The person's OWN browser-profile name, under the env key your provider doc names. The
   provider doc's header has an `export PROFILE_ENV=… PROFILE_SERVICE=…` line the profile
   snippets below depend on — run it first. **The profile name is the credential that decides
@@ -199,6 +200,7 @@ class FastChatAnthropic(ChatAnthropic):
             return await super().ainvoke(messages, output_format, **kwargs)
 
 OPENAI_COMPATIBLE = {
+    "deepseek": ("BROWSE_LAB_DEEPSEEK_KEY", "https://api.deepseek.com"),
     "openai": ("BROWSE_LAB_OPENAI_KEY", None),
     "openrouter": ("BROWSE_LAB_OPENROUTER_KEY", "https://openrouter.ai/api/v1"),
 }

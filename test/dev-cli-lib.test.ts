@@ -278,10 +278,100 @@ test("env assembly precedence: caller > login shell > dev.env > worktree .env; h
   writeFileSync(join(worktree, ".env"), "");
   await assert.rejects(
     assembleEnv({ worktree, callerEnv: {}, allowMock: false, log, probeLoginShell: async () => "" }),
-    /ANTHROPIC_API_KEY is required/,
+    /ANTHROPIC_API_KEY or DEEPSEEK_API_KEY is required/,
   );
   const mock = await assembleEnv({ worktree, callerEnv: {}, allowMock: true, log, probeLoginShell: async () => "" });
   assert.equal(mock.harness, "mock");
+  if (prevLive === undefined) delete process.env.QM_DEV_ENV;
+  else process.env.QM_DEV_ENV = prevLive;
+  rmSync(worktree, { recursive: true, force: true });
+});
+
+test("env assembly selects DeepSeek Pi and tracks its key source", async () => {
+  const worktree = mkdtempSync(join(tmpdir(), "qm-wt-"));
+  mkdirSync(join(worktree, ".git"));
+  writeFileSync(join(worktree, ".env"), "DEEPSEEK_API_KEY=from-dotenv\n");
+  const liveEnv = join(worktree, "dev.env");
+  writeFileSync(liveEnv, "DEEPSEEK_API_KEY=from-liveenv\n");
+  const prevLive = process.env.QM_DEV_ENV;
+  process.env.QM_DEV_ENV = liveEnv;
+  const log = () => {};
+
+  const fromCaller = await assembleEnv({
+    worktree,
+    callerEnv: { DEEPSEEK_API_KEY: "from-caller" },
+    allowMock: false,
+    log,
+    probeLoginShell: async () => "",
+  });
+  assert.equal(fromCaller.harness, "pi");
+  assert.equal(fromCaller.env.HARNESS, "pi");
+  assert.equal(fromCaller.env.MODEL_PROVIDER, "deepseek");
+  assert.equal(fromCaller.env.PI_CAPTURE_REQUESTS, "1");
+  assert.equal(fromCaller.deepseekKeySource, "your shell export");
+
+  const explicitlySelected = await assembleEnv({
+    worktree,
+    callerEnv: {
+      MODEL_PROVIDER: "deepseek",
+      ANTHROPIC_API_KEY: "sk-ant",
+      DEEPSEEK_API_KEY: "from-caller",
+      HARNESS: "opencode",
+    },
+    allowMock: false,
+    log,
+    probeLoginShell: async () => "",
+  });
+  assert.equal(explicitlySelected.harness, "pi");
+  assert.equal(explicitlySelected.env.HARNESS, "pi");
+  assert.equal(explicitlySelected.env.MODEL_PROVIDER, "deepseek");
+
+  const fromLiveEnv = await assembleEnv({
+    worktree,
+    callerEnv: {},
+    allowMock: false,
+    log,
+    probeLoginShell: async () => "",
+  });
+  assert.equal(fromLiveEnv.env.DEEPSEEK_API_KEY, "from-liveenv");
+  assert.equal(fromLiveEnv.env.MODEL_PROVIDER, "deepseek");
+  assert.equal(fromLiveEnv.deepseekKeySource, liveEnv);
+
+  writeFileSync(liveEnv, "");
+  const fromDotenv = await assembleEnv({
+    worktree,
+    callerEnv: {},
+    allowMock: false,
+    log,
+    probeLoginShell: async () => "",
+  });
+  assert.equal(fromDotenv.env.DEEPSEEK_API_KEY, "from-dotenv");
+  assert.equal(fromDotenv.env.MODEL_PROVIDER, "deepseek");
+  assert.equal(fromDotenv.deepseekKeySource, "the worktree .env");
+
+  writeFileSync(join(worktree, ".env"), "");
+  await assert.rejects(
+    assembleEnv({
+      worktree,
+      callerEnv: { MODEL_PROVIDER: "deepseek", ANTHROPIC_API_KEY: "sk-ant" },
+      allowMock: false,
+      log,
+      probeLoginShell: async () => "",
+    }),
+    /DEEPSEEK_API_KEY is required/,
+  );
+
+  await assert.rejects(
+    assembleEnv({
+      worktree,
+      callerEnv: { MODEL_PROVIDER: "openai", DEEPSEEK_API_KEY: "stale-deepseek-key" },
+      allowMock: true,
+      log,
+      probeLoginShell: async () => "",
+    }),
+    /MODEL_PROVIDER=openai cannot use DEEPSEEK_API_KEY/,
+  );
+
   if (prevLive === undefined) delete process.env.QM_DEV_ENV;
   else process.env.QM_DEV_ENV = prevLive;
   rmSync(worktree, { recursive: true, force: true });
@@ -367,6 +457,30 @@ test("supervised children share the selected dev org", () => {
   for (const spec of specs) assert.equal(spec.env.CORE_ORG_ID, "beta");
   inputs.baseEnv = {};
   assert.equal(buildChildSpecs(inputs).find((spec) => spec.name === "core")!.env.ORG_ID, "acme");
+});
+
+test("child specs omit Slack env when no Slack tokens are supplied", () => {
+  const inputs: SpecInputs = {
+    worktree: "/tmp/worktree",
+    ports: slotPorts("pool1"),
+    baseEnv: {},
+    watch: false,
+    webUiBasePath: "/",
+    sessionStore: "memory",
+    runStore: "memory",
+    databaseUrl: "",
+    adminGrantsSeed: "",
+    coreSigningSecret: "",
+    portalSessionSecret: "secret",
+    portalDevPrincipal: "U1",
+    sandboxEnv: {},
+  };
+  const core = buildChildSpecs(inputs).find((spec) => spec.name === "core")!;
+  assert.equal(core.env.SLACK_BOT_TOKEN, undefined);
+  assert.equal(core.env.SLACK_APP_TOKEN, undefined);
+  assert.equal(core.env.DEV_INTROSPECTION, undefined);
+  assert.equal(core.env.DEV_HEALTH_PORT, undefined);
+  assert.equal(core.env.CORE_ORG_ID, "acme");
 });
 
 test("formatAge renders the bash-compatible shapes", () => {
