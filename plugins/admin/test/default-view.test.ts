@@ -77,7 +77,10 @@ test("mobile admin navigation keeps the active section visible and controls touc
 });
 
 test("admin history previews quote the first message instead of saying started", () => {
-  assert.equal((html.match(/\?\s*"> "\s*\+\s*s\.firstMessage\s*:\s*t\("created "\)\s*\+\s*fmtHistoryCreated/g) || []).length, 1);
+  assert.equal(
+    (html.match(/\?\s*"> "\s*\+\s*s\.firstMessage\s*:\s*t\("created "\)\s*\+\s*fmtHistoryCreated/g) || []).length,
+    1,
+  );
   assert.doesNotMatch(html, /\? "started " \+ s\.firstMessage : "created "/);
 });
 

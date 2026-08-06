@@ -26,10 +26,7 @@ function signedHeaders(method: string, corePath: string, rawBody: string): Recor
   return signedRequestHeaders(CORE_SIGNING_SECRET, method, corePath, rawBody, { "content-type": "application/json" });
 }
 
-const BASE_HTML = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "../public/index.html"),
-  "utf8",
-)
+const BASE_HTML = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../public/index.html"), "utf8")
   .replaceAll("__ADMIN_BASE__", () => ADMIN_BASE_PATH)
   .replace(/<html lang="[^"]*">/, `<html lang="${ADMIN_DEFAULT_LOCALE}">`)
   .replace(

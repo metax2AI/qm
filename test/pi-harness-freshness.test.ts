@@ -122,10 +122,7 @@ test("ack emoji uses the DeepSeek auxiliary when only a DeepSeek key is present"
       model: body.model,
       authorization: new Headers(init?.headers).get("authorization") ?? "",
     });
-    return new Response(
-      JSON.stringify({ choices: [{ message: { content: '{"emoji":"eyes"}' } }] }),
-      { status: 200 },
-    );
+    return new Response(JSON.stringify({ choices: [{ message: { content: '{"emoji":"eyes"}' } }] }), { status: 200 });
   }) as typeof globalThis.fetch;
   try {
     const picked = await harness.models.pickAckEmoji?.("ship it", ["eyes", "rocket"]);
