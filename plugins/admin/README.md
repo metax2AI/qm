@@ -44,6 +44,8 @@ No build step, no runtime dependencies (pure `node:http` + native TS). Node 24+.
 Env: `CORE_API_URL` (default `http://localhost:8080`), `CORE_ORG_ID` (default `acme`),
 `PORT` (default `8090`) and `CORE_SIGNING_SECRET` (required outside isolated development). The
 portal also supplies a short-lived `x-portal-identity` token, which this surface forwards to core.
+`ADMIN_DEFAULT_LOCALE` (`en` or `zh-Hans`, `en` by default) selects the language injected at serve
+time, and `ADMIN_HIDE_SLACK=1` removes the Slack view for deployments that don't run Slack.
 There is **no** `ADMIN_PRINCIPALS` — admin identity + role + scope live solely in the core's
 durable, mutable `admin_grants` store, and this surface derives admin status from it via
 `/api/whoami`. `ADMIN_GRANTS` (env) is now only the **one-time seed** for an empty store; after

@@ -50,6 +50,11 @@ import {
 } from "../../chassis/src/env.ts";
 
 const PORT = portFromEnv(8097);
+type PortalLocale = "en" | "zh-Hans";
+const PORTAL_DEFAULT_LOCALE: PortalLocale = process.env.PORTAL_DEFAULT_LOCALE === "zh-Hans" ? "zh-Hans" : "en";
+function pick(locale: PortalLocale, en: string, zh: string): string {
+  return locale === "zh-Hans" ? zh : en;
+}
 const PUBLIC_URL = (process.env.PORTAL_PUBLIC_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "");
 const SESSION_SECRET = process.env.PORTAL_SESSION_SECRET;
 const SESSION_TTL_S = Number(process.env.PORTAL_SESSION_TTL_S ?? 28800);
@@ -399,6 +404,7 @@ const ALERT_ICON = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><pat
 const LOCK_ICON = `<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
 
 function cardPage(o: {
+  locale: PortalLocale;
   title: string;
   heading: string;
   msg: string;
@@ -410,7 +416,7 @@ function cardPage(o: {
   help: string;
 }): string {
   return `<!doctype html>
-<html lang="en">
+<html lang="${o.locale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -436,60 +442,103 @@ ${CARD_STYLE}
 </html>`;
 }
 
-export function signInErrorHtml(detail: string): string {
+export function signInErrorHtml(detail: string, locale: PortalLocale = PORTAL_DEFAULT_LOCALE): string {
   return cardPage({
-    title: "Sign-in failed",
-    heading: "We couldn't sign you in",
-    msg: "Your sign-in didn't complete. This is usually temporary — trying again resolves most cases.",
+    locale,
+    title: pick(locale, "Sign-in failed", "登录失败"),
+    heading: pick(locale, "We couldn't sign you in", "无法完成登录"),
+    msg: pick(
+      locale,
+      "Your sign-in didn't complete. This is usually temporary — trying again resolves most cases.",
+      "你的登录没有完成。这通常是暂时的——再试一次大多可以解决。",
+    ),
     icon: ALERT_ICON,
     warn: true,
-    extra: `<p class="reason"><strong>Details</strong>${escapeHtml(detail)}</p>`,
-    actions: `<a class="btn primary" href="/auth/login">Try signing in again</a>
-        <a class="btn ghost" href="/">Back to start</a>`,
-    help: "Still stuck? Make sure you're a member of the approved workspace, then contact your admin.",
+    extra: `<p class="reason"><strong>${pick(locale, "Details", "详细信息")}</strong>${escapeHtml(detail)}</p>`,
+    actions: `<a class="btn primary" href="/auth/login">${pick(locale, "Try signing in again", "重新登录")}</a>
+        <a class="btn ghost" href="/">${pick(locale, "Back to start", "返回首页")}</a>`,
+    help: pick(
+      locale,
+      "Still stuck? Make sure you're a member of the approved workspace, then contact your admin.",
+      "仍然无法解决？请确认你属于被批准的成员范围，然后联系管理员。",
+    ),
   });
 }
 
-export function nonAdminDeniedHtml(o: { sub: string; org: string }): string {
+export function nonAdminDeniedHtml(
+  o: { sub: string; org: string },
+  locale: PortalLocale = PORTAL_DEFAULT_LOCALE,
+): string {
   return cardPage({
-    title: "No admin access",
-    heading: "You don't have admin access",
-    msg: "The Admin area is limited to governance admins. Your account is signed in and verified — it just isn't granted admin rights.",
+    locale,
+    title: pick(locale, "No admin access", "没有管理员权限"),
+    heading: pick(locale, "You don't have admin access", "你没有管理员权限"),
+    msg: pick(
+      locale,
+      "The Admin area is limited to governance admins. Your account is signed in and verified — it just isn't granted admin rights.",
+      "管理后台仅限治理管理员使用。你的账号已登录并通过验证，只是没有被授予管理员权限。",
+    ),
     icon: LOCK_ICON,
     wide: true,
     extra: `<div class="note">
-        <span class="who">Signed in as <b>${escapeHtml(o.sub)}</b> &middot; ${escapeHtml(o.org)}</span>
-        <p>Admin rights come from your organization's admin grants. If you need access, ask an existing admin to grant it.</p>
+        <span class="who">${pick(locale, "Signed in as", "当前登录")} <b>${escapeHtml(o.sub)}</b> &middot; ${escapeHtml(o.org)}</span>
+        <p>${pick(
+          locale,
+          "Admin rights come from your organization's admin grants. If you need access, ask an existing admin to grant it.",
+          "管理员权限来自组织的管理员授权。如需访问，请让现有管理员为你授权。",
+        )}</p>
       </div>`,
-    actions: `<a class="btn primary" href="/">Back to your surfaces</a>
-        <a class="btn ghost" href="/admin/">Try again</a>
-        <a class="btn ghost" href="/">Open the assistant instead</a>`,
-    help: "You can keep using every surface available to your account.",
+    actions: `<a class="btn primary" href="/">${pick(locale, "Back to your surfaces", "返回你的应用")}</a>
+        <a class="btn ghost" href="/admin/">${pick(locale, "Try again", "重试")}</a>
+        <a class="btn ghost" href="/">${pick(locale, "Open the assistant instead", "改用助手")}</a>`,
+    help: pick(
+      locale,
+      "You can keep using every surface available to your account.",
+      "你可以继续使用账号可用的所有应用。",
+    ),
   });
 }
 
-export function notConfiguredHtml(): string {
+export function notConfiguredHtml(locale: PortalLocale = PORTAL_DEFAULT_LOCALE): string {
   return cardPage({
-    title: "Not set up yet",
-    heading: "This deployment isn't set up yet",
-    msg: "An admin still needs to finish setup by adding a model API key. Until then the assistant can't answer.",
+    locale,
+    title: pick(locale, "Not set up yet", "尚未完成设置"),
+    heading: pick(locale, "This deployment isn't set up yet", "此部署尚未完成设置"),
+    msg: pick(
+      locale,
+      "An admin still needs to finish setup by adding a model API key. Until then the assistant can't answer.",
+      "管理员还需要添加模型 API 密钥以完成设置。在此之前助手无法回答。",
+    ),
     icon: ALERT_ICON,
     warn: true,
-    actions: `<a class="btn primary" href="/">Try again</a>`,
-    help: "Ask your admin to complete onboarding in the Admin area.",
+    actions: `<a class="btn primary" href="/">${pick(locale, "Try again", "重试")}</a>`,
+    help: pick(
+      locale,
+      "Ask your admin to complete onboarding in the Admin area.",
+      "请联系管理员在管理后台完成初始化设置。",
+    ),
   });
 }
 
-export function adminUnavailableHtml(): string {
+export function adminUnavailableHtml(locale: PortalLocale = PORTAL_DEFAULT_LOCALE): string {
   return cardPage({
-    title: "Admin temporarily unavailable",
-    heading: "Admin is temporarily unavailable",
-    msg: "We couldn't check your admin access right now. This is usually temporary — trying again resolves most cases.",
+    locale,
+    title: pick(locale, "Admin temporarily unavailable", "管理后台暂时不可用"),
+    heading: pick(locale, "Admin is temporarily unavailable", "管理后台暂时不可用"),
+    msg: pick(
+      locale,
+      "We couldn't check your admin access right now. This is usually temporary — trying again resolves most cases.",
+      "当前无法确认你的管理员权限。这通常是暂时的——再试一次大多可以解决。",
+    ),
     icon: ALERT_ICON,
     warn: true,
-    actions: `<a class="btn primary" href="/admin/">Try again</a>
-        <a class="btn ghost" href="/">Back to your surfaces</a>`,
-    help: "If this keeps happening, the admin service may be down — contact your admin.",
+    actions: `<a class="btn primary" href="/admin/">${pick(locale, "Try again", "重试")}</a>
+        <a class="btn ghost" href="/">${pick(locale, "Back to your surfaces", "返回你的应用")}</a>`,
+    help: pick(
+      locale,
+      "If this keeps happening, the admin service may be down — contact your admin.",
+      "如果反复出现，管理服务可能已宕机——请联系你的管理员。",
+    ),
   });
 }
 
@@ -506,34 +555,55 @@ const connectStyle = (): string => `<style>
   a.muted{ color:var(--muted); display:inline-block; margin-top:14px; }
 </style>`;
 
-function connectPage(o: { title: string; body: string; action?: string }): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
+function connectPage(o: { locale: PortalLocale; title: string; body: string; action?: string }): string {
+  return `<!doctype html><html lang="${o.locale}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(o.title)} · Portal</title>${connectStyle()}</head>
 <body><div class="card"><h1>${escapeHtml(o.title)}</h1><p>${escapeHtml(o.body)}</p>${o.action ?? ""}</div></body></html>`;
 }
 
-function providerLabel(provider: string): string {
+function providerLabel(provider: string, locale: PortalLocale): string {
   if (provider === "google") return "Google";
-  return provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : "this app";
+  return provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : pick(locale, "this app", "此应用");
 }
 
-export function connectErrorHtml(detail: string): string {
-  return connectPage({ title: "Can't connect", body: detail });
+export function connectErrorHtml(detail: string, locale: PortalLocale = PORTAL_DEFAULT_LOCALE): string {
+  return connectPage({
+    locale,
+    title: pick(locale, "Can't connect", "无法连接"),
+    body: detail,
+  });
 }
 
-export function connectWrongRecipientHtml(o: { provider: string; alreadyConnected: boolean }): string {
-  const prov = providerLabel(o.provider);
+export function connectWrongRecipientHtml(
+  o: { provider: string; alreadyConnected: boolean },
+  locale: PortalLocale = PORTAL_DEFAULT_LOCALE,
+): string {
+  const prov = providerLabel(o.provider, locale);
   if (o.alreadyConnected) {
     return connectPage({
-      title: `You've already connected ${prov}`,
-      body: `This link was meant for a different teammate, and your ${prov} is already connected — there's nothing to do here.`,
-      action: `<a class="muted" href="/connectors">Manage your connections</a>`,
+      locale,
+      title: pick(locale, `You've already connected ${prov}`, `你已连接 ${prov}`),
+      body: pick(
+        locale,
+        `This link was meant for a different teammate, and your ${prov} is already connected — there's nothing to do here.`,
+        `这条链接是发给其他同事的，你的 ${prov} 已经连接——这里无需任何操作。`,
+      ),
+      action: `<a class="muted" href="/connectors">${pick(locale, "Manage your connections", "管理你的连接")}</a>`,
     });
   }
   return connectPage({
-    title: "This link was for someone else",
-    body: `This connect link was created for a different teammate. Want to connect your own ${prov} instead?`,
-    action: `<a class="btn" href="/connect/${encodeURIComponent(o.provider)}/self-connect">Connect my ${escapeHtml(prov)}</a>`,
+    locale,
+    title: pick(locale, "This link was for someone else", "这条链接是给别人的"),
+    body: pick(
+      locale,
+      `This connect link was created for a different teammate. Want to connect your own ${prov} instead?`,
+      `这条连接链接是为其他同事创建的。要不要改为连接你自己的 ${prov}？`,
+    ),
+    action: `<a class="btn" href="/connect/${encodeURIComponent(o.provider)}/self-connect">${pick(
+      locale,
+      `Connect my ${escapeHtml(prov)}`,
+      `连接我的 ${escapeHtml(prov)}`,
+    )}</a>`,
   });
 }
 
@@ -555,28 +625,67 @@ async function handleConsentRedeem(
     return sendHtml(
       res,
       502,
-      connectErrorHtml("We couldn't reach the connection service. Please try the link again in a moment."),
+      connectErrorHtml(
+        pick(
+          PORTAL_DEFAULT_LOCALE,
+          "We couldn't reach the connection service. Please try the link again in a moment.",
+          "无法连接连接服务。请稍后再试这条链接。",
+        ),
+        PORTAL_DEFAULT_LOCALE,
+      ),
     );
   }
   switch (data.status) {
     case "authorize":
       if (!data.authorizeUrl)
-        return sendHtml(res, 502, connectErrorHtml("The connection service returned an unexpected response."));
+        return sendHtml(
+          res,
+          502,
+          connectErrorHtml(
+            pick(
+              PORTAL_DEFAULT_LOCALE,
+              "The connection service returned an unexpected response.",
+              "连接服务返回了意外响应。",
+            ),
+            PORTAL_DEFAULT_LOCALE,
+          ),
+        );
       res.writeHead(302, { location: data.authorizeUrl, "cache-control": "no-store" });
       return void res.end();
     case "wrong_recipient":
       return sendHtml(
         res,
         200,
-        connectWrongRecipientHtml({ provider: data.provider ?? "", alreadyConnected: !!data.clickerConnected }),
+        connectWrongRecipientHtml(
+          { provider: data.provider ?? "", alreadyConnected: !!data.clickerConnected },
+          PORTAL_DEFAULT_LOCALE,
+        ),
       );
     case "expired":
-      return sendHtml(res, 200, connectErrorHtml("This connect link has expired — ask the agent for a fresh one."));
+      return sendHtml(
+        res,
+        200,
+        connectErrorHtml(
+          pick(
+            PORTAL_DEFAULT_LOCALE,
+            "This connect link has expired — ask the agent for a fresh one.",
+            "这条连接链接已过期——请让助手重新生成一条。",
+          ),
+          PORTAL_DEFAULT_LOCALE,
+        ),
+      );
     default:
       return sendHtml(
         res,
         200,
-        connectErrorHtml("This connect link is invalid or was already used — ask the agent for a fresh one."),
+        connectErrorHtml(
+          pick(
+            PORTAL_DEFAULT_LOCALE,
+            "This connect link is invalid or was already used — ask the agent for a fresh one.",
+            "这条连接链接无效或已被使用——请让助手重新生成一条。",
+          ),
+          PORTAL_DEFAULT_LOCALE,
+        ),
       );
   }
 }
@@ -634,7 +743,11 @@ async function handleSecretDrop(
     return sendHtml(
       res,
       502,
-      '<!doctype html><meta charset=utf-8><body style="font-family:system-ui;max-width:32rem;margin:4rem auto"><h2>Service unavailable</h2><p>Try the link again in a moment.</p></body>',
+      pick(
+        PORTAL_DEFAULT_LOCALE,
+        '<!doctype html><meta charset=utf-8><body style="font-family:system-ui;max-width:32rem;margin:4rem auto"><h2>Service unavailable</h2><p>Try the link again in a moment.</p></body>',
+        '<!doctype html><meta charset=utf-8><body style="font-family:system-ui;max-width:32rem;margin:4rem auto"><h2>服务不可用</h2><p>请稍后再试这条链接。</p></body>',
+      ),
     );
   }
   const bodyText = await r.text();
@@ -660,13 +773,28 @@ async function handleSelfConnect(res: ServerResponse, o: { provider: string; ses
     return sendHtml(
       res,
       200,
-      connectErrorHtml(data.message ?? "We couldn't start the connection. This app may not be configured."),
+      connectErrorHtml(
+        data.message ??
+          pick(
+            PORTAL_DEFAULT_LOCALE,
+            "We couldn't start the connection. This app may not be configured.",
+            "无法开始连接。此应用可能尚未配置。",
+          ),
+        PORTAL_DEFAULT_LOCALE,
+      ),
     );
   } catch {
     return sendHtml(
       res,
       502,
-      connectErrorHtml("We couldn't reach the connection service. Please try again in a moment."),
+      connectErrorHtml(
+        pick(
+          PORTAL_DEFAULT_LOCALE,
+          "We couldn't reach the connection service. Please try again in a moment.",
+          "无法连接连接服务。请稍后再试。",
+        ),
+        PORTAL_DEFAULT_LOCALE,
+      ),
     );
   }
 }
@@ -740,26 +868,44 @@ export function mintBucketOf(ip: string): string {
   return `${prefix}::/64`;
 }
 
-export function playgroundBusyHtml(): string {
+export function playgroundBusyHtml(locale: PortalLocale = PORTAL_DEFAULT_LOCALE): string {
   return cardPage({
-    title: "Playground is busy",
-    heading: "The playground is busy",
-    msg: "We couldn't start a fresh playground session for you right now. Waiting a little while and reloading resolves most cases.",
+    locale,
+    title: pick(locale, "Playground is busy", "演示区繁忙"),
+    heading: pick(locale, "The playground is busy", "演示区当前繁忙"),
+    msg: pick(
+      locale,
+      "We couldn't start a fresh playground session for you right now. Waiting a little while and reloading resolves most cases.",
+      "当前无法为你启动新的演示会话。稍等片刻后刷新，大多可以解决。",
+    ),
     icon: ALERT_ICON,
     warn: true,
-    actions: `<a class="btn primary" href="/">Try again</a>`,
-    help: "Playground sessions are limited per visitor to keep the demo responsive for everyone.",
+    actions: `<a class="btn primary" href="/">${pick(locale, "Try again", "重试")}</a>`,
+    help: pick(
+      locale,
+      "Playground sessions are limited per visitor to keep the demo responsive for everyone.",
+      "为避免影响所有人体验，每位访客的演示会话数量有限。",
+    ),
   });
 }
 
-export function playgroundRestrictedHtml(): string {
+export function playgroundRestrictedHtml(locale: PortalLocale = PORTAL_DEFAULT_LOCALE): string {
   return cardPage({
-    title: "Not available in the playground",
-    heading: "Not available in the playground",
-    msg: "Connecting accounts and dropping secrets are disabled for anonymous playground sessions — clearing your cookie would orphan real credentials.",
+    locale,
+    title: pick(locale, "Not available in the playground", "演示区不可用"),
+    heading: pick(locale, "Not available in the playground", "演示区不可用"),
+    msg: pick(
+      locale,
+      "Connecting accounts and dropping secrets are disabled for anonymous playground sessions — clearing your cookie would orphan real credentials.",
+      "匿名演示会话无法连接账号或托管密钥——清除 Cookie 会使真实凭据失联。",
+    ),
     icon: LOCK_ICON,
-    actions: `<a class="btn primary" href="/">Back to the playground</a>`,
-    help: "Sign in with a real account at /auth/login to use this link.",
+    actions: `<a class="btn primary" href="/">${pick(locale, "Back to the playground", "返回演示区")}</a>`,
+    help: pick(
+      locale,
+      "Sign in with a real account at /auth/login to use this link.",
+      "请使用真实账号在 /auth/login 登录后使用此链接。",
+    ),
   });
 }
 
@@ -1113,17 +1259,25 @@ function authLogin(req: IncomingMessage, res: ServerResponse, url: URL): void {
 async function authCallback(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   const fail = (detail: string): void => {
     setSession(res, [clearCookie("portal_oidc_tmp", "/auth", SECURE_COOKIES)]);
-    sendHtml(res, 400, signInErrorHtml(detail));
+    sendHtml(res, 400, signInErrorHtml(detail, PORTAL_DEFAULT_LOCALE));
   };
 
-  if (url.searchParams.get("error")) return fail(`identity provider returned: ${url.searchParams.get("error") ?? ""}`);
+  if (url.searchParams.get("error"))
+    return fail(
+      pick(
+        PORTAL_DEFAULT_LOCALE,
+        `identity provider returned: ${url.searchParams.get("error") ?? ""}`,
+        `身份提供方返回：${url.searchParams.get("error") ?? ""}`,
+      ),
+    );
   const code = url.searchParams.get("code") ?? "";
   const stateParam = url.searchParams.get("state") ?? "";
 
   const tmp = openTmp(readCookie(req.headers.cookie, "portal_oidc_tmp"), tmpKey, Date.now());
-  if (!tmp) return fail("login session expired — please try again");
-  if (!code || !stateParam || !safeEqual(stateParam, tmp.state)) return fail("invalid login state");
-  if (!consumeState(tmp.state)) return fail("login already used — please try again");
+  if (!tmp) return fail(pick(PORTAL_DEFAULT_LOCALE, "login session expired — please try again", "登录会话已过期——请重试"));
+  if (!code || !stateParam || !safeEqual(stateParam, tmp.state))
+    return fail(pick(PORTAL_DEFAULT_LOCALE, "invalid login state", "登录状态无效"));
+  if (!consumeState(tmp.state)) return fail(pick(PORTAL_DEFAULT_LOCALE, "login already used — please try again", "该登录链接已使用——请重试"));
 
   let sub: string;
   let name = "";

@@ -1,5 +1,12 @@
 import { createHash } from "node:crypto";
 import { escapeHtml } from "../../chassis/src/http.ts";
+import type { AuthLocale } from "./config.ts";
+
+export type { AuthLocale };
+
+export function pick(locale: AuthLocale, en: string, zh: string): string {
+  return locale === "zh-Hans" ? zh : en;
+}
 
 const CONFIRM_SCRIPT = `(function () {
   var key = "qm.signin.token";
@@ -80,6 +87,7 @@ const ALERT_ICON = `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><pat
 const LOCK_ICON = `<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`;
 
 function page(o: {
+  locale: AuthLocale;
   title: string;
   brandName: string;
   icon: string;
@@ -90,7 +98,7 @@ function page(o: {
   help: string;
 }): string {
   return `<!doctype html>
-<html lang="en">
+<html lang="${o.locale}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -113,77 +121,121 @@ ${STYLE}
 }
 
 export function emailFormPage(o: {
+  locale: AuthLocale;
   brandName: string;
   action: string;
   requestToken: string;
   email?: string;
   problem?: string;
 }): string {
+  const t = pick(o.locale, "Sign in", "登录");
   return page({
-    title: "Sign in",
+    locale: o.locale,
+    title: t,
     brandName: o.brandName,
     icon: MAIL_ICON,
-    heading: `Sign in to ${o.brandName}`,
-    msg: "Enter your work email and we'll send you a one-time sign-in link.",
-    body: `${o.problem ? `<p class="reason"><strong>Try again</strong>${escapeHtml(o.problem)}</p>` : ""}<form method="post" action="${escapeHtml(o.action)}">
+    heading: pick(o.locale, `Sign in to ${o.brandName}`, `登录 ${o.brandName}`),
+    msg: pick(
+      o.locale,
+      "Enter your work email and we'll send you a one-time sign-in link.",
+      "输入你的企业邮箱，我们会发送一条一次性登录链接。",
+    ),
+    body: `${o.problem ? `<p class="reason"><strong>${pick(o.locale, "Try again", "请重试")}</strong>${escapeHtml(o.problem)}</p>` : ""}<form method="post" action="${escapeHtml(o.action)}">
         <input type="hidden" name="request" value="${escapeHtml(o.requestToken)}">
-        <label for="email">Email address</label>
+        <label for="email">${pick(o.locale, "Email address", "邮箱地址")}</label>
         <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required autofocus
           spellcheck="false" maxlength="254" placeholder="you@example.com" value="${escapeHtml(o.email ?? "")}">
-        <button class="btn" type="submit">Email me a sign-in link</button>
+        <button class="btn" type="submit">${pick(o.locale, "Email me a sign-in link", "发送登录链接")}</button>
       </form>`,
-    help: "Only addresses your administrator has allowed can sign in.",
+    help: pick(
+      o.locale,
+      "Only addresses your administrator has allowed can sign in.",
+      "只有管理员允许的邮箱地址才能登录。",
+    ),
   });
 }
 
-export function linkSentPage(o: { brandName: string; email: string; ttlMinutes: number }): string {
+export function linkSentPage(o: { locale: AuthLocale; brandName: string; email: string; ttlMinutes: number }): string {
+  const t = pick(o.locale, "Check your email", "请查收邮件");
   return page({
-    title: "Check your email",
+    locale: o.locale,
+    title: t,
     brandName: o.brandName,
     icon: SENT_ICON,
-    heading: "Check your email",
-    msg: `If that address can sign in, a one-time link is on its way. Open it in this browser — it works once and expires in ${o.ttlMinutes} minutes.`,
+    heading: t,
+    msg: pick(
+      o.locale,
+      `If that address can sign in, a one-time link is on its way. Open it in this browser — it works once and expires in ${o.ttlMinutes} minutes.`,
+      `如果该地址可以登录，一封包含一次性链接的邮件正在路上。请在本浏览器中打开——链接只能使用一次，${o.ttlMinutes} 分钟后过期。`,
+    ),
     body: `<p class="who">${escapeHtml(o.email)}</p>`,
-    help: "Nothing after a minute or two? Check spam, then ask your administrator whether the address is allowed.",
+    help: pick(
+      o.locale,
+      "Nothing after a minute or two? Check spam, then ask your administrator whether the address is allowed.",
+      "一两分钟还没收到？请检查垃圾邮件，或询问管理员该地址是否允许登录。",
+    ),
   });
 }
 
-export function confirmSignInPage(o: { brandName: string; action: string }): string {
+export function confirmSignInPage(o: { locale: AuthLocale; brandName: string; action: string }): string {
   return page({
-    title: "Finish signing in",
+    locale: o.locale,
+    title: pick(o.locale, "Finish signing in", "完成登录"),
     brandName: o.brandName,
     icon: LOCK_ICON,
-    heading: `Finish signing in to ${o.brandName}`,
-    msg: "Confirm below to complete sign-in. Your link is spent the moment you confirm, so do it in the browser you want to be signed in to.",
-    body: `<p class="reason" id="no-token" hidden><strong>Nothing to confirm</strong>This page did not receive a sign-in link. Open the link from your email directly, in a browser with JavaScript enabled, or ask for a fresh one.</p>
-      <noscript><p class="reason"><strong>JavaScript required</strong>The last step of sign-in reads your link out of the page address so it never reaches a server log. Enable JavaScript for this page, then reopen the link.</p></noscript>
+    heading: pick(o.locale, `Finish signing in to ${o.brandName}`, `完成 ${o.brandName} 登录`),
+    msg: pick(
+      o.locale,
+      "Confirm below to complete sign-in. Your link is spent the moment you confirm, so do it in the browser you want to be signed in to.",
+      "点击下方按钮完成登录。链接在确认时即失效，请在想要登录的浏览器中完成。",
+    ),
+    body: `<p class="reason" id="no-token" hidden><strong>${pick(o.locale, "Nothing to confirm", "没有可确认的内容")}</strong>${pick(
+      o.locale,
+      "This page did not receive a sign-in link. Open the link from your email directly, in a browser with JavaScript enabled, or ask for a fresh one.",
+      "此页面没有收到登录链接。请直接从邮件中打开链接，使用启用了 JavaScript 的浏览器，或重新申请一条。",
+    )}</p>
+      <noscript><p class="reason"><strong>${pick(o.locale, "JavaScript required", "需要启用 JavaScript")}</strong>${pick(
+        o.locale,
+        "The last step of sign-in reads your link out of the page address so it never reaches a server log. Enable JavaScript for this page, then reopen the link.",
+        "登录的最后一步从页面地址中读取链接，使其不会进入服务器日志。请为这个页面启用 JavaScript 后重新打开链接。",
+      )}</p></noscript>
       <form method="post" action="${escapeHtml(o.action)}">
         <input type="hidden" name="token" id="token" value="">
-        <button class="btn" type="submit" id="confirm">Sign in</button>
+        <button class="btn" type="submit" id="confirm">${pick(o.locale, "Sign in", "登录")}</button>
       </form>
       <script>${CONFIRM_SCRIPT}</script>`,
-    help: "Didn't ask to sign in? Close this page — nothing happens until you confirm.",
+    help: pick(
+      o.locale,
+      "Didn't ask to sign in? Close this page — nothing happens until you confirm.",
+      "不是你要登录？关闭此页面即可——确认之前不会发生任何事。",
+    ),
   });
 }
 
 export function problemPage(o: {
+  locale: AuthLocale;
   brandName: string;
   heading: string;
   msg: string;
   detail?: string;
   retryUrl?: string;
 }): string {
-  const detail = o.detail ? `<p class="reason"><strong>Details</strong>${escapeHtml(o.detail)}</p>` : "";
-  const retry = o.retryUrl ? `<a class="btn" href="${escapeHtml(o.retryUrl)}">Request a new sign-in link</a>` : "";
+  const detail = o.detail
+    ? `<p class="reason"><strong>${pick(o.locale, "Details", "详细信息")}</strong>${escapeHtml(o.detail)}</p>`
+    : "";
+  const retry = o.retryUrl
+    ? `<a class="btn" href="${escapeHtml(o.retryUrl)}">${pick(o.locale, "Request a new sign-in link", "重新获取登录链接")}</a>`
+    : "";
   const body = `${detail}${retry}`;
   return page({
-    title: "Sign-in problem",
+    locale: o.locale,
+    title: pick(o.locale, "Sign-in problem", "登录出现问题"),
     brandName: o.brandName,
     icon: ALERT_ICON,
     warn: true,
     heading: o.heading,
     msg: o.msg,
     ...(body ? { body } : {}),
-    help: "If this keeps happening, contact your administrator.",
+    help: pick(o.locale, "If this keeps happening, contact your administrator.", "如果反复出现此问题，请联系管理员。"),
   });
 }

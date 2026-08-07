@@ -124,7 +124,7 @@ Non-secret (`[env]`): `PORT` (8097 local / 8080 image), `PORTAL_PUBLIC_URL`, `CO
 `CORE_ORG_ID`, `WEB_UI_UPSTREAM`, `ADMIN_UPSTREAM`,
 `OIDC_AUTH_ENDPOINT` / `OIDC_TOKEN_ENDPOINT` / `OIDC_USERINFO_ENDPOINT` / `OIDC_ISSUER` /
 `OIDC_JWKS_URI` / `OIDC_SCOPES` / `OIDC_CLIENT_ID`, `PORTAL_EXPECTED_TEAM_ID`,
-`PORTAL_SESSION_TTL_S`, `PORTAL_SESSION_MAX_TTL_S`. `PORTAL_SESSION_MAX_TTL_S` caps a session's total life from authentication; it defaults to the larger of one day and `PORTAL_SESSION_TTL_S`, and boot fails if it is set below the TTL.
+`PORTAL_SESSION_TTL_S`, `PORTAL_SESSION_MAX_TTL_S`. `PORTAL_SESSION_MAX_TTL_S` caps a session's total life from authentication; it defaults to the larger of one day and `PORTAL_SESSION_TTL_S`, and boot fails if it is set below the TTL. `PORTAL_DEFAULT_LOCALE` (`en` or `zh-Hans`) selects the language for the sign-in and error pages, defaulting to `en`.
 There is no `PORTAL_ADMIN_PRINCIPALS` — admin
 access is derived from the core (see the security model above).
 For local development only, `PORTAL_LOCAL_AUTH_BYPASS=1` mints a local session as

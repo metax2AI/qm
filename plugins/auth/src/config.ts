@@ -1,5 +1,6 @@
 import type { SmtpTlsMode } from "./smtp.ts";
 
+export type AuthLocale = "en" | "zh-Hans";
 type EmailTransportKind = "resend" | "smtp";
 
 interface SmtpSettings {
@@ -22,6 +23,7 @@ export interface AuthConfig {
   allowedEmailDomain: string | undefined;
   emailFrom: string;
   brandName: string;
+  defaultLocale: AuthLocale;
   transport: EmailTransportKind;
   resendApiKey: string;
   smtp: SmtpSettings;
@@ -96,6 +98,7 @@ export function readConfig(env: NodeJS.ProcessEnv): AuthConfig {
     allowedEmailDomain: env.AUTH_ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase() || undefined,
     emailFrom: env.AUTH_EMAIL_FROM?.trim() ?? "",
     brandName: env.AUTH_BRAND_NAME?.trim() || "qm",
+    defaultLocale: env.AUTH_DEFAULT_LOCALE === "zh-Hans" ? "zh-Hans" : "en",
     transport,
     resendApiKey: env.RESEND_API_KEY ?? "",
     smtp: {
