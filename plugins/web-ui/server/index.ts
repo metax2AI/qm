@@ -338,6 +338,16 @@ async function drainWebDeliveries(): Promise<void> {
       const target = d.destination?.target ?? "";
       const isRecovery = d.idempotencyKey.startsWith("run:");
       const conns = !isRecovery ? deliveryClients.get(ownerOfWebThread(target) ?? "") : undefined;
+      if (!isRecovery) {
+        const delivered = await coreFetch("POST", `/v1/deliveries/${encodeURIComponent(d.id)}/deliver`).catch(
+          () => ({ status: 0 }),
+        );
+        if (delivered.status === 503) continue;
+        if (delivered.status !== 200 && delivered.status !== 409) {
+          await coreFetch("POST", `/v1/deliveries/${encodeURIComponent(d.id)}/ack`).catch(() => {});
+          continue;
+        }
+      }
       if (conns && conns.size) {
         for (const res of conns) sseEvent(res, "delivery", { threadRef: target });
       } else if (!isRecovery && now - (d.createdAt ?? 0) < WEB_DELIVERY_GIVEUP_MS) {

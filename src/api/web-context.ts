@@ -6,8 +6,8 @@ const WEB_CONTEXT_READ_CAP = 500;
 
 type WindowMessage = { ts: string; time: string; author: string; text: string; threadTs: string };
 
-function ownerOfWebThread(threadRef: string): string | null {
-  const m = threadRef.match(/^web:(.+):[^:]+$/);
+export function ownerOfWebThread(threadRef: string): string | null {
+  const m = threadRef.match(/^web:([^:]+):[^:]+$/);
   return m ? m[1]! : null;
 }
 

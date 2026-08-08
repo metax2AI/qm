@@ -16,6 +16,7 @@ import {
 } from "../reach/reach.ts";
 import { isVisible } from "../directory/visibility.ts";
 import { answerWebContextRequest } from "./web-context.ts";
+import { ownerOfWebThread } from "./web-context.ts";
 import { validateUserSchedule } from "../cron/schedule.ts";
 
 import type { App, AppDeps, ReachNowResult } from "./app-types.ts";
@@ -56,6 +57,7 @@ export function createMessagingMethods(
   | "fulfillContextRequest"
   | "ackDelivery"
   | "ackDeliveryByKey"
+  | "deliverWebDelivery"
   | "setRunDeliveryState"
   | "upsertDirectory"
   | "upsertChannels"
@@ -302,6 +304,38 @@ export function createMessagingMethods(
     },
     async ackDeliveryByKey(idempotencyKey) {
       await deps.deliveries.ackByKey(idempotencyKey, Date.now());
+    },
+    async deliverWebDelivery(id) {
+      const delivery = await deps.deliveries.get(id);
+      if (!delivery || delivery.destination.type !== "web") {
+        return { ok: false, status: 404, message: "no such web delivery" };
+      }
+      if (delivery.deliveredAt !== null) {
+        return { ok: false, status: 409, message: "already delivered" };
+      }
+      const target = delivery.destination.target ?? "";
+      const owner = ownerOfWebThread(target);
+      if (!owner) {
+        return { ok: false, status: 400, message: "not a web thread" };
+      }
+      const createdScope = delivery.destination.audienceScopeId ?? scopeId("personal", owner);
+      const session = await deps.sessions.getOrCreateByThread(target, "dm", createdScope, undefined, "web");
+      await deps.sessions.addParticipant(session.id, owner);
+      const leased = await deps.sessions.acquireLease(session.id, "backfill");
+      if (!leased.lease) {
+        return { ok: false, status: 503, message: "session busy" };
+      }
+      try {
+        await deps.sessions.append(leased.lease, {
+          type: "assistant",
+          payload: { text: delivery.text },
+          scopeLabel: session.scopeId,
+        });
+      } finally {
+        await deps.sessions.releaseLease(leased.lease);
+      }
+      await deps.deliveries.ack(id, Date.now(), undefined);
+      return { ok: true, status: 200, sessionId: session.id };
     },
     async setRunDeliveryState(runId, state) {
       const found = await deps.runs.setDeliveryState(runId, null, state);
