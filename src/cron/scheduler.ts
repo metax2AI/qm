@@ -15,6 +15,7 @@ import type { CronFireJob, CronJobQueue } from "./job-queue.ts";
 import { hashId } from "../util/crypto.ts";
 import { errMessage } from "../util/errors.ts";
 import { sleep } from "../util/async.ts";
+import type { AuditLog } from "../audit/audit-log.ts";
 
 const TICK_LEASE_KEY = "cron:scheduler:tick";
 const CRON_FIRE_REPLY_MAX_CHARS = 2000;
@@ -43,6 +44,7 @@ export interface SchedulerDeps {
   };
   sweepAsks?: (now: number) => Promise<void>;
   jobQueue?: CronJobQueue;
+  auditLog?: AuditLog;
 }
 
 function truncate(s: string, maxChars: number): string {
@@ -150,6 +152,15 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
         status: "failed",
         note: truncate(errMessage(e), CRON_FIRE_REPLY_MAX_CHARS),
       });
+      deps.auditLog?.record({
+        at: t,
+        principalId: cron.owner,
+        action: "cron.fire",
+        resource: cron.id,
+        scopeLabel: cron.ownerScopeId,
+        status: "failed",
+        detail: truncate(errMessage(e), CRON_FIRE_REPLY_MAX_CHARS),
+      });
       throw e;
     }
     if (outcome.ran || outcome.authzFailed) {
@@ -162,6 +173,17 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
         ...(outcome.note ? { note: truncate(outcome.note, CRON_FIRE_REPLY_MAX_CHARS) } : {}),
         ...(outcome.reply !== undefined ? { reply: cronFireLogReply(outcome.reply) } : {}),
         ...(outcome.sessionId ? { sessionId: outcome.sessionId } : {}),
+      });
+      deps.auditLog?.record({
+        at: t,
+        principalId: cron.owner,
+        action: "cron.fire",
+        resource: cron.id,
+        scopeLabel: cron.ownerScopeId,
+        ...(outcome.status ? { status: outcome.status } : {}),
+        detail: outcome.authzFailed
+          ? `authorization failed — cron disabled: ${outcome.note ?? ""}`.trim()
+          : fireKey,
       });
     }
     if (outcome.authzFailed) {

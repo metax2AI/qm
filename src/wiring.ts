@@ -1301,6 +1301,7 @@ export function buildApp(
     leaderLease,
     directory,
     currentScopeMembers,
+    auditLog,
     ...(config.databaseUrl
       ? { jobQueue: createPgBossCronQueue(config.databaseUrl, undefined, config.cronFireConcurrency) }
       : {}),
