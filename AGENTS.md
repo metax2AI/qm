@@ -41,7 +41,7 @@ orchestrator (`src/core/orchestrator.ts`) resolves scope, identity, policy, and 
 the harness router (`src/harness/harness-router.ts`) dispatches to one of the
 interchangeable agent harnesses (Pi, Claude, Codex, OpenCode, plus `mock-harness` for
 tests) → tool calls land in the scope's sandbox (`src/sandbox/`, local Docker / AWS
-microVM / Fly sprites). Long-running work is a *run* (`src/runs/`) executed by a
+microVM / Fly sprites). Long-running work is a _run_ (`src/runs/`) executed by a
 worker process against pg-boss, not an in-request await.
 
 The unit of isolation is the **scope** (`ScopeId` in `src/types.ts`): a person or a room.
