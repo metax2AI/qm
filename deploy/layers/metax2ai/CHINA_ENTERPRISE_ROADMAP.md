@@ -166,33 +166,44 @@ flowchart LR
 
 范围：
 
-- 新增 surface 能力开关。`plugins/web-ui/server/index.ts` 的 `GET /api/surface-config` 目前只透传品牌信息，是承载该开关的自然位置。以下各项据此决定是否渲染。
+- 新增 surface 能力开关。判定属于 core：Slack 既可能来自环境变量，也可能来自 Admin 侧安装，两处判定应由 `src/surfaces/slack-installation.ts` 的单一函数给出，Admin 路由与该开关共用。结果经 `/v1/directory/meta` 送到 Web 层——该端点已经在返回 Slack workspace 信息，且 web-ui 本就为每次 `/me` 请求它并缓存，因此不新增往返。前端从 `/me` 取值，以一个与 `can()` 并列的辅助函数统一读取，各渲染点据此决定是否渲染。
 - 侧边栏「Web only」开关：`plugins/web-ui/src/sessions.ts` 的 `webOnly` 默认开启，控件在 `src/shell.ts`。无 IM 时该开关无论开关都不改变结果，应整体移除。
 - Chats 页 Surface 下拉：`src/sessions.ts` 中包含 `slack` 选项，在无 Slack 部署下永远筛出空列表；只剩单一 surface 时整个下拉隐藏。
 - 空态文案：`src/sessions.ts` 在列表非空时显示「Slack 对话已隐藏」，这在无 Slack 部署下是错误信息。
 - `surfaceOf()`：`src/sessions.ts` 依据 `dm:` 与 `ch:` 前缀判定 Slack。core 的 threadRef 命名契约保持不动，仅 Web 侧不再据此渲染 Slack 分支。
 - Slack 图标与样式：`src/sessions.ts` 的 `slackLogo()`、`src/connectors.ts` 中的第二份内联 SVG，以及 `src/shell.css` 的 `.surface-slack` 与 `.slack-logo`。
-- `GET /me` 的无谓往返：`server/index.ts` 每次都调用 `slackWorkspaceUrl()` 请求 core 的 `/v1/directory/meta`，无 Slack 时恒为空值。虽有 LRU 缓存兜底，仍应在开关关闭时整条跳过。
+- `GET /me` 的既有往返：`server/index.ts` 每次都请求 core 的 `/v1/directory/meta` 取 Slack workspace 地址。该请求改为同时取回开关值，成为唯一的数据来源；注意只缓存成功结果，请求失败或字段缺失时不可断言「Slack 已关闭」，否则 core 重启或新旧版本错位期间会让 Slack 部署的界面塌掉。
 - 欢迎语：`src/chat.ts` 的首次会话文案向用户推介 Slack、Google Workspace、GitHub 与 Linear，简体中文版同样点名。改为面向中国企业场景的能力描述。
-- Connectors 页：`src/connectors.ts` 的连接器清单为 Google、Slack、Notion、Linear、GitHub、Dropbox 与 X，在中国大陆网络下无一可用。无可用连接器时应给出明确空态，而不是罗列七个连不上的服务。
-- 货币硬编码：`src/localization.ts` 的 `localizedError` 在预算超限分支写死 `currency: "USD"`，改为随部署配置。
-- Portal 的 Slack SSO 路径：`plugins/portal/src/index.ts` 含七处 `slack.com` 引用，属于登录路径。中国版走企业 SMTP 魔法链接，该分支不会被使用。因涉及认证，应在配置层明确禁用并加测试覆盖，而不是仅依赖「不配置就不会走到」。
+- Portal 的身份提供方默认值：`plugins/portal/src/index.ts` 的 OIDC 端点默认指向 `slack.com`。这不是不会执行的死代码，而是一个陷阱——未设置 `OIDC_ISSUER` 时 issuer 静默变成 Slack，且 JWKS 校验恰好豁免 Slack issuer，于是一个漏配身份提供方的部署可以干净启动，再把用户送去境外登录。生产环境应要求显式声明 issuer（选用 Slack 也必须写出来），并加测试覆盖。
 
 配套：`plugins/web-ui/test/localization-catalog.test.ts` 的未翻译允许清单中含 `Slack`，本批改动落地后应从清单移除。本地化完整性检查已挂在 web-ui `npm test` 的第一步，遗漏会直接失败。
+
+经核实不属于缺陷，不做改动：
+
+- **Connectors 页**。本计划早期版本认为它会罗列七个境内不可用的服务。实测不会：`src/connectors.ts` 在渲染前已把 provider 过滤为 available、connected 或 needsReconnect 三者之一，未配置 OAuth 凭据的 provider 根本不进列表，未配置任何连接器的部署显示的是「尚未配置任何账户提供方」空态。文件中的连接器名称与图标只是本地化查找表，不驱动渲染。
+- **预算货币**。本计划早期版本认为 Web UI 的 `currency: "USD"` 是硬编码缺陷。实际上预算全链路以美元计价——`BUDGET_USD_PER_WINDOW`、`spentUsd`、`limitUsd` 直到 orchestrator 自己的提示文本。只改显示单位而不换算，等于把 25 美元谎报成 25 元。若客户要求人民币计价，那是 core 的货币支持议题，涉及配置项、字段命名与模型定价表，不属于界面收敛。
 
 不在本阶段：
 
 - 不删除 `src/slack/`、core 中的 Slack 代码路径或 Slack 相关测试。
 - 不改动 core 的 `threadRef` 与 `scopeId` 命名契约。
-- 不新增国产连接器；Connectors 页在本阶段只需正确表达「当前无可用连接器」。
+- 不新增国产连接器。
 
 验收标准：
 
 - 在未配置 IM 的部署下，Web UI 不出现任何 Slack 字样、图标或相关控件。
 - 界面中不存在筛选结果恒为空的选项，也不存在切换后无任何差异的开关。
-- 欢迎语与连接器清单不向用户推介在中国大陆不可用的服务。
-- Portal 的 Slack 登录路径在中国版配置下不可达，并有测试证明。
+- 欢迎语不向用户推介在中国大陆不可用的服务。
+- Slack 仍然配置时，上述控件照常出现——本里程碑收敛的是渲染条件，不是删除功能。
+- 生产环境下未显式声明 `OIDC_ISSUER` 的 Portal 拒绝启动，并有测试证明。
 - `localize:check`、Web UI 全量测试、类型检查和生产构建通过，附中文桌面端截图。
+
+当前状态（2026-08-08）：
+
+- 实现已提交并开出评审：core 的共享判定与 `/v1/directory/meta` 字段、Web 侧各渲染点收敛、Portal 的显式 issuer 要求。
+- 独立上下文评审发现一处真实缺陷并已修复：Admin 侧断开 Slack 写入的是墓碑记录而非删除记录，其状态为 `configured: false` 但 `managed: true`，判定若取 `managed` 会把「已断开」读成「已启用」。判定改取 `configured`，并补齐该组合的测试。
+- 遗留一项：CLI 的 `validatePortalTrust` 仍把未设置的 `OIDC_ISSUER` 解析为 Slack 默认值，因此配置校验会放过一份 Portal 将拒绝启动的配置。对齐它需改动六个测试文件，其中一个测试的既有意图与之冲突，故另行处理。失败模式是一条清晰的启动错误，不是静默错配。
+- 中英文桌面端截图已在本地 `--no-slack` 实例上取得，覆盖开关关闭与开启两种配置。
 
 ### M2：Web 企业 MVP
 
