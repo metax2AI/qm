@@ -49,8 +49,9 @@ M2 演示不使用本目录的 docker 形态，而使用 `/dev-instance`：core 
 
 1. 用 `/dev-instance` 起本 worktree，配置真实 `DEEPSEEK_API_KEY`。
 2. 确认沙箱镜像已构建：`npm run sandbox:local:build`（文档解析库随镜像预装）。
-3. 按 `demo-data/README.md` 的「演示前准备」把跟进日期调到演示当天，`.csv` 与 `.xlsx`
-   两份必须同步修改。
+3. 按 `demo-data/README.md` 的「演示前准备」把跟进日期调到演示当天。跟进表存在多种
+   格式时必须**全部同步修改**，否则跨格式一致性检查会误报——以该 README 的文件清单
+   为准，不要凭记忆假设有哪几份。
 4. Web UI 登录后上传 `demo-data/` 全部文件（个人 scope 即可）。
 5. `customer-followup-digest` Skill 由 `skills-seed/` 自动播种，无需手工安装。
 6. 按 `demo-data/README.md` 列出的问题依次提问，并建一个 cron 生成每日经营摘要。

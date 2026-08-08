@@ -1,5 +1,15 @@
 # QM deployment
 
+> **本部署的实际形态与下方脚手架文本不同，冲突时以 `deployment.md` 第一节为准。**
+>
+> - 目标是**国内公有云单机**，`target: "docker"`。下文关于 Fly.io 与 AWS 的步骤不适用。
+> - **不运行 Slack 服务**，`slack-app-manifest.yml` 已被删除。下文提到该文件、
+>   `qm slack render`、以及 `.codex/skills/deploy-qm/references/slack.md` 的部分都不要
+>   执行——运行 `qm slack render` 会把那份 manifest 重新生成出来。
+> - **目前无法单机部署**：`qm check` 会在沙箱契约上失败，原因与解除条件见
+>   `deployment.md`。在 M3 的 On-prem Runner 完成前，本目录是配置与密钥契约，
+>   不是可运行的部署。
+
 This directory is one QM deployment: a config, a secret contract, and a
 sandbox layer that customizes the agent without forking the core images. Commit
 everything here except `.env`, which holds the secret values and is covered by

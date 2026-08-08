@@ -6,7 +6,14 @@
   "orgId": "metax2ai",
 
   // The one public address of the deployment; the service URLs derive from it.
-  "publicUrl": "http://localhost:8082",
+  // This must be the portal's address, not the web UI's: every sign-in URL the
+  // auth broker derives — OIDC_ISSUER, the authorize endpoint, the redirect URI
+  // in the emailed link — is built from it. The docker target publishes each
+  // service at basePort + its offset (core +0, portal +1, web-ui +2, admin +3),
+  // so with the default base of 8080 the portal is 8081. Pointing this at the
+  // web UI's 8082 would send every magic link to a host that serves no /idp or
+  // /auth/callback route, and web-ui itself answers 401 without a sign-in path.
+  "publicUrl": "http://localhost:8081",
 
   // Where to deploy: "docker" runs local containers, "fly" deploys Fly apps,
   // and "aws" runs the control plane on ECS and agent computers on Lambda MicroVMs.
@@ -46,6 +53,13 @@
   // Extra directories of SKILL.md files, mounted into the agent.
   "skills": [],
 
+  // Secret env passed through to a service. ADMIN_GRANTS seeds the first org
+  // administrator and is not part of the first-party secret catalog, so without
+  // this entry the docker target drops it with a warning, `qm setup` never asks
+  // for it, and the deployment comes up with nobody able to administer it. The
+  // fly and aws scaffolds declare this; the docker scaffold does not.
+  "secretEnv": { "core": { "ADMIN_GRANTS": "ADMIN_GRANTS" } },
+
   // Non-secret env overrides, per service. HARNESS "pi" runs real agent turns
   // against the base model selected by "modelProvider" above. "mock" runs the
   // whole stack with fake turns and no model calls.
@@ -57,6 +71,7 @@
   "env": {
     "core": { "HARNESS": "pi" },
     "web-ui": { "WEB_UI_DEFAULT_LOCALE": "zh-Hans" },
+    "portal": { "PORTAL_DEFAULT_LOCALE": "zh-Hans" },
     "auth": {
       "AUTH_EMAIL_TRANSPORT": "smtp",
       "AUTH_DEFAULT_LOCALE": "zh-Hans",
