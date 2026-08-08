@@ -58,13 +58,31 @@ test("OpenCode prompt disables bridged tools absent from this turn", () => {
   assert.match(harnessSource, /for \(const tool of tools\) enabled\[bridgeToolName\(tool\.name\)\] = true/);
 });
 
-test("OpenCode observes cancellation before runtime startup, session creation, and prompt dispatch", () => {
-  const runPrompt = harnessSource.slice(
-    harnessSource.indexOf("const runPrompt ="),
-    harnessSource.indexOf("const single ="),
+const GUARD = /if \(turn\.cancel\?\.aborted\)/g;
+const region = (from: string, to: string): string =>
+  harnessSource.slice(harnessSource.indexOf(from), harnessSource.indexOf(to));
+
+test("OpenCode observes cancellation before runtime startup", () => {
+  const entry = region("const runPrompt =", "const single =");
+  const guard = entry.search(GUARD);
+  const startup = entry.indexOf("await ensureRuntime()");
+  assert.ok(guard >= 0, "the turn entry point must check for cancellation");
+  assert.ok(guard < startup, "an already-cancelled turn must not pay to start a runtime");
+});
+
+test("OpenCode observes cancellation before session creation and prompt dispatch", () => {
+  const body = region("const runPromptWithRuntime =", "const runPrompt =");
+  const guards = [...body.matchAll(GUARD)].map((match) => match.index ?? -1);
+  const create = body.indexOf("rt.client.session.create({");
+  const prompt = body.indexOf("rt.client.session.prompt({");
+  assert.ok(create >= 0 && prompt >= 0, "this region must still create the session and dispatch the prompt");
+  assert.ok(guards.length >= 3, `expected at least 3 cancellation guards, found ${guards.length}`);
+  assert.ok(
+    guards.some((index) => index < create),
+    "a cancelled turn must not create a session",
   );
-  const guards = [...runPrompt.matchAll(/if \(turn\.cancel\?\.aborted\)/g)].map((match) => match.index ?? -1);
-  const prompt = runPrompt.indexOf("rt.client.session.prompt({");
-  assert.ok(guards.length >= 3);
-  assert.ok(guards.every((index) => index < prompt));
+  assert.ok(
+    guards.every((index) => index < prompt),
+    "every guard must run before the prompt is dispatched",
+  );
 });

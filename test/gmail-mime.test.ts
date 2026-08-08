@@ -18,16 +18,31 @@ parts = {p.get_content_type(): p.get_content() for p in msg.walk() if not p.is_m
 print(json.dumps({"contentType": msg.get_content_type(), "parts": parts}))
 `;
 
-const havePython = spawnSync("python3", ["--version"]).status === 0;
+// gmail.py annotates with PEP 604 unions evaluated at def time, so it needs the
+// 3.10+ the agent sandbox ships. `python3` on a developer machine is often older
+// than that — probe for a version that can actually import the script rather than
+// reporting its own age as a failure of the code under test.
+function usablePython(): string | undefined {
+  const candidates = ["python3", "python3.14", "python3.13", "python3.12", "python3.11", "python3.10"];
+  for (const bin of candidates) {
+    const probe = spawnSync(bin, ["-c", "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)"]);
+    if (probe.status === 0) return bin;
+  }
+  return undefined;
+}
+
+const PYTHON = usablePython();
+const NEEDS_PYTHON = { skip: PYTHON ? false : "no python3 >= 3.10 on PATH" };
 
 function buildMime(body: string): { contentType: string; parts: Record<string, string> } {
-  const out = execFileSync("python3", ["-c", DRIVER, SCRIPT], { input: body, encoding: "utf8" });
+  if (!PYTHON) throw new Error("buildMime called without a usable python3");
+  const out = execFileSync(PYTHON, ["-c", DRIVER, SCRIPT], { input: body, encoding: "utf8" });
   return JSON.parse(out);
 }
 
 test(
   "drafted mail is multipart/alternative so recipients don't get Gmail's narrow plain-text rendering",
-  { skip: !havePython },
+  NEEDS_PYTHON,
   () => {
     const body =
       "Hi Alice and Bob,\n\nWould you fill this out? Takes ~5 minutes:\nhttps://forms.example.com/abc123\n\nCarol";
@@ -46,7 +61,7 @@ test(
   },
 );
 
-test("html mirror escapes markup and keeps sentence punctuation out of links", { skip: !havePython }, () => {
+test("html mirror escapes markup and keeps sentence punctuation out of links", NEEDS_PYTHON, () => {
   const mime = buildMime('a < b & "c" — see https://x.test/a?b=1&c=2.');
   const plain = mime.parts["text/plain"];
   const html = mime.parts["text/html"];
@@ -57,7 +72,7 @@ test("html mirror escapes markup and keeps sentence punctuation out of links", {
   assert.ok(html.includes("</a>."), "trailing period stays outside the link");
 });
 
-test("smart punctuation stays out of links; balanced brackets stay in", { skip: !havePython }, () => {
+test("smart punctuation stays out of links; balanced brackets stay in", NEEDS_PYTHON, () => {
   const mime = buildMime("See \u201chttps://x.test/reset?token=abc\u201d and http://[::1]/path\u2026");
   const html = mime.parts["text/html"];
   assert.ok(html, "html part exists");
@@ -66,7 +81,7 @@ test("smart punctuation stays out of links; balanced brackets stay in", { skip: 
   assert.ok(html.includes("</a>…"), "trailing ellipsis stays outside the link");
 });
 
-test("intra-paragraph line breaks survive as <br> in the html mirror", { skip: !havePython }, () => {
+test("intra-paragraph line breaks survive as <br> in the html mirror", NEEDS_PYTHON, () => {
   const mime = buildMime("Short.\n\nTwo lines\nin one paragraph");
   assert.equal(mime.contentType, "multipart/alternative");
   const html = mime.parts["text/html"];
