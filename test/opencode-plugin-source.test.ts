@@ -59,8 +59,13 @@ test("OpenCode prompt disables bridged tools absent from this turn", () => {
 });
 
 const GUARD = /if \(turn\.cancel\?\.aborted\)/g;
-const region = (from: string, to: string): string =>
-  harnessSource.slice(harnessSource.indexOf(from), harnessSource.indexOf(to));
+const region = (from: string, to: string): string => {
+  const start = harnessSource.indexOf(from);
+  const end = harnessSource.indexOf(to);
+  assert.ok(start >= 0, `landmark "${from}" is gone from opencode-harness.ts — this test needs relocating`);
+  assert.ok(end > start, `landmark "${to}" is gone or moved above "${from}" — this test needs relocating`);
+  return harnessSource.slice(start, end);
+};
 
 test("OpenCode observes cancellation before runtime startup", () => {
   const entry = region("const runPrompt =", "const single =");

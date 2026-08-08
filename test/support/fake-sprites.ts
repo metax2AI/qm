@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SpritesClientLike } from "../../src/sandbox/sprites-sandbox.ts";
-import { NONINTERACTIVE_ENV } from "../../src/sandbox/sandbox-env.ts";
+import { DROPPED_PROXY_ENV, NONINTERACTIVE_ENV } from "../../src/sandbox/sandbox-env.ts";
 
 export interface NetworkRule {
   domain: string;
@@ -69,13 +69,10 @@ export function installFakeSprites(): FakeSprites {
     return Buffer.alloc(0);
   };
 
-  // A real sprite boots with its own environment, not the developer's shell. Drop
-  // the variables the sandbox contract is responsible for setting, so a machine
-  // that exports PAGER (or DEBIAN_FRONTEND, or …) does not silently satisfy — or
-  // contradict — an assertion about what the sandbox itself provides.
   const spriteEnv = (): NodeJS.ProcessEnv => {
     const env: NodeJS.ProcessEnv = { ...process.env, COPYFILE_DISABLE: "1" };
     for (const [name] of NONINTERACTIVE_ENV) delete env[name];
+    for (const name of DROPPED_PROXY_ENV) delete env[name];
     return env;
   };
 

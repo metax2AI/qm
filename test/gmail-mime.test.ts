@@ -18,21 +18,18 @@ parts = {p.get_content_type(): p.get_content() for p in msg.walk() if not p.is_m
 print(json.dumps({"contentType": msg.get_content_type(), "parts": parts}))
 `;
 
-// gmail.py annotates with PEP 604 unions evaluated at def time, so it needs the
-// 3.10+ the agent sandbox ships. `python3` on a developer machine is often older
-// than that — probe for a version that can actually import the script rather than
-// reporting its own age as a failure of the code under test.
-function usablePython(): string | undefined {
-  const candidates = ["python3", "python3.14", "python3.13", "python3.12", "python3.11", "python3.10"];
-  for (const bin of candidates) {
-    const probe = spawnSync(bin, ["-c", "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)"]);
-    if (probe.status === 0) return bin;
-  }
-  return undefined;
+const INTERPRETERS = ["python3", "python3.14", "python3.13", "python3.12", "python3.11", "python3.10"];
+const NO_INTERPRETER = `none of ${INTERPRETERS.join(", ")} can run ${SCRIPT}`;
+
+function interpreterThatCanRunTheScript(): string | undefined {
+  return INTERPRETERS.find(
+    (bin) => spawnSync(bin, ["-c", DRIVER, SCRIPT], { input: "probe", encoding: "utf8" }).status === 0,
+  );
 }
 
-const PYTHON = usablePython();
-const NEEDS_PYTHON = { skip: PYTHON ? false : "no python3 >= 3.10 on PATH" };
+const PYTHON = interpreterThatCanRunTheScript();
+if (!PYTHON && process.env.CI) throw new Error(NO_INTERPRETER);
+const NEEDS_PYTHON = { skip: PYTHON ? false : NO_INTERPRETER };
 
 function buildMime(body: string): { contentType: string; parts: Record<string, string> } {
   if (!PYTHON) throw new Error("buildMime called without a usable python3");
