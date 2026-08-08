@@ -49,7 +49,14 @@ RUN case "$TARGETARCH" in \
   && aws --version
 
 RUN python3 -m venv /opt/agent-venv \
-  && /opt/agent-venv/bin/pip install --no-cache-dir --upgrade pip
+  && /opt/agent-venv/bin/pip install --no-cache-dir --upgrade pip \
+  && /opt/agent-venv/bin/pip install --no-cache-dir \
+       "pandas==3.0.5" \
+       "openpyxl==3.1.5" \
+       "python-docx==1.2.0" \
+       "pdfplumber==0.11.10" \
+       "chardet==7.5.1" \
+  && /opt/agent-venv/bin/python -c "import pandas, openpyxl, docx, pdfplumber, chardet; print('document toolchain ok')"
 ENV PATH="/opt/agent-venv/bin:${PATH}"
 ENV VIRTUAL_ENV=/opt/agent-venv
 
