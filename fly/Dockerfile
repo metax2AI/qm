@@ -24,7 +24,7 @@ RUN case "$TARGETARCH" in \
       arm64) GH_SHA=c55feb33684abba57e9909737340d5b39282257c0363e1edde6785ac4a413be7 ;; \
       *) exit 1 ;; \
     esac \
-  && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${TARGETARCH}.tar.gz" -o /tmp/gh.tgz \
+  && curl -fsSL --retry 20 --retry-all-errors --retry-delay 2 "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${TARGETARCH}.tar.gz" -o /tmp/gh.tgz \
   && echo "$GH_SHA  /tmp/gh.tgz" | sha256sum -c - \
   && tar xzf /tmp/gh.tgz -C /tmp \
   && install "/tmp/gh_${GH_VERSION}_linux_${TARGETARCH}/bin/gh" /usr/local/bin/gh \
@@ -41,7 +41,7 @@ RUN case "$TARGETARCH" in \
       arm64) AWS_ARCH=aarch64; AWS_SHA=f381be152a868ccfdd0cb7cb235916b1dd8024e388bdeef0c385fb33af131a60 ;; \
       *) exit 1 ;; \
     esac \
-  && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}-${AWSCLI_VERSION}.zip" -o /tmp/awscliv2.zip \
+  && curl -fsSL --retry 20 --retry-all-errors --retry-delay 2 "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}-${AWSCLI_VERSION}.zip" -o /tmp/awscliv2.zip \
   && echo "$AWS_SHA  /tmp/awscliv2.zip" | sha256sum -c - \
   && unzip -q /tmp/awscliv2.zip -d /tmp \
   && /tmp/aws/install \

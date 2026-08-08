@@ -112,21 +112,18 @@ export function createLocalSandbox(workspace: WorkspaceStore, opts: LocalSandbox
         preflightDone = undefined;
         throw new Error("SANDBOX_BACKEND=local requires a running Docker daemon (is Docker Desktop running?)");
       }
-      const img = await dexec([
-        "image",
-        "inspect",
-        "-f",
-        `{{.Id}} {{if .Config.Labels}}{{index .Config.Labels "${FINGERPRINT_LABEL}"}}{{end}}`,
-        image,
-      ]);
-      if (img.code !== 0) {
+      const img = await dexec(["image", "ls", "--format", `{{.Repository}}:{{.Tag}} {{.ID}}`], 15_000);
+      const line = img.stdout.split("\n").find((l) => l.startsWith(`${image} `));
+      if (img.code !== 0 || !line) {
         preflightDone = undefined;
         throw new Error(`local sandbox image ${image} not found — ${BUILD_HINT}`);
       }
-      const [imageId = "", labeled = ""] = img.stdout.trim().split(/\s+/);
-      if (!staleWarned) {
-        const want = await computeSandboxImageFingerprint(opts.repoRoot ?? process.cwd());
-        if (want && labeled && labeled !== want) {
+      const imageId = line.split(/\s+/)[1] ?? "";
+      const want = await computeSandboxImageFingerprint(opts.repoRoot ?? process.cwd());
+      if (!staleWarned && want && imageId) {
+        const labeled = await dexec(["image", "inspect", "-f", `{{index .Config.Labels "${FINGERPRINT_LABEL}"}}`, imageId]);
+        const label = labeled.code === 0 ? labeled.stdout.trim() : "";
+        if (label && label !== want) {
           staleWarned = true;
           console.warn(`[local-sandbox] sandbox image ${image} is stale — ${BUILD_HINT}`);
         }

@@ -61,7 +61,10 @@ export function installFakeDocker(daemonPort: number): FakeDocker {
         return ok("Docker version fake");
       case "image": {
         if (self.imageMissing) return fail("Error: No such image");
-        return ok(`${self.imageId} ${self.imageFingerprint}`);
+        const sub = rest[0];
+        if (sub === "ls") return ok(`qm-sandbox-local:latest ${self.imageId}`);
+        if (sub === "inspect") return ok(self.imageFingerprint);
+        return ok("");
       }
       case "inspect": {
         const name = rest[rest.length - 1]!;
