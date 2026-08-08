@@ -22,7 +22,7 @@ import type {
   SandboxHandle,
   TeardownOptions,
 } from "./sandbox.ts";
-import { visibleNotInstalled, visibleTools } from "./sandbox.ts";
+import { DOCUMENT_PARSERS_FACT, visibleNotInstalled, visibleTools } from "./sandbox.ts";
 import {
   ephemeralCredLinkPaths,
   ephemeralCredLinkScript,
@@ -308,7 +308,7 @@ export function createAwsSandbox(workspace: WorkspaceStore, opts: AwsSandboxOpti
     egressEnforcement: "none",
     spec: {
       os: "Amazon Linux 2023, glibc",
-      runtimes: ["Node 24", "Python 3 (venv on PATH)"],
+      runtimes: ["Node 24", "Python 3 (venv on PATH)", DOCUMENT_PARSERS_FACT],
       get tools() {
         return visibleTools([
           "git",
