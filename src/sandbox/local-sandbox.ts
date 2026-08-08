@@ -26,6 +26,7 @@ import type {
   SandboxHandle,
   TeardownOptions,
 } from "./sandbox.ts";
+import { DOCUMENT_PARSERS_FACT } from "./sandbox.ts";
 
 const DEFAULT_LOCAL_SANDBOX_IMAGE = "qm-sandbox-local:latest";
 const HOME_DIR = "/root";
@@ -121,7 +122,13 @@ export function createLocalSandbox(workspace: WorkspaceStore, opts: LocalSandbox
       const imageId = line.split(/\s+/)[1] ?? "";
       const want = await computeSandboxImageFingerprint(opts.repoRoot ?? process.cwd());
       if (!staleWarned && want && imageId) {
-        const labeled = await dexec(["image", "inspect", "-f", `{{index .Config.Labels "${FINGERPRINT_LABEL}"}}`, imageId]);
+        const labeled = await dexec([
+          "image",
+          "inspect",
+          "-f",
+          `{{index .Config.Labels "${FINGERPRINT_LABEL}"}}`,
+          imageId,
+        ]);
         const label = labeled.code === 0 ? labeled.stdout.trim() : "";
         if (label && label !== want) {
           staleWarned = true;
@@ -319,7 +326,7 @@ export function createLocalSandbox(workspace: WorkspaceStore, opts: LocalSandbox
     egressEnforcement: "none",
     spec: {
       os: `Debian 12 (bookworm), glibc — local Docker container on a ${arch()} host (dev only)`,
-      runtimes: ["Node 24", "Python 3 (venv on PATH — `pip install` just works)"],
+      runtimes: ["Node 24", "Python 3 (venv on PATH — `pip install` just works)", DOCUMENT_PARSERS_FACT],
       tools: ["git", "curl", "wget", "jq", "unzip", "gnupg", "python3", "gh", "aws (CLI v2)"],
       notInstalled: ["gcloud", "kubectl", "flyctl", "glab"],
       ...(opts.cpus ? { cpus: opts.cpus } : {}),

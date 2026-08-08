@@ -18,6 +18,9 @@ export function hasParentPathSegment(path: string): boolean {
 type WritablePersistence = "snapshot_to_workspace" | "resident_disk";
 export type EgressEnforcement = "none" | "ip_port" | "domain";
 
+export const DOCUMENT_PARSERS_FACT =
+  "Document parsers preinstalled (no install needed): pandas + openpyxl (.xlsx), python-docx (.docx), pdfplumber (.pdf), chardet (encoding detection)";
+
 export interface AgentComputerSpec {
   os?: string;
   runtimes?: string[];

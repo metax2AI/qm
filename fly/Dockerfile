@@ -50,7 +50,7 @@ RUN case "$TARGETARCH" in \
 
 RUN python3 -m venv /opt/agent-venv \
   && /opt/agent-venv/bin/pip install --no-cache-dir --upgrade pip \
-  && /opt/agent-venv/bin/pip install --no-cache-dir \
+  && /opt/agent-venv/bin/pip install --no-cache-dir --only-binary=:all: \
        "pandas==3.0.5" \
        "openpyxl==3.1.5" \
        "python-docx==1.2.0" \
