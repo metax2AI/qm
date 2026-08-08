@@ -46,7 +46,7 @@ export interface SlackInstallationStatus {
 export type SlackEnvironmentState = "absent" | "configured" | "partial";
 
 export type SlackSurfaceState =
-  | { enabled: true; source: "admin"; status: SlackInstallationStatus }
+  | { enabled: boolean; source: "admin"; status: SlackInstallationStatus }
   | { enabled: true; source: "environment" }
   | { enabled: false; source: "none" | "invalid_environment" };
 
@@ -55,7 +55,7 @@ export async function slackSurfaceState(
   environmentState: SlackEnvironmentState | undefined,
 ): Promise<SlackSurfaceState> {
   const status = installation ? await installation.status() : null;
-  if (status?.managed) return { enabled: true, source: "admin", status };
+  if (status?.managed) return { enabled: status.configured, source: "admin", status };
   if (environmentState === "configured") return { enabled: true, source: "environment" };
   return { enabled: false, source: environmentState === "partial" ? "invalid_environment" : "none" };
 }

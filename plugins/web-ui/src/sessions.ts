@@ -253,7 +253,6 @@ export function slackLogo(size = 13): TemplateResult {
 
 function visibleSessions(): CoreSession[] {
   const sorted = [...sessionsState.list].sort((a, b) => activityOf(b) - activityOf(a));
-  if (!slackEnabled()) return sorted;
   return sessionsState.webOnly ? sorted.filter((s) => surfaceOf(s) === "web") : sorted;
 }
 

@@ -25,6 +25,21 @@ test("an admin installation outranks the environment", async () => {
   assert.equal(state.source, "admin");
 });
 
+test("a disconnected installation disables the surface even when the environment is configured", async () => {
+  const tombstone: SlackInstallationStatus = { configured: false, managed: true };
+  assert.deepEqual(await slackSurfaceState(storeWith(tombstone), "absent"), {
+    enabled: false,
+    source: "admin",
+    status: tombstone,
+  });
+  const overEnvironment = await slackSurfaceState(storeWith(tombstone), "configured");
+  assert.equal(
+    overEnvironment.enabled,
+    false,
+    "deleting the installation is an explicit disconnect and outranks the environment, matching the runtime reconciler",
+  );
+});
+
 test("a configured environment enables the surface when no installation is managed", async () => {
   const unmanaged = storeWith({ configured: false, managed: false });
   assert.deepEqual(await slackSurfaceState(unmanaged, "configured"), { enabled: true, source: "environment" });

@@ -300,21 +300,23 @@ interface SlackSurface {
   workspaceUrl: string | null;
 }
 const slackSurfaceCache = new LRUCache<string, SlackSurface>({ max: 1, ttl: 5 * 60_000 });
+let lastKnownSlackSurface: SlackSurface | null = null;
 async function slackSurface(): Promise<SlackSurface> {
   const hit = slackSurfaceCache.get("surface");
   if (hit) return hit;
-  let surface: SlackSurface = { enabled: false, workspaceUrl: null };
   try {
     const r = await coreFetch("GET", "/v1/directory/meta");
     if (r.status === 200) {
       const meta = JSON.parse(r.text) as { workspaceUrl?: string | null; slackEnabled?: boolean };
-      surface = { enabled: meta.slackEnabled === true, workspaceUrl: meta.workspaceUrl ?? null };
+      const surface = { enabled: meta.slackEnabled ?? true, workspaceUrl: meta.workspaceUrl ?? null };
+      slackSurfaceCache.set("surface", surface);
+      lastKnownSlackSurface = surface;
+      return surface;
     }
   } catch {
     void 0;
   }
-  slackSurfaceCache.set("surface", surface);
-  return surface;
+  return lastKnownSlackSurface ?? { enabled: true, workspaceUrl: null };
 }
 
 const WEB_DELIVERY_POLL_MS = Number(process.env.WEB_DELIVERY_POLL_MS ?? 2500);
