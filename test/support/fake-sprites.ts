@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SpritesClientLike } from "../../src/sandbox/sprites-sandbox.ts";
+import { DROPPED_PROXY_ENV, NONINTERACTIVE_ENV } from "../../src/sandbox/sandbox-env.ts";
 
 export interface NetworkRule {
   domain: string;
@@ -68,13 +69,20 @@ export function installFakeSprites(): FakeSprites {
     return Buffer.alloc(0);
   };
 
+  const spriteEnv = (): NodeJS.ProcessEnv => {
+    const env: NodeJS.ProcessEnv = { ...process.env, COPYFILE_DISABLE: "1" };
+    for (const [name] of NONINTERACTIVE_ENV) delete env[name];
+    for (const name of DROPPED_PROXY_ENV) delete env[name];
+    return env;
+  };
+
   const runExec = (name: string, script: string, stdin?: Buffer): Buffer => {
     execScripts.push(script);
     mkdirSync(join(ensureDir(name), "tmp"), { recursive: true });
     const r = spawnSync("sh", ["-c", remap(name, script)], {
       encoding: "buffer",
       maxBuffer: 128 * 1024 * 1024,
-      env: { ...process.env, COPYFILE_DISABLE: "1" },
+      env: spriteEnv(),
       ...(stdin ? { input: stdin } : {}),
     });
     const code = r.status ?? (r.signal ? 137 : -1);
