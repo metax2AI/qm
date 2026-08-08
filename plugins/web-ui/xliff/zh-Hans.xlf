@@ -166,18 +166,6 @@
   <source>No readable messages in this conversation.</source>
   <target>此会话中没有可读消息。</target>
 </trans-unit>
-<trans-unit id="s4c0c845a2ed923e6">
-  <source>Hi — I'm your AI teammate 👋
-
-I run tasks on a computer of my own and work across your connected tools — Slack, Google Workspace, GitHub, Linear, and the open web — and I remember what we work on together.
-
-Want to get set up? Tell me your name and what you're working on, and I'll take it from there — or just ask me anything to dive straight in.</source>
-  <target>你好，我是你的 AI 队友 👋
-
-我在自己的电脑上执行任务，也能使用你已连接的工具，包括 Slack、Google Workspace、GitHub、Linear 和开放网络。我还会记住我们共同处理的工作。
-
-想先完成设置吗？告诉我你的名字和正在做的事情，接下来交给我；你也可以直接提问，马上开始。</target>
-</trans-unit>
 <trans-unit id="sc8d4ad4433d1be37">
   <source>Expand this pane</source>
   <target>展开此窗格</target>
@@ -3889,6 +3877,18 @@ Want to get set up? Tell me your name and what you're working on, and I'll take 
 <trans-unit id="s4014c8da042c9d41">
   <source>The usage budget has been reached. Try again later.</source>
   <target>用量预算已用尽，请稍后再试。</target>
+</trans-unit>
+<trans-unit id="s759f8a717dc26822">
+  <source>Hi — I'm your AI teammate 👋
+
+I run tasks on a computer of my own, work with the files you share and the tools this workspace connects, and I remember what we work on together.
+
+Want to get set up? Tell me your name and what you're working on, and I'll take it from there — or just ask me anything to dive straight in.</source>
+  <target>你好，我是你的 AI 队友 👋
+
+我在自己的电脑上执行任务，能处理你上传的文件，也能使用这个工作区已连接的工具。我还会记住我们共同处理的工作。
+
+想先完成设置吗？告诉我你的名字和正在做的事情，接下来交给我；你也可以直接提问，马上开始。</target>
 </trans-unit>
 </body>
 </file>

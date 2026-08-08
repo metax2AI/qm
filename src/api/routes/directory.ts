@@ -2,6 +2,7 @@ import type { PrincipalType } from "../../types.ts";
 import type { DirectoryMember } from "../../directory/directory-store.ts";
 import { sendJson } from "../http.ts";
 import { audit, isObj, orgScope } from "./shared.ts";
+import { slackSurfaceState } from "../../surfaces/slack-installation.ts";
 import { type ApiCtx, type Route } from "./route.ts";
 
 const numOrUndef = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
@@ -99,8 +100,9 @@ async function pushDirectory(ctx: ApiCtx): Promise<void> {
 }
 
 async function directoryMeta(ctx: ApiCtx): Promise<void> {
-  const { res, app } = ctx;
-  return sendJson(res, 200, await app.directoryMeta());
+  const { res, app, deps } = ctx;
+  const slack = await slackSurfaceState(deps.slackInstallation, deps.slackEnvironmentState);
+  return sendJson(res, 200, { ...(await app.directoryMeta()), slackEnabled: slack.enabled });
 }
 
 const SLACK_ID_RE = /^[UW][A-Z0-9]{8,}$/;

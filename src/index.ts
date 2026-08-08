@@ -6,6 +6,7 @@ import { defaultModelForHarness, modelProviderAvailabilityFor } from "./model/pi
 import { effectiveEgressEnforcement } from "./sandbox/sandbox.ts";
 import { slackPluginConfigFromEnv, startSlackPlugin } from "./slack/index.ts";
 import { createSlackRuntimeReconciler } from "./surfaces/slack-runtime.ts";
+import { slackSurfaceState, type SlackEnvironmentState } from "./surfaces/slack-installation.ts";
 
 const config = loadConfig();
 
@@ -13,7 +14,7 @@ const built = buildApp(config);
 const envSlackConfig = slackPluginConfigFromEnv(process.env);
 const slackConfig = envSlackConfig;
 const envSlackAttempted = Boolean(process.env.SLACK_BOT_TOKEN || process.env.SLACK_APP_TOKEN);
-let slackEnvironmentState: "absent" | "configured" | "partial" = "absent";
+let slackEnvironmentState: SlackEnvironmentState = "absent";
 if (slackConfig) slackEnvironmentState = "configured";
 else if (envSlackAttempted) slackEnvironmentState = "partial";
 const server = createServer(built.app, {
@@ -112,19 +113,19 @@ if (config.backgroundWorkEnabled) {
 
 const slackRuntime = createSlackRuntimeReconciler({
   load: async () => {
-    const status = await built.slackInstallation.status();
-    const stored = await built.slackInstallation.get();
-    if (stored) {
-      const dynamic = slackPluginConfigFromEnv({
-        ...process.env,
-        SLACK_BOT_TOKEN: stored.botToken,
-        SLACK_APP_TOKEN: stored.appToken,
-      });
-      return dynamic ? { version: stored.version, config: dynamic } : null;
+    const state = await slackSurfaceState(built.slackInstallation, slackEnvironmentState);
+    if (!state.enabled) return null;
+    if (state.source === "environment") {
+      return slackConfig ? { version: "environment", config: slackConfig } : null;
     }
-    if (status.managed) return null;
-    if (slackConfig) return { version: "environment", config: slackConfig };
-    return null;
+    const stored = await built.slackInstallation.get();
+    if (!stored) return null;
+    const dynamic = slackPluginConfigFromEnv({
+      ...process.env,
+      SLACK_BOT_TOKEN: stored.botToken,
+      SLACK_APP_TOKEN: stored.appToken,
+    });
+    return dynamic ? { version: stored.version, config: dynamic } : null;
   },
   startPlugin: (desired) => startSlackPlugin(desired, built.slackCore),
   onError: (error) => console.error(`[qm] slack plugin reconciliation failed: ${errMessage(error)}`),

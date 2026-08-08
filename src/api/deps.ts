@@ -47,7 +47,11 @@ import type { AckEmojiPickStore } from "../surface-cache/ack-emoji-pick-store.ts
 import type { ChannelPolicyStore } from "../surface-cache/channel-policy-store.ts";
 import type { RateLimiter } from "../ratelimit/rate-limiter.ts";
 import type { AdvisoryLock } from "../persistence/advisory-lock.ts";
-import type { SlackInstallationStore, SlackSocketAppIdReader } from "../surfaces/slack-installation.ts";
+import type {
+  SlackEnvironmentState,
+  SlackInstallationStore,
+  SlackSocketAppIdReader,
+} from "../surfaces/slack-installation.ts";
 
 export interface ServerDeps {
   production?: boolean;
@@ -62,7 +66,7 @@ export interface ServerDeps {
   slackInstallation?: SlackInstallationStore;
   slackInstallationFetch?: typeof fetch;
   slackInstallationSocketAppId?: SlackSocketAppIdReader;
-  slackEnvironmentState?: "absent" | "configured" | "partial";
+  slackEnvironmentState?: SlackEnvironmentState;
   oauthStateSecret?: string;
   oauthFetch?: FetchLike;
   oauthEnv?: NodeJS.ProcessEnv;

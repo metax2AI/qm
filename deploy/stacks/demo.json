@@ -31,6 +31,7 @@
     },
     "portal": {
       "PORTAL_PUBLIC_URL": "https://demo-agent.example.com",
+      "OIDC_ISSUER": "https://slack.com",
       "OIDC_ALLOWED_EMAIL_DOMAIN": "example.com",
       "PORTAL_EXPECTED_TEAM_ID": "T00000000"
     }

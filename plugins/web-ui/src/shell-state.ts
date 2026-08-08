@@ -4,6 +4,7 @@ export interface Me {
   user: string;
   org: string;
   mode?: AuthMode;
+  slackEnabled?: boolean;
   slackWorkspaceUrl?: string | null;
   impersonatedBy?: string | null;
   permissions?: string[];
@@ -27,4 +28,8 @@ export const appState = {
 
 export function can(key: string): boolean {
   return appState.me?.permissions?.includes(key) === true;
+}
+
+export function slackEnabled(): boolean {
+  return appState.me?.slackEnabled === true;
 }
