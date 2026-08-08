@@ -76,8 +76,8 @@
       "AUTH_EMAIL_TRANSPORT": "smtp",
       "AUTH_DEFAULT_LOCALE": "zh-Hans",
       "SMTP_PORT": "587",
-      "SMTP_TLS": "starttls"
-    }
+      "SMTP_TLS": "starttls",
+    },
   },
 
   // "sandbox" is deliberately absent, and its absence is the one thing standing

@@ -34,8 +34,7 @@ describe("deliverWebDelivery", () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  const deliver = (id: string) =>
-    fetch(`${base}/v1/deliveries/${encodeURIComponent(id)}/deliver`, { method: "POST" });
+  const deliver = (id: string) => fetch(`${base}/v1/deliveries/${encodeURIComponent(id)}/deliver`, { method: "POST" });
 
   const enqueueWeb = async (
     key: string,
@@ -49,7 +48,8 @@ describe("deliverWebDelivery", () => {
     });
     const res = await fetch(`${base}/v1/deliveries?type=web`);
     assert.equal(res.status, 200);
-    const rows = ((await res.json()) as { deliveries?: Array<{ id: string; idempotencyKey: string }> }).deliveries ?? [];
+    const rows =
+      ((await res.json()) as { deliveries?: Array<{ id: string; idempotencyKey: string }> }).deliveries ?? [];
     const found = rows.find((r) => r.idempotencyKey === key);
     assert.ok(found, `delivery ${key} is pending`);
     return found.id;
@@ -63,7 +63,8 @@ describe("deliverWebDelivery", () => {
     });
     const res = await fetch(`${base}/v1/deliveries?type=group`);
     assert.equal(res.status, 200);
-    const rows = ((await res.json()) as { deliveries?: Array<{ id: string; idempotencyKey: string }> }).deliveries ?? [];
+    const rows =
+      ((await res.json()) as { deliveries?: Array<{ id: string; idempotencyKey: string }> }).deliveries ?? [];
     const found = rows.find((r) => r.idempotencyKey === key);
     assert.ok(found, `delivery ${key} is pending`);
     return found.id;
@@ -80,9 +81,7 @@ describe("deliverWebDelivery", () => {
     const res = await fetch(`${base}/v1/sessions/${encodeURIComponent(id)}?viewer=U1`);
     assert.equal(res.status, 200);
     const body = (await res.json()) as { entries?: Array<{ type: string; payload: { text?: string } }> };
-    return (body.entries ?? [])
-      .filter((e) => e.type === "assistant")
-      .map((e) => e.payload.text ?? "");
+    return (body.entries ?? []).filter((e) => e.type === "assistant").map((e) => e.payload.text ?? "");
   };
 
   it("writes a web delivery into the target session, adds the owner as participant, and acks it", async () => {

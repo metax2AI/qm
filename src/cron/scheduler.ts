@@ -181,9 +181,7 @@ export function createScheduler(deps: SchedulerDeps): Scheduler {
         resource: cron.id,
         scopeLabel: cron.ownerScopeId,
         ...(outcome.status ? { status: outcome.status } : {}),
-        detail: outcome.authzFailed
-          ? `authorization failed — cron disabled: ${outcome.note ?? ""}`.trim()
-          : fireKey,
+        detail: outcome.authzFailed ? `authorization failed — cron disabled: ${outcome.note ?? ""}`.trim() : fireKey,
       });
     }
     if (outcome.authzFailed) {

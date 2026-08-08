@@ -93,16 +93,36 @@ function readAuthorizeRequest(
     return { problem: pick(locale, "This sign-in request is for an unknown application.", "此登录请求来自未知应用。") };
   if (!redirectUri || !safeEqual(redirectUri, cfg.redirectUri))
     return {
-      problem: pick(locale, "This sign-in request would return you to an address that is not registered.", "此登录请求会跳转到未注册的地址。"),
+      problem: pick(
+        locale,
+        "This sign-in request would return you to an address that is not registered.",
+        "此登录请求会跳转到未注册的地址。",
+      ),
     };
   if ((params.get("response_type") ?? "") !== "code")
-    return { problem: pick(locale, "Only the authorization-code flow is supported.", "仅支持授权码（authorization-code）流程。") };
+    return {
+      problem: pick(
+        locale,
+        "Only the authorization-code flow is supported.",
+        "仅支持授权码（authorization-code）流程。",
+      ),
+    };
   if ((params.get("code_challenge_method") ?? "") !== "S256")
-    return { problem: pick(locale, "This sign-in request must use PKCE with S256.", "此登录请求必须使用 S256 方式的 PKCE 校验。") };
+    return {
+      problem: pick(
+        locale,
+        "This sign-in request must use PKCE with S256.",
+        "此登录请求必须使用 S256 方式的 PKCE 校验。",
+      ),
+    };
   const codeChallenge = params.get("code_challenge") ?? "";
   if (!/^[A-Za-z0-9\-_]{43}$/.test(codeChallenge))
     return {
-      problem: pick(locale, "This sign-in request carries a malformed PKCE challenge.", "此登录请求携带的 PKCE 校验值格式有误。"),
+      problem: pick(
+        locale,
+        "This sign-in request carries a malformed PKCE challenge.",
+        "此登录请求携带的 PKCE 校验值格式有误。",
+      ),
     };
   const state = params.get("state") ?? "";
   const nonce = params.get("nonce") ?? "";
@@ -112,7 +132,13 @@ function readAuthorizeRequest(
     return { problem: pick(locale, "This sign-in request is missing its nonce.", "此登录请求缺少 nonce 参数。") };
   const scope = params.get("scope") ?? "openid";
   if (!scope.split(/\s+/).includes("openid"))
-    return { problem: pick(locale, "This sign-in request must ask for the openid scope.", "此登录请求必须包含 openid 权限范围。") };
+    return {
+      problem: pick(
+        locale,
+        "This sign-in request must ask for the openid scope.",
+        "此登录请求必须包含 openid 权限范围。",
+      ),
+    };
   return { request: { clientId, redirectUri, state, nonce, codeChallenge, scope } };
 }
 

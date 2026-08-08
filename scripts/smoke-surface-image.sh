@@ -28,6 +28,11 @@ if [[ "$service" == "portal" ]]; then
     -e CORE_SIGNING_SECRET=runtime-smoke-core-signing-secret \
     -e OIDC_CLIENT_ID=runtime-smoke-client \
     -e OIDC_CLIENT_SECRET=runtime-smoke-client-secret \
+    -e OIDC_ISSUER=https://idp.example.com \
+    -e OIDC_AUTH_ENDPOINT=https://idp.example.com/authorize \
+    -e OIDC_TOKEN_ENDPOINT=https://idp.example.com/token \
+    -e OIDC_USERINFO_ENDPOINT=https://idp.example.com/userinfo \
+    -e OIDC_JWKS_URI=https://idp.example.com/.well-known/jwks.json \
     -e OIDC_ALLOWED_EMAIL_DOMAIN=example.com \
     -e PORTAL_PUBLIC_URL=https://portal.example.com \
     "$image" >/dev/null
