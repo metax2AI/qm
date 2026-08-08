@@ -121,6 +121,9 @@ test("the exported card pages are Chinese when the locale is zh-Hans and English
   assert.match(signInErrorHtml("boom", "en"), /We couldn&#39;t sign you in/);
   assert.match(nonAdminDeniedHtml({ sub: "u@example.com", org: "acme" }, "en"), /admin access/);
   assert.match(connectErrorHtml("boom", "en"), /Can&#39;t connect/);
-  assert.match(connectWrongRecipientHtml({ provider: "salesforce", alreadyConnected: true }, "en"), /already connected/);
+  assert.match(
+    connectWrongRecipientHtml({ provider: "salesforce", alreadyConnected: true }, "en"),
+    /already connected/,
+  );
   assert.doesNotMatch(notConfiguredHtml(), /We couldn't/);
 });

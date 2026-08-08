@@ -360,9 +360,7 @@ export interface App {
   ): Promise<AmbientDecision>;
   ackDelivery(id: string, slackApiMs?: number): Promise<void>;
   ackDeliveryByKey(idempotencyKey: string): Promise<void>;
-  deliverWebDelivery(
-    id: string,
-  ): Promise<{ ok: boolean; status: number; message?: string; sessionId?: string }>;
+  deliverWebDelivery(id: string): Promise<{ ok: boolean; status: number; message?: string; sessionId?: string }>;
   setRunDeliveryState(runId: string, state: RunDeliveryState): Promise<boolean>;
   upsertDirectory(members: DirectoryMember[], syncedAt?: number): Promise<void>;
   upsertChannels(channels: DirectoryChannel[], channelMembers?: ChannelMembership[], syncedAt?: number): Promise<void>;

@@ -61,7 +61,9 @@ test("AUTH_DEFAULT_LOCALE=zh-Hans shows Chinese error pages", async (t) => {
   assert.match(refusedHtml, /这条登录链接无效/);
   assert.match(refusedHtml, /此登录请求来自未知应用。/);
 
-  const badChallenge = await fetch(`${h.base}/authorize?${authorizeQuery({ code_challenge: "not-a-valid-challenge" })}`);
+  const badChallenge = await fetch(
+    `${h.base}/authorize?${authorizeQuery({ code_challenge: "not-a-valid-challenge" })}`,
+  );
   assert.match(await badChallenge.text(), /PKCE 校验值格式有误/);
 });
 
