@@ -1,6 +1,58 @@
 # qm
 
-To run and test, see [`README.md`](./README.md).
+[`README.md`](./README.md) explains what QM is and how it is deployed.
+
+## Commands
+
+Node 24+ / npm 11+ (`.node-version`). TypeScript runs directly on Node — there is no
+build step for core; `npm ci` then:
+
+```bash
+npm run dev                      # core with --watch, loads .env
+npm run dev-instance             # production-shaped local instance (prefer the /dev-instance skill)
+
+npm test                         # root suite: test/*.test.ts only
+node --experimental-test-module-mocks --test test/<name>.test.ts        # one file
+node --experimental-test-module-mocks --test --test-name-pattern '<re>' test/<name>.test.ts
+npm run test:all                 # every test/**, including subdirectories
+npm run test:pg                  # Postgres-backed durability tests (needs a live DB)
+npm run test:e2e                 # test/e2e
+
+npm run typecheck && npm run lint     # what CI gates on, plus format:check, lint:ox, lint:knip
+```
+
+The `--experimental-test-module-mocks` flag is what makes `npm test` differ from a bare
+`node --test`; root tests that mock modules fail without it. CI shards the root suite five
+ways (`test:root:shard`), so run affected files locally and let CI be the full gate.
+
+Plugins and the CLI are separate npm packages with their own `node_modules`: run
+`npm ci && npm test` inside `plugins/<name>/` or `cli/`, not from the root. `plugins/web-ui`
+additionally needs `npm run build` (Vite + localization) and gates on `localize:check`.
+
+## Architecture
+
+Read `src/wiring.ts` first: it is the single composition root where every substrate —
+session store, harness, sandbox, memory, config, ACL — is chosen behind an interface,
+with an in-memory implementation for tests and a Postgres/cloud one for production.
+`src/index.ts` only loads config, calls `buildApp`, and starts the server.
+
+The turn path: a surface (Slack, web) posts to the HTTP API (`src/api/`) → the
+orchestrator (`src/core/orchestrator.ts`) resolves scope, identity, policy, and memory →
+the harness router (`src/harness/harness-router.ts`) dispatches to one of the
+interchangeable agent harnesses (Pi, Claude, Codex, OpenCode, plus `mock-harness` for
+tests) → tool calls land in the scope's sandbox (`src/sandbox/`, local Docker / AWS
+microVM / Fly sprites). Long-running work is a *run* (`src/runs/`) executed by a
+worker process against pg-boss, not an in-request await.
+
+The unit of isolation is the **scope** (`ScopeId` in `src/types.ts`): a person or a room.
+Memory, files, keychain, crons, skills, and sandbox are all scope-owned, and
+`src/resolution/` layers scope config over org defaults. Almost any feature question
+reduces to "which scope owns this, and how does resolution reach it".
+
+Surfaces are plugins, not core: `plugins/{web-ui,admin,portal,auth}` are standalone
+services talking to core over the signed HTTP API, and `plugins/chassis` is the only
+shared code between them. Slack (`src/slack/`) is the exception — in-process, supervised
+by core.
 
 ## Working on the code
 
