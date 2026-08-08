@@ -33,7 +33,7 @@ interface SlackInstallation {
   version: string;
 }
 
-interface SlackInstallationStatus {
+export interface SlackInstallationStatus {
   configured: boolean;
   managed: boolean;
   teamId?: string;
@@ -41,6 +41,23 @@ interface SlackInstallationStatus {
   updatedAt?: number;
   updatedBy?: string;
   version?: string;
+}
+
+export type SlackEnvironmentState = "absent" | "configured" | "partial";
+
+export type SlackSurfaceState =
+  | { enabled: true; source: "admin"; status: SlackInstallationStatus }
+  | { enabled: true; source: "environment" }
+  | { enabled: false; source: "none" | "invalid_environment" };
+
+export async function slackSurfaceState(
+  installation: SlackInstallationStore | undefined,
+  environmentState: SlackEnvironmentState | undefined,
+): Promise<SlackSurfaceState> {
+  const status = installation ? await installation.status() : null;
+  if (status?.managed) return { enabled: true, source: "admin", status };
+  if (environmentState === "configured") return { enabled: true, source: "environment" };
+  return { enabled: false, source: environmentState === "partial" ? "invalid_environment" : "none" };
 }
 
 export interface SlackInstallationStore {

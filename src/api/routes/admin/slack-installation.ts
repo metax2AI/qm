@@ -2,7 +2,7 @@ import { sendJson } from "../../http.ts";
 import { audit, authorizeAdmin, orgScope } from "../shared.ts";
 import type { ApiCtx } from "../route.ts";
 import { errMessage } from "../../../util/errors.ts";
-import { validateSlackInstallation } from "../../../surfaces/slack-installation.ts";
+import { slackSurfaceState, validateSlackInstallation } from "../../../surfaces/slack-installation.ts";
 import { slackBotManifestCreationUrl } from "../../../surfaces/slack-manifest.ts";
 
 export async function getSlackInstallation(ctx: ApiCtx): Promise<void> {
@@ -17,17 +17,9 @@ export async function getSlackInstallation(ctx: ApiCtx): Promise<void> {
     scopeLabel: scope,
   });
   const createUrl = slackBotManifestCreationUrl();
-  const stored = await ctx.deps.slackInstallation.status();
-  if (stored.managed) return sendJson(ctx.res, 200, { ...stored, source: "admin", createUrl });
-  if (ctx.deps.slackEnvironmentState === "configured") {
-    return sendJson(ctx.res, 200, { configured: true, managed: false, source: "environment", createUrl });
-  }
-  return sendJson(ctx.res, 200, {
-    configured: false,
-    managed: false,
-    source: ctx.deps.slackEnvironmentState === "partial" ? "invalid_environment" : "none",
-    createUrl,
-  });
+  const state = await slackSurfaceState(ctx.deps.slackInstallation, ctx.deps.slackEnvironmentState);
+  if (state.source === "admin") return sendJson(ctx.res, 200, { ...state.status, source: "admin", createUrl });
+  return sendJson(ctx.res, 200, { configured: state.enabled, managed: false, source: state.source, createUrl });
 }
 
 export async function putSlackInstallation(ctx: ApiCtx): Promise<void> {

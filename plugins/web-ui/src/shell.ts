@@ -65,10 +65,10 @@ import { renderDeploys } from "./deploys";
 import { renderMemory, resetMemoryState } from "./memory";
 import { renderSkills } from "./skills";
 import { contextsState, ensureContexts, renderContexts, resetContextsState, resolveProjectScope } from "./contexts";
-import { appState, isView, type AuthMode, type Me, type View } from "./shell-state";
+import { appState, isView, slackEnabled, type AuthMode, type Me, type View } from "./shell-state";
 import { trapDialogFocus } from "./dialog-focus";
 import { activeLocale, saveLocale, syncMiniLitLocalization } from "./localization.ts";
-export { appState, can, type Me, type View } from "./shell-state";
+export { appState, can, slackEnabled, type Me, type View } from "./shell-state";
 
 let authMode: AuthMode = "portal";
 let shellMounted = false;
@@ -578,16 +578,22 @@ export function renderSidebarTop(): void {
           ? html`
               <div class="section-label recents-label">
                 <span>${msg("Sessions")}</span>
-                <button
-                  class="web-only-toggle ${sessionsState.webOnly ? "on" : ""}"
-                  type="button"
-                  role="switch"
-                  aria-checked=${sessionsState.webOnly ? "true" : "false"}
-                  title=${sessionsState.webOnly ? msg("Showing web chats only") : msg("Hide non-web conversations")}
-                  @click=${toggleWebOnly}
-                >
-                  <span>${msg("Web only")}</span><span class="mini-switch"><span class="mini-knob"></span></span>
-                </button>
+                ${
+                  slackEnabled()
+                    ? html`<button
+                        class="web-only-toggle ${sessionsState.webOnly ? "on" : ""}"
+                        type="button"
+                        role="switch"
+                        aria-checked=${sessionsState.webOnly ? "true" : "false"}
+                        title=${
+                          sessionsState.webOnly ? msg("Showing web chats only") : msg("Hide non-web conversations")
+                        }
+                        @click=${toggleWebOnly}
+                      >
+                        <span>${msg("Web only")}</span><span class="mini-switch"><span class="mini-knob"></span></span>
+                      </button>`
+                    : nothing
+                }
               </div>
             `
           : ""

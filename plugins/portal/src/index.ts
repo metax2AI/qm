@@ -136,6 +136,7 @@ const OIDC: OidcConfig = {
   expectedTeamId: process.env.PORTAL_EXPECTED_TEAM_ID || undefined,
 };
 const OIDC_JWKS_CONFIGURED = Boolean(process.env.OIDC_JWKS_URI?.trim());
+const OIDC_ISSUER_CONFIGURED = Boolean(process.env.OIDC_ISSUER?.trim());
 
 const AUTH_BROKER_UPSTREAM = (process.env.AUTH_BROKER_UPSTREAM ?? "").replace(/\/$/, "");
 const AUTH_BROKER_PREFIX = (process.env.AUTH_BROKER_PREFIX ?? "/idp").replace(/\/$/, "");
@@ -1274,10 +1275,12 @@ async function authCallback(req: IncomingMessage, res: ServerResponse, url: URL)
   const stateParam = url.searchParams.get("state") ?? "";
 
   const tmp = openTmp(readCookie(req.headers.cookie, "portal_oidc_tmp"), tmpKey, Date.now());
-  if (!tmp) return fail(pick(PORTAL_DEFAULT_LOCALE, "login session expired — please try again", "登录会话已过期——请重试"));
+  if (!tmp)
+    return fail(pick(PORTAL_DEFAULT_LOCALE, "login session expired — please try again", "登录会话已过期——请重试"));
   if (!code || !stateParam || !safeEqual(stateParam, tmp.state))
     return fail(pick(PORTAL_DEFAULT_LOCALE, "invalid login state", "登录状态无效"));
-  if (!consumeState(tmp.state)) return fail(pick(PORTAL_DEFAULT_LOCALE, "login already used — please try again", "该登录链接已使用——请重试"));
+  if (!consumeState(tmp.state))
+    return fail(pick(PORTAL_DEFAULT_LOCALE, "login already used — please try again", "该登录链接已使用——请重试"));
 
   let sub: string;
   let name = "";
@@ -1413,6 +1416,11 @@ export function bootChecks(): void {
     }
     if (OIDC.expectedTeamId !== undefined && isMissingOrPlaceholder(OIDC.expectedTeamId)) {
       problems.push("PORTAL_EXPECTED_TEAM_ID is optional, but may not be a placeholder when configured");
+    }
+    if (!OIDC_ISSUER_CONFIGURED) {
+      problems.push(
+        "OIDC_ISSUER is required in production — set it to the identity provider you intend to use, including https://slack.com if that is the one",
+      );
     }
     if (OIDC.issuer !== "https://slack.com" && !OIDC_JWKS_CONFIGURED) {
       problems.push("OIDC_JWKS_URI is required for a non-Slack issuer");

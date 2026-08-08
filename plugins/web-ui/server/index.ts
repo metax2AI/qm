@@ -295,19 +295,26 @@ function sessionCookie(id: string): string {
 const MAX_BODY_BYTES = 1_000_000;
 const readBody = (req: IncomingMessage): Promise<string> => readBodyCapped(req, MAX_BODY_BYTES);
 
-const slackUrlCache = new LRUCache<string, { url: string | null }>({ max: 1, ttl: 5 * 60_000 });
-async function slackWorkspaceUrl(): Promise<string | null> {
-  const hit = slackUrlCache.get("url");
-  if (hit) return hit.url;
-  let urlValue: string | null = null;
+interface SlackSurface {
+  enabled: boolean;
+  workspaceUrl: string | null;
+}
+const slackSurfaceCache = new LRUCache<string, SlackSurface>({ max: 1, ttl: 5 * 60_000 });
+async function slackSurface(): Promise<SlackSurface> {
+  const hit = slackSurfaceCache.get("surface");
+  if (hit) return hit;
+  let surface: SlackSurface = { enabled: false, workspaceUrl: null };
   try {
     const r = await coreFetch("GET", "/v1/directory/meta");
-    if (r.status === 200) urlValue = (JSON.parse(r.text) as { workspaceUrl?: string | null }).workspaceUrl ?? null;
+    if (r.status === 200) {
+      const meta = JSON.parse(r.text) as { workspaceUrl?: string | null; slackEnabled?: boolean };
+      surface = { enabled: meta.slackEnabled === true, workspaceUrl: meta.workspaceUrl ?? null };
+    }
   } catch {
     void 0;
   }
-  slackUrlCache.set("url", { url: urlValue });
-  return urlValue;
+  slackSurfaceCache.set("surface", surface);
+  return surface;
 }
 
 const WEB_DELIVERY_POLL_MS = Number(process.env.WEB_DELIVERY_POLL_MS ?? 2500);
@@ -339,9 +346,9 @@ async function drainWebDeliveries(): Promise<void> {
       const isRecovery = d.idempotencyKey.startsWith("run:");
       const conns = !isRecovery ? deliveryClients.get(ownerOfWebThread(target) ?? "") : undefined;
       if (!isRecovery) {
-        const delivered = await coreFetch("POST", `/v1/deliveries/${encodeURIComponent(d.id)}/deliver`).catch(
-          () => ({ status: 0 }),
-        );
+        const delivered = await coreFetch("POST", `/v1/deliveries/${encodeURIComponent(d.id)}/deliver`).catch(() => ({
+          status: 0,
+        }));
         if (delivered.status === 503) continue;
         if (delivered.status !== 200 && delivered.status !== 409) {
           await coreFetch("POST", `/v1/deliveries/${encodeURIComponent(d.id)}/ack`).catch(() => {});
@@ -783,11 +790,13 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (path === "/me") {
       res.setHeader("set-cookie", sessionCookie(user));
       const permissions = await userPermissions();
+      const slack = await slackSurface();
       return json(res, 200, {
         user,
         org: ORG,
         mode: AUTH_MODE,
-        slackWorkspaceUrl: await slackWorkspaceUrl(),
+        slackEnabled: slack.enabled,
+        slackWorkspaceUrl: slack.workspaceUrl,
         impersonatedBy: resolveIdentity(req)?.impersonator ?? null,
         permissions,
       });

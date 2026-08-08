@@ -217,7 +217,7 @@ test("directory push stores the workspace URL; /v1/directory/meta serves it", as
   try {
     const before = await fetch(`${s.base}/v1/directory/meta`);
     assert.equal(before.status, 200);
-    assert.deepEqual(await before.json(), { workspaceUrl: null });
+    assert.deepEqual(await before.json(), { workspaceUrl: null, slackEnabled: false });
 
     const push = await fetch(`${s.base}/v1/directory`, {
       method: "POST",

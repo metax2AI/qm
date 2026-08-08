@@ -74,7 +74,7 @@ import {
 import { groupDmLabel, groupDmText } from "./group-dm-label";
 import { transcriptModel } from "./model-options";
 import { formatDateTime, formatNumber } from "./localization.ts";
-import { appState, closeSidebarOnNarrowView, renderSidebarTop, showMainEmpty } from "./shell";
+import { appState, closeSidebarOnNarrowView, renderSidebarTop, showMainEmpty, slackEnabled } from "./shell";
 import { allConversations, mainConversation } from "./conversations";
 import type { Conversation } from "./conv-types";
 import {
@@ -253,6 +253,7 @@ export function slackLogo(size = 13): TemplateResult {
 
 function visibleSessions(): CoreSession[] {
   const sorted = [...sessionsState.list].sort((a, b) => activityOf(b) - activityOf(a));
+  if (!slackEnabled()) return sorted;
   return sessionsState.webOnly ? sorted.filter((s) => surfaceOf(s) === "web") : sorted;
 }
 
@@ -301,7 +302,11 @@ export function renderList(): void {
       ${
         !sessionsLoading && !sessionsNotice && visible.length === 0
           ? html`<div class="empty" style="padding:16px">
-              ${sessionsState.list.length ? msg("Slack conversations hidden.") : msg("No conversations yet.")}
+              ${
+                slackEnabled() && sessionsState.list.length
+                  ? msg("Slack conversations hidden.")
+                  : msg("No conversations yet.")
+              }
             </div>`
           : ""
       }
@@ -524,21 +529,25 @@ export function drawChatsPage(): void {
               </button>`,
           )}
         </div>
-        <label class="list-select"
-          ><span>${msg("Surface")}</span>${fieldSelect({
-            compact: true,
-            value: chatsPageSurface,
-            onChange: (value) => {
-              chatsPageSurface = value as typeof chatsPageSurface;
-              drawChatsPage();
-            },
-            options: [
-              html`<option value="all">${msg("All surfaces")}</option>`,
-              html`<option value="web">${msg("Web")}</option>`,
-              html`<option value="slack">${msg("Slack")}</option>`,
-            ],
-          })}</label
-        >
+        ${
+          slackEnabled()
+            ? html`<label class="list-select"
+                ><span>${msg("Surface")}</span>${fieldSelect({
+                  compact: true,
+                  value: chatsPageSurface,
+                  onChange: (value) => {
+                    chatsPageSurface = value as typeof chatsPageSurface;
+                    drawChatsPage();
+                  },
+                  options: [
+                    html`<option value="all">${msg("All surfaces")}</option>`,
+                    html`<option value="web">${msg("Web")}</option>`,
+                    html`<option value="slack">${msg("Slack")}</option>`,
+                  ],
+                })}</label
+              >`
+            : nothing
+        }
       </div>`,
       rows,
       empty,

@@ -41,6 +41,7 @@ test("production boot requires an explicit OIDC tenant trust boundary", () => {
     SANDBOX_BACKEND: "local",
     OIDC_CLIENT_ID: "client-id",
     OIDC_CLIENT_SECRET: "client-secret",
+    OIDC_ISSUER: "https://slack.com",
   };
   delete baseEnv.PORTAL_EXPECTED_TEAM_ID;
   delete baseEnv.OIDC_ALLOWED_EMAIL_DOMAIN;
@@ -69,6 +70,53 @@ test("production boot requires an explicit OIDC tenant trust boundary", () => {
     });
     assert.equal(accepted.status, 0, accepted.stderr);
   }
+});
+
+test("production boot requires the identity provider to be named, never inherited from the Slack default", () => {
+  const command = "import('./src/index.ts').then(m => m.bootChecks())";
+  const baseEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    NODE_ENV: "production",
+    PORTAL_PUBLIC_URL: "https://agent.example.com",
+    PORTAL_SESSION_SECRET: "portal-session-secret",
+    CORE_SIGNING_SECRET: "core-signing-secret",
+    SKILL_SIGNING_SECRET: "skill-signing-secret",
+    SANDBOX_BACKEND: "local",
+    OIDC_CLIENT_ID: "client-id",
+    OIDC_CLIENT_SECRET: "client-secret",
+    OIDC_ALLOWED_EMAILS: "admin@example.com",
+  };
+  delete baseEnv.OIDC_ISSUER;
+
+  for (const value of [undefined, "", "   "]) {
+    const env = { ...baseEnv };
+    if (value !== undefined) env.OIDC_ISSUER = value;
+    const missing = spawnSync(process.execPath, ["--input-type=module", "-e", command], {
+      cwd: process.cwd(),
+      env,
+      encoding: "utf8",
+    });
+    assert.notEqual(missing.status, 0, "an unset OIDC_ISSUER must not silently resolve to Slack");
+    assert.match(missing.stderr, /OIDC_ISSUER is required in production/);
+  }
+
+  const brokerIssuer = spawnSync(process.execPath, ["--input-type=module", "-e", command], {
+    cwd: process.cwd(),
+    env: {
+      ...baseEnv,
+      OIDC_ISSUER: "https://auth.example.com",
+      OIDC_JWKS_URI: "https://auth.example.com/jwks.json",
+    },
+    encoding: "utf8",
+  });
+  assert.equal(brokerIssuer.status, 0, brokerIssuer.stderr);
+
+  const slackByChoice = spawnSync(process.execPath, ["--input-type=module", "-e", command], {
+    cwd: process.cwd(),
+    env: { ...baseEnv, OIDC_ISSUER: "https://slack.com" },
+    encoding: "utf8",
+  });
+  assert.equal(slackByChoice.status, 0, slackByChoice.stderr);
 });
 
 test("production boot requires an explicit JWKS URI for custom issuers", () => {
@@ -116,6 +164,7 @@ test("a session TTL above the default max ceiling still boots, but a contradicto
     SANDBOX_BACKEND: "local",
     OIDC_CLIENT_ID: "client-id",
     OIDC_CLIENT_SECRET: "client-secret",
+    OIDC_ISSUER: "https://slack.com",
     OIDC_ALLOWED_EMAILS: "admin@example.com",
     PORTAL_SESSION_TTL_S: "604800",
   };
