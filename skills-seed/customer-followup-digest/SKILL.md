@@ -56,7 +56,7 @@ description: Customer follow-up and business digest for sales and customer-succe
 
 每一条结论（优先级理由、待办、摘要事实）必须带上来源：`<文件名>` + 定位。定位按格式给到读者能自己翻到的粒度：
 
-- 表格（`.csv` / `.xlsx`）：行号或表名 + 单元格。
+- 表格（`.csv` / `.xlsx`）：**客户名称**，加上表格软件里看到的行号——即表头算第 1 行、首条数据算第 2 行。pandas 的 DataFrame 索引从 0 起且不含表头，直接报它会比人看到的行号少 2，核对时指到隔壁客户。拿不准就只给客户名称，它永远可核对。
 - 文档（`.md` / `.docx`）：章节标题。
 - PDF：页码 + 章节标题。PDF 没有稳定行号，不要编造行号。
 
