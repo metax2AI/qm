@@ -1,0 +1,99 @@
+{
+  // The deployment contract major this directory conforms to.
+  "contract": 1,
+
+  // Short identifier for your organization; app and container names derive from it.
+  "orgId": "metax2ai",
+
+  // The one public address of the deployment; the service URLs derive from it.
+  // This must be the portal's address, not the web UI's: every sign-in URL the
+  // auth broker derives — OIDC_ISSUER, the authorize endpoint, the redirect URI
+  // in the emailed link — is built from it. The docker target publishes each
+  // service at basePort + its offset (core +0, portal +1, web-ui +2, admin +3),
+  // so with the default base of 8080 the portal is 8081. Pointing this at the
+  // web UI's 8082 would send every magic link to a host that serves no /idp or
+  // /auth/callback route, and web-ui itself answers 401 without a sign-in path.
+  "publicUrl": "http://localhost:8081",
+
+  // Where to deploy: "docker" runs local containers, "fly" deploys Fly apps,
+  // and "aws" runs the control plane on ECS and agent computers on Lambda MicroVMs.
+  "target": "docker",
+
+  // The vendor supplying the base model: "anthropic", "deepseek", "openai", or "openrouter"
+  // (one key, many models). Naming one makes that vendor's API key a required
+  // deployment secret and points the base model at that vendor: `qm setup`
+  // collects the key, `qm doctor` proves the provider accepts it, and `qm up`
+  // refuses a stack that cannot serve an agent turn. Delete this line to leave
+  // the base model unset and have an administrator add the key from the Admin
+  // page after deploy instead.
+  "modelProvider": "deepseek",
+
+  // Optional base model id, passed to the harness (e.g. "claude-opus-4-6").
+  // Omit it and the deployment uses the default model for the provider above.
+  // It must be a model that provider can bill.
+  // "model": "",
+
+  // First-party services to run. The full set: "core" (the agent runtime and API,
+  // always required), "slack" (the Slack surface, runs inside the core process),
+  // "web-ui" (a browser chat UI), "admin" (the operator dashboard), "portal"
+  // (the public sign-in front door), and "auth" (the built-in sign-in broker that
+  // emails one-time links; drop it to sign in through an external OIDC provider).
+  // "slack" is deliberately absent: Web is the only user entry point for this
+  // product, and the deployment must not reach services unavailable in mainland
+  // China. Everything else is required by the M2 demo — portal is the sign-in
+  // front door, auth mails the one-time links over the enterprise SMTP relay,
+  // and admin is where operators read users, tasks, errors and audit.
+  "services": ["core", "web-ui", "admin", "portal", "auth"],
+
+  // Extra plugins to run alongside the services. A prebuilt image runs with
+  // { "name": "linear", "image": "ghcr.io/you/qm-linear:1.0" }. A plugin with a
+  // Dockerfile at plugins/<name>/ in this directory needs no entry here at all.
+  "plugins": [],
+
+  // Extra directories of SKILL.md files, mounted into the agent.
+  "skills": [],
+
+  // Secret env passed through to a service. ADMIN_GRANTS seeds the first org
+  // administrator and is not part of the first-party secret catalog, so without
+  // this entry the docker target drops it with a warning, `qm setup` never asks
+  // for it, and the deployment comes up with nobody able to administer it. The
+  // fly and aws scaffolds declare this; the docker scaffold does not.
+  "secretEnv": { "core": { "ADMIN_GRANTS": "ADMIN_GRANTS" } },
+
+  // Non-secret env overrides, per service. HARNESS "pi" runs real agent turns
+  // against the base model selected by "modelProvider" above. "mock" runs the
+  // whole stack with fake turns and no model calls.
+  // Every value here is non-secret and deployment-shaping. The locales are
+  // written out even though the runtime already defaults to zh-Hans, so the
+  // deployment's language is a declared fact rather than an inherited default.
+  // AUTH_EMAIL_TRANSPORT must be stated: its own default is "resend", which
+  // would route sign-in mail through a service outside mainland China.
+  "env": {
+    "core": { "HARNESS": "pi" },
+    "web-ui": { "WEB_UI_DEFAULT_LOCALE": "zh-Hans" },
+    "portal": { "PORTAL_DEFAULT_LOCALE": "zh-Hans" },
+    "auth": {
+      "AUTH_EMAIL_TRANSPORT": "smtp",
+      "AUTH_DEFAULT_LOCALE": "zh-Hans",
+      "SMTP_PORT": "587",
+      "SMTP_TLS": "starttls"
+    }
+  },
+
+  // "sandbox" is deliberately absent, and its absence is the one thing standing
+  // between this config and a deployable single machine.
+  //
+  // The scaffold writes { "app": "<org>-sandboxes" }, which resolves to
+  // FLY_SANDBOX_APP_NAME — Fly.io, which this product may not depend on. The
+  // only other declarable backend is "aws". There is no "local" here: the core
+  // image carries no Docker client and the docker target mounts no Docker
+  // socket, so a local sandbox cannot be reached from a containerized core, and
+  // core is required to declare SANDBOX_BACKEND explicitly in production.
+  //
+  // The on-prem Runner milestone is what closes this: a separate service owning
+  // the container runtime, reached over an authenticated private-network API,
+  // so core still never holds the host Docker socket. Until then, run agent
+  // turns through the /dev-instance workflow, where core runs on the host and
+  // SANDBOX_BACKEND=local works. `qm up` against this config will start the
+  // control plane but cannot execute an agent turn.
+}
