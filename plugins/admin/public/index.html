@@ -5192,6 +5192,8 @@
               "No daily samples.": "暂无每日样本。",
               Machine: "机器",
               "Loading scopes…": "正在加载范围…",
+              "Only an org admin can list scopes.": "只有组织管理员可以查看范围列表。",
+              "Failed to load scopes.": "加载范围列表失败。",
               Allowed: "允许",
               Denied: "拒绝",
               Hosts: "主机",
@@ -6664,12 +6666,14 @@
       });
 
       let scopeDir = null;
-      let scopeDirNote = "Loading scopes…";
+      let scopeDirNote = t("Loading scopes…");
       async function loadScopeDirectory() {
         const r = await api("GET", "/api/scopes");
         if (!r.ok) {
           scopeDirNote =
-            r.status === 403 ? "Only an org admin can list scopes." : r.data?.message || "Failed to load scopes.";
+            r.status === 403
+              ? t("Only an org admin can list scopes.")
+              : r.data?.message || t("Failed to load scopes.");
           if (historyIsIndex()) renderScopeIndex();
           return;
         }
