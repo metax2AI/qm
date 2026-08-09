@@ -4941,7 +4941,6 @@
               "Remove this pack and archive its imported skills?": "移除该技能包并归档其导入的技能?",
               "auto-sync": "自动同步",
               Capability: "能力",
-              cron: "个定时任务",
               "No crons yet.": "暂无定时任务。",
               "No crons in this scope.": "此范围内暂无定时任务。",
               "No crons match.": "没有匹配的定时任务。",
@@ -5081,7 +5080,6 @@
               Returning: "回访",
               "No activity yet.": "暂无活动。",
               "Cohort (week of)": "群组(周)",
-              Users: "用户",
               "No cohorts yet.": "暂无群组数据。",
               "No users yet.": "暂无用户。",
               "No expiry": "无过期时间",
@@ -5201,24 +5199,25 @@
               "Where the samples land.": "样本的落点分布。",
               "By day": "按天",
               "Worst recent turns": "近期最差回合",
-              "New vs returning": "新用户与回访",
               "Weekly retention cohorts": "周留存分组",
-              "Of users first active in a week, the share active in following weeks.":
-                "某周首次活跃的用户中，在之后各周仍然活跃的比例。",
+              "Of users first active in a week, the share active in following weeks. Channel attribution is approximate.":
+                "某周首次活跃的用户中，在之后各周仍然活跃的比例。渠道归因为近似值。",
+              "Everyone known through sessions, admin grants, keychain records, grants, or asks.":
+                "通过会话、管理员授权、密钥库记录、授权或请求已知的所有人。",
+              "Metadata only. Secret material and encrypted values are never returned to admin.":
+                "仅元数据。密钥材料与加密值绝不会返回给 Admin。",
+              "Outstanding and resolved cross-conversation consent requests.": "待处理与已处理的跨会话授权请求。",
+              "Purpose-bound keychain grants from an owner to an audience scope.":
+                "由持有者授予受众范围的、限定用途的密钥库授权。",
+              "Stable key material is required before the core can store keychain records.":
+                "core 存储密钥库记录前，必须先具备稳定的密钥材料。",
+              "Target is required.": "必须填写目标。",
               "Per-user distribution": "按用户分布",
               "Keychain unavailable": "密钥库不可用",
-              event: "条事件",
               cron: "个定时任务",
-              principal: "个主体",
-              fire: "次触发",
-              "allowed host": "个允许主机",
-              "denied host": "个拒绝主机",
-              "explicitly denied host": "个显式拒绝主机",
-              "effective rule": "条生效规则",
-              "draft rule": "条草稿规则",
-              "successful use": "次成功使用",
               "Only an org admin can manage connectors.": "只有组织管理员可以管理连接器。",
               "Failed to load.": "加载失败。",
+              "Failed to load": "加载失败",
               "Only an org admin may revoke.": "只有组织管理员可以撤销。",
               "Revoke failed.": "撤销失败。",
               "Only an org admin can read the Slack mirror.": "只有组织管理员可以查看 Slack 镜像。",
@@ -9193,7 +9192,7 @@
           p.textContent =
             r.status === 403
               ? t("You don't administer this scope.")
-              : r.data?.message || `${t("Failed to load.")} (${r.status})`;
+              : r.data?.message || `${t("Failed to load")} (${r.status})`;
           root.appendChild(p);
           return;
         }
@@ -9662,10 +9661,7 @@
         }
       }
       function plural(n, one, many = one + "s") {
-        const value = Number(n || 0);
-        const count = value.toLocaleString();
-        if (LOCALE === "zh-Hans") return `${count} ${t(one)}`;
-        return `${count} ${value === 1 ? one : many}`;
+        return `${Number(n || 0).toLocaleString()} ${Number(n || 0) === 1 ? one : many}`;
       }
       function historyCategory(kind) {
         return kind === "cron" || kind === "background" ? "background" : kind;
@@ -13532,7 +13528,7 @@
               emptyPara(
                 r.status === 403
                   ? t("Only an org admin can read the Slack mirror.")
-                  : r.data?.message || `${t("Failed to load.")} (${r.status})`,
+                  : r.data?.message || `${t("Failed to load")} (${r.status})`,
               ),
             );
           viewLoadedAt.slack = Date.now();
