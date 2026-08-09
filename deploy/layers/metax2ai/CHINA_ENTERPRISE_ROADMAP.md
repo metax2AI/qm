@@ -1,6 +1,6 @@
 # QM 中国企业版开发计划
 
-- 状态：执行中（M0–M2 已交付，M2 演示闭环完成；下一步 M3 On-prem Runner）
+- 状态：执行中（M2 演示闭环已用真实 DeepSeek 跑通，三项验收待补：SMTP 登录在线验证、出网取证、桌面端截图）
 - 更新日期：2026-08-09
 - 适用范围：metax2AI 基于 QM 构建的中国大陆企业 Agent 产品
 
@@ -232,7 +232,7 @@ flowchart LR
 
 验收标准：
 
-- 演示流程可以在一套实例上重复执行。**原文写的是「全新环境重复部署」，这一条在 M3 之前做不到**，理由见下方当前状态；改为可重复执行的演示流程，部署形态的可重复性随 M3 与 M4 交付。
+- 演示流程可以在一套实例上重复执行。**原文写的是「全新环境重复部署」，这一条在 M3 之前做不到**：`docker` 部署目标在契约层面强制要求一个 Fly agent-computer app，可声明的沙箱后端只有 `sprites` 与 `aws`，而 `local` 从容器化的 core 够不到（core 镜像无 Docker 客户端，docker 后端不挂载 socket）。因此改为可重复执行的演示流程，部署形态的可重复性随 M3 Runner 与 M4 交付。
 - 演示运行时不访问 Google、Slack 或 Fly.io。
 - Agent 输出错误时有可理解的用户提示和管理员记录。
 - 前端变化具备真实数据截图，Agent 行为经过本地端到端验证。
@@ -291,8 +291,10 @@ flowchart LR
   `198.18.0.0/15` 与 ULA 段），socket 层看到的目的地址被改写，抓包无法证明真实目的地。
   可核实的替代证据：实例以 `--no-slack` 启动、未提供任何 Slack/Fly/Google 凭据、
   有效模型为 DeepSeek。**这条验收标准需要在一台没有透明代理的机器上重做。**
-- **中文桌面端截图未取得。** 浏览器扩展未连接，headless Chrome 在本机无法渲染。
-  这是本次唯一遗留的交付物。
+- **中文桌面端截图只取到 Admin 一页。** 浏览器扩展未连接、headless Chrome 在本机无法
+  渲染；改用 Firefox headless 取到了 Admin 页，但它不等 JS 执行完，Web UI 这类
+  Lit 应用截出来是空白。Admin 那一页仍有收获：它暴露了 scope 索引的三条文案未走
+  `t()`，已单独修复。Web UI、Files、Crons、Portal 登录页的截图待补。
 
 ### M3：On-prem Sandbox Runner
 
@@ -491,7 +493,8 @@ flowchart LR
 
 M0 至 M2 已交付，M2 的演示闭环已用真实 DeepSeek 跑通。剩余工作：
 
-1. 补 M1.5 与 M2 的中文桌面端截图——本轮唯一遗留的交付物。
+1. 补 M1.5 与 M2 的中文桌面端截图。Admin 页已取得，Web UI、Files、Crons 与 Portal
+   登录页仍缺——需要一个能等 JS 渲染完成的浏览器（扩展或 Playwright）。
 2. 在一台没有透明代理的机器上重做「不访问 Google、Slack、Fly.io」的取证。
 3. 执行 M3 On-prem Runner。它同时是三件事的前置：Agent 的安全执行、`docker`
    部署目标摆脱 Fly 沙箱 app 的契约要求、以及 M2「全新环境可重复部署」的补齐。
