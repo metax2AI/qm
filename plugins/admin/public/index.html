@@ -4941,7 +4941,6 @@
               "Remove this pack and archive its imported skills?": "移除该技能包并归档其导入的技能?",
               "auto-sync": "自动同步",
               Capability: "能力",
-              cron: "个定时任务",
               "No crons yet.": "暂无定时任务。",
               "No crons in this scope.": "此范围内暂无定时任务。",
               "No crons match.": "没有匹配的定时任务。",
@@ -5081,7 +5080,6 @@
               Returning: "回访",
               "No activity yet.": "暂无活动。",
               "Cohort (week of)": "群组(周)",
-              Users: "用户",
               "No cohorts yet.": "暂无群组数据。",
               "No users yet.": "暂无用户。",
               "No expiry": "无过期时间",
@@ -5192,6 +5190,37 @@
               "No daily samples.": "暂无每日样本。",
               Machine: "机器",
               "Loading scopes…": "正在加载范围…",
+              "Only an org admin can list scopes.": "只有组织管理员可以查看范围列表。",
+              "Failed to load scopes.": "加载范围列表失败。",
+              Users: "用户",
+              "Everyone who has used the agent — click a row for their activity, artifacts, and config.":
+                "使用过该 Agent 的所有人——点击一行查看其活动、产物与配置。",
+              Distribution: "分布",
+              "Where the samples land.": "样本的落点分布。",
+              "By day": "按天",
+              "Worst recent turns": "近期最差回合",
+              "Weekly retention cohorts": "周留存分组",
+              "Of users first active in a week, the share active in following weeks. Channel attribution is approximate.":
+                "某周首次活跃的用户中，在之后各周仍然活跃的比例。渠道归因为近似值。",
+              "Everyone known through sessions, admin grants, keychain records, grants, or asks.":
+                "通过会话、管理员授权、密钥库记录、授权或请求已知的所有人。",
+              "Metadata only. Secret material and encrypted values are never returned to admin.":
+                "仅元数据。密钥材料与加密值绝不会返回给 Admin。",
+              "Outstanding and resolved cross-conversation consent requests.": "待处理与已处理的跨会话授权请求。",
+              "Purpose-bound keychain grants from an owner to an audience scope.":
+                "由持有者授予受众范围的、限定用途的密钥库授权。",
+              "Stable key material is required before the core can store keychain records.":
+                "core 存储密钥库记录前，必须先具备稳定的密钥材料。",
+              "Target is required.": "必须填写目标。",
+              "Per-user distribution": "按用户分布",
+              "Keychain unavailable": "密钥库不可用",
+              cron: "个定时任务",
+              "Only an org admin can manage connectors.": "只有组织管理员可以管理连接器。",
+              "Failed to load.": "加载失败。",
+              "Failed to load": "加载失败",
+              "Only an org admin may revoke.": "只有组织管理员可以撤销。",
+              "Revoke failed.": "撤销失败。",
+              "Only an org admin can read the Slack mirror.": "只有组织管理员可以查看 Slack 镜像。",
               Allowed: "允许",
               Denied: "拒绝",
               Hosts: "主机",
@@ -6066,7 +6095,7 @@
       }
       function sessionCountsLabel(sessions, background) {
         const parts = [];
-        if (sessions) parts.push(plural(sessions, t("conversation")));
+        if (sessions) parts.push(plural(sessions, "conversation"));
         if (background) parts.push(Number(background).toLocaleString() + t(" background"));
         return parts.join(" · ") || t("no conversations");
       }
@@ -6360,7 +6389,7 @@
           $("who").classList.remove("hidden");
           $("na-sub").textContent = me.data.principal;
           $("na-org").textContent = me.data.org;
-          return showView("notadmin-view", "You don't have admin access.");
+          return showView("notadmin-view", t("You don't have admin access."));
         }
         $("who").classList.remove("hidden");
         showView("app-view", "Signed in as " + me.data.principal);
@@ -6664,12 +6693,12 @@
       });
 
       let scopeDir = null;
-      let scopeDirNote = "Loading scopes…";
+      let scopeDirNote = t("Loading scopes…");
       async function loadScopeDirectory() {
         const r = await api("GET", "/api/scopes");
         if (!r.ok) {
           scopeDirNote =
-            r.status === 403 ? "Only an org admin can list scopes." : r.data?.message || "Failed to load scopes.";
+            r.status === 403 ? t("Only an org admin can list scopes.") : r.data?.message || t("Failed to load scopes.");
           if (historyIsIndex()) renderScopeIndex();
           return;
         }
@@ -7201,7 +7230,7 @@
         if (!r.ok) {
           setStatus(
             "st-policy",
-            r.status === 403 ? "You don't administer this scope." : r.data?.message || "Failed to load.",
+            r.status === 403 ? t("You don't administer this scope.") : r.data?.message || t("Failed to load."),
             "err",
           );
           return;
@@ -8218,7 +8247,7 @@
         if (!r.ok) {
           setStatus(
             "st-connectors",
-            r.status === 403 ? "Only an org admin can manage connectors." : r.data?.message || "Failed to load.",
+            r.status === 403 ? t("Only an org admin can manage connectors.") : r.data?.message || t("Failed to load."),
             "err",
           );
           return;
@@ -8491,7 +8520,7 @@
         } else
           setStatus(
             "st-connectors",
-            r.status === 403 ? "Only an org admin can manage connectors." : r.data?.message || "Save failed.",
+            r.status === 403 ? t("Only an org admin can manage connectors.") : r.data?.message || t("Save failed."),
             "err",
           );
       };
@@ -9161,7 +9190,9 @@
           const p = document.createElement("p");
           p.className = "empty";
           p.textContent =
-            r.status === 403 ? "You don't administer this scope." : r.data?.message || `Failed to load (${r.status}).`;
+            r.status === 403
+              ? t("You don't administer this scope.")
+              : r.data?.message || `${t("Failed to load")} (${r.status})`;
           root.appendChild(p);
           return;
         }
@@ -9422,7 +9453,7 @@
             fmtMs(p.p99) + " p99",
           ]),
         );
-        root.appendChild(dataCard("Distribution", "Where the samples land.", distChart(p.dist)));
+        root.appendChild(dataCard(t("Distribution"), t("Where the samples land."), distChart(p.dist)));
         const dailyRows = (p.daily || [])
           .slice()
           .reverse()
@@ -9435,7 +9466,7 @@
           ]);
         root.appendChild(
           dataCard(
-            "By day",
+            t("By day"),
             t("Daily percentiles (UTC)."),
             table([t("Day"), t("Turns"), "p50", "p95", "p99"], dailyRows, t("No daily samples.")),
           ),
@@ -9444,7 +9475,7 @@
         const anyLinkable = (p.worst || []).some(linkable);
         root.appendChild(
           dataCard(
-            "Worst recent turns",
+            t("Worst recent turns"),
             anyLinkable ? "The slowest samples — each opens the turn's transcript." : "The slowest samples.",
             openableTable(
               [phaseLabel(phaseKey), t("Total turn"), t("Scope"), t("Machine"), t("Time")],
@@ -10080,14 +10111,10 @@
             }
             return {
               name: relTime(s.createdAt || s.lastActivity),
-              preview: [
-                delivery,
-                plural(s.turns || 0, t("turn")),
-                s.lastMessage || s.firstMessage || t("(no messages)"),
-              ]
+              preview: [delivery, plural(s.turns || 0, "turn"), s.lastMessage || s.firstMessage || t("(no messages)")]
                 .filter(Boolean)
                 .join(" · "),
-              time: plural(s.messages || 0, t("entry"), t("entries")),
+              time: plural(s.messages || 0, "entry", t("entries")),
               cls: typeof s.delivered === "number" && !s.delivered ? "dim" : "",
               href: stateToUrl({ view: "history", scope: s.scopeId || scope, session: s.id }),
             };
@@ -10101,7 +10128,7 @@
           const more = document.createElement("button");
           more.type = "button";
           more.className = "prompt-toggle";
-          more.textContent = t("All ") + plural(total, t("fire")) + " →";
+          more.textContent = t("All ") + plural(total, "fire") + " →";
           more.onclick = () =>
             go({ view: "history", scope, session: null, page: 1, historyKind: "cron", cron: cronId });
           container.appendChild(more);
@@ -10113,7 +10140,7 @@
           (a, b) => (b.lastAccessAt || b.createdAt || 0) - (a.lastAccessAt || a.createdAt || 0),
         );
         const deployments = orgOwnView() ? allDeps.filter((dep) => scopeKind(dep.ownerScopeId) === "org") : allDeps;
-        const count = deployments.length ? plural(deployments.length, t("deployment")) : "";
+        const count = deployments.length ? plural(deployments.length, "deployment") : "";
         const previewOf = (dep) =>
           [
             titleCase(dep.status || "unknown"),
@@ -10294,8 +10321,8 @@
           .sort((a, b) => lastUse(b) - lastUse(a) || (a.name || "").localeCompare(b.name || ""));
         const skills = orgOwnView() ? allSkills.filter((s) => scopeKind(s.ownerScopeId) === "org") : allSkills;
         const count =
-          plural(skills.length, t("skill")) +
-          (index && skills.length ? " · " + plural(new Set(skills.map((s) => s.ownerScopeId)).size, t("scope")) : "");
+          plural(skills.length, "skill") +
+          (index && skills.length ? " · " + plural(new Set(skills.map((s) => s.ownerScopeId)).size, "scope") : "");
 
         const recordsByKey = new Map(groupSkillsByIdentity(allSkills).map((g) => [g.key, g.records]));
         const openSkill = (s) => openSkillDetail(detail, s, recordsByKey.get(skillIdentityKey(s)) || [s]);
@@ -11257,7 +11284,7 @@
         box.appendChild(bottomImport);
         recompute();
         const card = dataCard(
-          "Browse — " + s.url,
+          t("Browse — ") + s.url,
           "Choose target scopes, then import. Eligible skills are added to every selected scope; excluded skills show why. They appear on the Skills page once imported.",
           box,
         );
@@ -11357,7 +11384,7 @@
           );
         pageShell({
           title: VIEW_TITLE.memory,
-          count: written.length ? plural(written.length, t("notebook")) : "",
+          count: written.length ? plural(written.length, "notebook") : "",
           context: written.length && !hasTimestamps ? t("sorted by size (this backend keeps no edit history)") : "",
         });
         const list = denseList(
@@ -11397,7 +11424,7 @@
         const nvr = d.newVsReturning || {};
         root.appendChild(
           dataCard(
-            "New vs returning",
+            t("New vs returning"),
             `Distinct active users in the trailing ${nvr.window || "30d"}.`,
             table(
               ["New", "Returning"],
@@ -11424,8 +11451,10 @@
         ]);
         root.appendChild(
           dataCard(
-            "Weekly retention cohorts",
-            "Of users first active in a week, the share active in following weeks. Channel attribution is approximate.",
+            t("Weekly retention cohorts"),
+            t(
+              "Of users first active in a week, the share active in following weeks. Channel attribution is approximate.",
+            ),
             table(["Cohort (week of)", "Users", "W0", "W1", "W2", "W3", "W4"], cohortRows, "No cohorts yet."),
           ),
         );
@@ -11448,7 +11477,7 @@
         );
         root.appendChild(
           dataCard(
-            "Per-user distribution",
+            t("Per-user distribution"),
             `${d.totals?.users ?? 0} users · ${d.totals?.sessions ?? 0} sessions. ${d.attribution || ""}`,
             dist,
           ),
@@ -11507,7 +11536,7 @@
         else
           setStatus(
             "st-users",
-            r.status === 403 ? "Only an org admin may revoke." : r.data?.message || "Revoke failed.",
+            r.status === 403 ? t("Only an org admin may revoke.") : r.data?.message || t("Revoke failed."),
             "err",
           );
       }
@@ -11535,8 +11564,8 @@
           p.textContent = t("Keychain is not configured for this deployment.");
           root.appendChild(
             dataCard(
-              "Keychain unavailable",
-              "Stable key material is required before the core can store keychain records.",
+              t("Keychain unavailable"),
+              t("Stable key material is required before the core can store keychain records."),
               p,
             ),
           );
@@ -11619,7 +11648,7 @@
           lists.appendChild(
             dataCard(
               t("People"),
-              "Everyone known through sessions, admin grants, keychain records, grants, or asks.",
+              t("Everyone known through sessions, admin grants, keychain records, grants, or asks."),
               table(
                 [t("Person"), t("Keychain"), t("Active grants"), t("Pending asks")],
                 filteredPeople.map((p) => [
@@ -11636,7 +11665,7 @@
           lists.appendChild(
             dataCard(
               t("Credentials"),
-              "Metadata only. Secret material and encrypted values are never returned to admin.",
+              t("Metadata only. Secret material and encrypted values are never returned to admin."),
               table(
                 [t("Owner"), t("Credential"), t("Delivery"), t("Account"), t("Expiry")],
                 filteredCreds.map((c) => [
@@ -11658,7 +11687,7 @@
           lists.appendChild(
             dataCard(
               t("Grants"),
-              "Purpose-bound keychain grants from an owner to an audience scope.",
+              t("Purpose-bound keychain grants from an owner to an audience scope."),
               table(
                 [t("Owner"), t("Credential"), t("Audience"), t("Mode"), t("Status"), t("Purpose")],
                 filteredGrants.map((g) => {
@@ -11686,7 +11715,7 @@
           lists.appendChild(
             dataCard(
               t("Asks"),
-              "Outstanding and resolved cross-conversation consent requests.",
+              t("Outstanding and resolved cross-conversation consent requests."),
               table(
                 [t("Owner"), t("Requester"), t("Credential"), t("Scope"), t("Status"), t("Purpose")],
                 filteredAsks.map((a) => [
@@ -11921,8 +11950,8 @@
           );
           lists.appendChild(
             dataCard(
-              "Users",
-              "Everyone who has used the agent — click a row for their activity, artifacts, and config.",
+              t("Users"),
+              t("Everyone who has used the agent — click a row for their activity, artifacts, and config."),
               roster,
             ),
           );
@@ -12552,7 +12581,7 @@
             },
             title: cronName(d.cron?.cron || sessions[0]?.origin?.cron, true),
             context: scopeKind(scope) !== "org" ? shortName(scope) : "",
-            count: plural(total, t("fire")),
+            count: plural(total, "fire"),
           });
         } else {
           pageShell({
@@ -12653,7 +12682,7 @@
             note.className = "statline";
             const toggle = document.createElement("a");
             toggle.href = "#";
-            toggle.textContent = plural(total, t("error")) + " " + t("logged in this scope");
+            toggle.textContent = plural(total, "error") + " " + t("logged in this scope");
             note.appendChild(toggle);
             errNote.appendChild(note);
             let box = null;
@@ -12754,7 +12783,7 @@
               nodeCell(stacked(latest, started, "history-conversation"), "history-conversation-cell"),
               historyScopeCell(s.scopeId),
               nodeCell(
-                stacked(plural(s.userTurns || 0, t("turn")), plural(s.messages || 0, t("entry"), t("entries"))),
+                stacked(plural(s.userTurns || 0, "turn"), plural(s.messages || 0, "entry", t("entries"))),
                 "num history-volume-cell",
               ),
               nodeCell(
@@ -13498,8 +13527,8 @@
             return void root.appendChild(
               emptyPara(
                 r.status === 403
-                  ? "Only an org admin can read the Slack mirror."
-                  : r.data?.message || `Failed to load (${r.status}).`,
+                  ? t("Only an org admin can read the Slack mirror.")
+                  : r.data?.message || `${t("Failed to load")} (${r.status})`,
               ),
             );
           viewLoadedAt.slack = Date.now();
@@ -14190,7 +14219,7 @@
           );
           if (!errs.length || !errStrip.isConnected) return;
           errStrip.appendChild(
-            errorStripBox(errs, plural(errs.length, t("error")) + " " + t("logged in this session"), 5),
+            errorStripBox(errs, plural(errs.length, "error") + " " + t("logged in this session"), 5),
           );
         })();
 
@@ -15266,7 +15295,7 @@
                   },
                 }),
             title: index ? VIEW_TITLE.files : shortName(scope),
-            count: files.length ? plural(files.length, t("file")) + (capped ? t(", newest shown") : "") : "",
+            count: files.length ? plural(files.length, "file") + (capped ? t(", newest shown") : "") : "",
           },
           placeholder: index ? t("Search all files…") : t("Search files…"),
         });
