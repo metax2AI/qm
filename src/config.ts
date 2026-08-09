@@ -32,8 +32,8 @@ export interface Config {
   databaseUrl?: string;
   harness: "mock" | "pi" | "opencode" | "codex" | "claude";
   securityPosture: SecurityPosture;
-  sandboxBackend: "aws" | "local" | "sprites";
-  sandboxSecondaryBackend?: "aws" | "local" | "sprites";
+  sandboxBackend: "aws" | "local" | "sprites" | "runner";
+  sandboxSecondaryBackend?: "aws" | "local" | "sprites" | "runner";
   deployProvider: "docker" | "aws";
   egressServiceHosts?: string[];
   brandingDefault?: { accent?: string; mark?: string; selfLabel?: string };
@@ -143,6 +143,7 @@ export interface Config {
   eagerProvisionEnabled: boolean;
   awsSandbox: AwsSandboxEnv;
   localSandbox: LocalSandboxEnv;
+  runnerSandbox: RunnerSandboxEnv;
   spritesSandbox: SpritesSandboxEnv;
   awsDeploy: AwsDeployEnv;
 }
@@ -248,6 +249,30 @@ interface LocalSandboxEnv {
   cpus?: number;
   memoryMb?: number;
   defaultTimeoutSec?: number;
+}
+
+interface RunnerSandboxEnv {
+  baseUrl?: string;
+  signingSecret?: string;
+  cpus?: number;
+  memoryMb?: number;
+  defaultTimeoutSec?: number;
+}
+
+function runnerSandboxEnv(env: NodeJS.ProcessEnv): RunnerSandboxEnv {
+  return {
+    ...(env.RUNNER_URL ? { baseUrl: env.RUNNER_URL } : {}),
+    ...(env.SANDBOX_RUNNER_SECRET ? { signingSecret: env.SANDBOX_RUNNER_SECRET } : {}),
+    ...(numEnvStrict("RUNNER_SANDBOX_CPUS", env.RUNNER_SANDBOX_CPUS) !== undefined
+      ? { cpus: numEnvStrict("RUNNER_SANDBOX_CPUS", env.RUNNER_SANDBOX_CPUS) }
+      : {}),
+    ...(numEnvStrict("RUNNER_SANDBOX_MEMORY_MB", env.RUNNER_SANDBOX_MEMORY_MB) !== undefined
+      ? { memoryMb: numEnvStrict("RUNNER_SANDBOX_MEMORY_MB", env.RUNNER_SANDBOX_MEMORY_MB) }
+      : {}),
+    ...(numEnvStrict("SANDBOX_TIMEOUT_SEC", env.SANDBOX_TIMEOUT_SEC) !== undefined
+      ? { defaultTimeoutSec: numEnvStrict("SANDBOX_TIMEOUT_SEC", env.SANDBOX_TIMEOUT_SEC) }
+      : {}),
+  };
 }
 
 function localSandboxEnv(env: NodeJS.ProcessEnv): LocalSandboxEnv {
@@ -479,8 +504,10 @@ function harnessEnvStrict(value: string | undefined): Config["harness"] {
 function sandboxBackendEnvStrict(value: string | undefined, name = "SANDBOX_BACKEND"): Config["sandboxBackend"] {
   if (value === undefined || value.trim() === "") return "local";
   const backend = value.trim();
-  if (backend === "aws" || backend === "local" || backend === "sprites") return backend;
-  throw new Error(`${name}=${JSON.stringify(value)} is not recognized — use aws, local, or sprites, or unset it.`);
+  if (backend === "aws" || backend === "local" || backend === "sprites" || backend === "runner") return backend;
+  throw new Error(
+    `${name}=${JSON.stringify(value)} is not recognized — use aws, local, sprites, or runner, or unset it.`,
+  );
 }
 
 function secretsBackendEnvStrict(value: string | undefined, prefix: string): Config["secretsBackend"] {
@@ -876,6 +903,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     eagerProvisionEnabled: boolEnvStrict("EAGER_PROVISION", env.EAGER_PROVISION) ?? false,
     awsSandbox: awsSandboxEnv(env),
     localSandbox: localSandboxEnv(env),
+    runnerSandbox: runnerSandboxEnv(env),
     spritesSandbox: spritesSandboxEnv(env),
     awsDeploy: awsDeployEnv(env),
   };

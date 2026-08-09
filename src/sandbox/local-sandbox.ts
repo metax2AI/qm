@@ -47,6 +47,7 @@ export function createLocalSandbox(workspace: WorkspaceStore, opts: LocalSandbox
     homeDir,
     buildHint: "run `npm run sandbox:local:build`",
     daemonHint: "(is Docker Desktop running?)",
+    endpointMode: { kind: "published-port" },
     waitReady: (resolveEndpoint, name) => agent.waitReady(resolveEndpoint, name),
     ...(opts.dockerBin ? { dockerBin: opts.dockerBin } : {}),
     ...(opts.dockerExec ? { dockerExec: opts.dockerExec } : {}),

@@ -13,6 +13,8 @@ export interface FakeDocker {
   containers: Map<string, FakeContainer>;
   volumes: Set<string>;
   networks: Set<string>;
+  attachments: Map<string, Set<string>>;
+  runArgv: string[][];
   runCount: number;
   daemonDown: boolean;
   imageMissing: boolean;
@@ -25,10 +27,13 @@ export function installFakeDocker(daemonPort: number): FakeDocker {
   const containers = new Map<string, FakeContainer>();
   const volumes = new Set<string>();
   const networks = new Set<string>();
+  const attachments = new Map<string, Set<string>>();
   const self: FakeDocker = {
     containers,
     volumes,
     networks,
+    attachments,
+    runArgv: [],
     runCount: 0,
     daemonDown: false,
     imageMissing: false,
@@ -82,7 +87,20 @@ export function installFakeDocker(daemonPort: number): FakeDocker {
           networks.add(name);
           return ok(name);
         }
-        if (sub === "rm") return networks.delete(name) ? ok(name) : fail(`Error: No such network: ${name}`);
+        if (sub === "rm") {
+          attachments.delete(name);
+          return networks.delete(name) ? ok(name) : fail(`Error: No such network: ${name}`);
+        }
+        if (sub === "connect") {
+          const container = rest[2]!;
+          if (!networks.has(name)) return fail(`Error: No such network: ${name}`);
+          const members = attachments.get(name) ?? new Set<string>();
+          if (members.has(container))
+            return fail(`Error: endpoint with name ${container} already exists in network ${name}`);
+          members.add(container);
+          attachments.set(name, members);
+          return ok(name);
+        }
         return fail(`unknown network subcommand ${sub}`);
       }
       case "volume": {
@@ -104,6 +122,7 @@ export function installFakeDocker(daemonPort: number): FakeDocker {
         if (self.imageMissing) return fail("Unable to find image");
         if (containers.has(c.name)) return fail(`Conflict. The container name "/${c.name}" is already in use`);
         containers.set(c.name, c);
+        self.runArgv.push(rest);
         self.runCount++;
         return ok("deadbeef");
       }
