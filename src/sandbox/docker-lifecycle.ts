@@ -11,8 +11,8 @@ import type { TeardownOptions } from "./sandbox.ts";
 
 const AGENT_PORT = 8080;
 const FINGERPRINT_LABEL = "qm.sandbox-fingerprint";
-const BUILD_HINT = "run `npm run sandbox:local:build`";
 const FINGERPRINT_FIXED_SOURCES = ["fly/Dockerfile", "local/Dockerfile", "aws/microvm-agent/agent.mjs"];
+const LOCAL_NAME_PREFIX = "qm";
 
 export async function computeSandboxImageFingerprint(repoRoot: string): Promise<string | null> {
   try {
@@ -35,11 +35,21 @@ export async function computeSandboxImageFingerprint(repoRoot: string): Promise<
   }
 }
 
-export const localContainerName = (scopeId: string): string => `qm-sbx-${localSlug(scopeId)}`;
-export const localVolumeName = (scopeId: string): string => `qm-home-${localSlug(scopeId)}`;
-export const localNetworkName = (containerName: string): string =>
-  `qm-net-${containerName.replace(/^qm-(sbx|scratch)-/, "")}`;
-const localScratchName = (key: string): string => `qm-scratch-${localSlug(key)}`;
+const containerNameFor = (prefix: string, scopeId: string): string => `${prefix}-sbx-${localSlug(scopeId)}`;
+const volumeNameFor = (prefix: string, scopeId: string): string => `${prefix}-home-${localSlug(scopeId)}`;
+const scratchNameFor = (prefix: string, key: string): string => `${prefix}-scratch-${localSlug(key)}`;
+
+function networkNameFor(prefix: string, containerName: string): string {
+  for (const kind of ["sbx", "scratch"]) {
+    const head = `${prefix}-${kind}-`;
+    if (containerName.startsWith(head)) return `${prefix}-net-${containerName.slice(head.length)}`;
+  }
+  return `${prefix}-net-${containerName}`;
+}
+
+export const localContainerName = (scopeId: string): string => containerNameFor(LOCAL_NAME_PREFIX, scopeId);
+export const localVolumeName = (scopeId: string): string => volumeNameFor(LOCAL_NAME_PREFIX, scopeId);
+export const localNetworkName = (containerName: string): string => networkNameFor(LOCAL_NAME_PREFIX, containerName);
 
 function localSlug(id: string): string {
   const cleaned = id
@@ -51,8 +61,11 @@ function localSlug(id: string): string {
 
 export interface DockerLifecycleOptions {
   label: string;
+  namePrefix: string;
   image: string;
   homeDir: string;
+  buildHint: string;
+  daemonHint?: string;
   waitReady(resolveEndpoint: () => Promise<string>, name: string): Promise<void>;
   dockerBin?: string;
   dockerExec?: DockerExec;
@@ -67,7 +80,8 @@ export interface DockerLifecycle extends BoxLifecycle {
 }
 
 export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifecycle {
-  const { label, image, homeDir, waitReady } = opts;
+  const { label, namePrefix, image, homeDir, buildHint, waitReady } = opts;
+  const daemonHint = opts.daemonHint ? ` ${opts.daemonHint}` : "";
   const dexec = opts.dockerExec ?? spawnDockerExec(opts.dockerBin ?? "docker");
   const provisionQueue = createKeyedQueue<string>();
 
@@ -84,13 +98,13 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
       const version = await dexec(["version"], 15_000);
       if (version.code !== 0) {
         preflightDone = undefined;
-        throw new Error(`SANDBOX_BACKEND=${label} requires a running Docker daemon (is Docker Desktop running?)`);
+        throw new Error(`SANDBOX_BACKEND=${label} requires a running Docker daemon${daemonHint}`);
       }
       const img = await dexec(["image", "ls", "--format", `{{.Repository}}:{{.Tag}} {{.ID}}`], 15_000);
       const line = img.stdout.split("\n").find((l) => l.startsWith(`${image} `));
       if (img.code !== 0 || !line) {
         preflightDone = undefined;
-        throw new Error(`${label} sandbox image ${image} not found — ${BUILD_HINT}`);
+        throw new Error(`${label} sandbox image ${image} not found — ${buildHint}`);
       }
       const imageId = line.split(/\s+/)[1] ?? "";
       const want = await computeSandboxImageFingerprint(opts.repoRoot ?? process.cwd());
@@ -105,7 +119,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
         const fingerprint = labeled.code === 0 ? labeled.stdout.trim() : "";
         if (fingerprint && fingerprint !== want) {
           staleWarned = true;
-          console.warn(`[${label}-sandbox] sandbox image ${image} is stale — ${BUILD_HINT}`);
+          console.warn(`[${label}-sandbox] sandbox image ${image} is stale — ${buildHint}`);
         }
       }
       return imageId;
@@ -151,7 +165,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
   }
 
   async function ensureNetwork(name: string): Promise<string> {
-    const net = localNetworkName(name);
+    const net = networkNameFor(namePrefix, name);
     if ((await dexec(["network", "inspect", net])).code !== 0) {
       const r = await dexec(["network", "create", net]);
       if (r.code !== 0 && !/already exists/i.test(r.stderr)) {
@@ -177,7 +191,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
       "agent_env=dev",
       "--network",
       net,
-      ...(withVolume && scope ? ["-v", `${localVolumeName(scope)}:${homeDir}`] : []),
+      ...(withVolume && scope ? ["-v", `${volumeNameFor(namePrefix, scope)}:${homeDir}`] : []),
       "-p",
       `127.0.0.1:0:${AGENT_PORT}`,
       "--add-host=host.docker.internal:host-gateway",
@@ -205,7 +219,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
     async ensureScope(scope: string): Promise<BoxRef> {
       return provisionQueue(scope, async () => {
         const imageId = await preflight();
-        const name = localContainerName(scope);
+        const name = containerNameFor(namePrefix, scope);
         scopeByContainer.set(name, scope);
         const state = await containerState(name);
         if (state && state.imageId === imageId) {
@@ -214,7 +228,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
           return { id: name, coldStart: false };
         }
         if (state) await dexec(["rm", "-f", name]);
-        const volume = localVolumeName(scope);
+        const volume = volumeNameFor(namePrefix, scope);
         const hadVolume = (await dexec(["volume", "inspect", volume])).code === 0;
         if (!hadVolume) {
           const created = await dexec(["volume", "create", volume]);
@@ -229,7 +243,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
     async ensureScratch(key: string): Promise<BoxRef> {
       return provisionQueue(`scratch:${key}`, async () => {
         await preflight();
-        const name = localScratchName(key);
+        const name = scratchNameFor(namePrefix, key);
         scratchByKey.set(key, name);
         const state = await containerState(name);
         if (state) {
@@ -262,7 +276,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
           for (const [k, name] of scratchByKey) if (name === ref.id) scratchByKey.delete(k);
           if (tdOpts?.destroy) await dexec(["rm", "-f", ref.id]);
           else await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: scratch rm`, undefined));
-          await dexec(["network", "rm", localNetworkName(ref.id)]).catch(
+          await dexec(["network", "rm", networkNameFor(namePrefix, ref.id)]).catch(
             swallowAs(`${label}-sandbox: scratch network rm`, undefined),
           );
           portByName.delete(ref.id);
@@ -273,12 +287,12 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
 
         if (tdOpts?.destroy) {
           await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: destroy rm`, undefined));
-          await dexec(["network", "rm", localNetworkName(ref.id)]).catch(
+          await dexec(["network", "rm", networkNameFor(namePrefix, ref.id)]).catch(
             swallowAs(`${label}-sandbox: destroy network rm`, undefined),
           );
           const scope = scopeByContainer.get(ref.id);
           if (scope)
-            await dexec(["volume", "rm", localVolumeName(scope)]).catch(
+            await dexec(["volume", "rm", volumeNameFor(namePrefix, scope)]).catch(
               swallowAs(`${label}-sandbox: destroy volume rm`, undefined),
             );
           scopeByContainer.delete(ref.id);
