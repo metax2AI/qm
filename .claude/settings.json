@@ -1,3 +1,18 @@
 {
-  "includeCoAuthoredBy": false
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm test)",
+      "Bash(npm run format:check)",
+      "Bash(npm run test:all)",
+      "Bash(npm run lint:knip)",
+      "Bash(npm run lint:ox)",
+      "Bash(docker image ls *)",
+      "Bash(docker image inspect *)",
+      "Bash(docker buildx history *)",
+      "mcp__claude-in-chrome__tabs_context_mcp"
+    ]
+  }
 }
