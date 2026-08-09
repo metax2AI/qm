@@ -5194,6 +5194,11 @@
               "Loading scopes…": "正在加载范围…",
               "Only an org admin can list scopes.": "只有组织管理员可以查看范围列表。",
               "Failed to load scopes.": "加载范围列表失败。",
+              "Only an org admin can manage connectors.": "只有组织管理员可以管理连接器。",
+              "Failed to load.": "加载失败。",
+              "Only an org admin may revoke.": "只有组织管理员可以撤销。",
+              "Revoke failed.": "撤销失败。",
+              "Only an org admin can read the Slack mirror.": "只有组织管理员可以查看 Slack 镜像。",
               Allowed: "允许",
               Denied: "拒绝",
               Hosts: "主机",
@@ -6362,7 +6367,7 @@
           $("who").classList.remove("hidden");
           $("na-sub").textContent = me.data.principal;
           $("na-org").textContent = me.data.org;
-          return showView("notadmin-view", "You don't have admin access.");
+          return showView("notadmin-view", t("You don't have admin access."));
         }
         $("who").classList.remove("hidden");
         showView("app-view", "Signed in as " + me.data.principal);
@@ -6671,9 +6676,7 @@
         const r = await api("GET", "/api/scopes");
         if (!r.ok) {
           scopeDirNote =
-            r.status === 403
-              ? t("Only an org admin can list scopes.")
-              : r.data?.message || t("Failed to load scopes.");
+            r.status === 403 ? t("Only an org admin can list scopes.") : r.data?.message || t("Failed to load scopes.");
           if (historyIsIndex()) renderScopeIndex();
           return;
         }
@@ -7205,7 +7208,7 @@
         if (!r.ok) {
           setStatus(
             "st-policy",
-            r.status === 403 ? "You don't administer this scope." : r.data?.message || "Failed to load.",
+            r.status === 403 ? t("You don't administer this scope.") : r.data?.message || t("Failed to load."),
             "err",
           );
           return;
@@ -8222,7 +8225,7 @@
         if (!r.ok) {
           setStatus(
             "st-connectors",
-            r.status === 403 ? "Only an org admin can manage connectors." : r.data?.message || "Failed to load.",
+            r.status === 403 ? t("Only an org admin can manage connectors.") : r.data?.message || t("Failed to load."),
             "err",
           );
           return;
@@ -8495,7 +8498,7 @@
         } else
           setStatus(
             "st-connectors",
-            r.status === 403 ? "Only an org admin can manage connectors." : r.data?.message || "Save failed.",
+            r.status === 403 ? t("Only an org admin can manage connectors.") : r.data?.message || t("Save failed."),
             "err",
           );
       };
@@ -9165,7 +9168,9 @@
           const p = document.createElement("p");
           p.className = "empty";
           p.textContent =
-            r.status === 403 ? "You don't administer this scope." : r.data?.message || `Failed to load (${r.status}).`;
+            r.status === 403
+              ? t("You don't administer this scope.")
+              : r.data?.message || `${t("Failed to load.")} (${r.status})`;
           root.appendChild(p);
           return;
         }
@@ -11511,7 +11516,7 @@
         else
           setStatus(
             "st-users",
-            r.status === 403 ? "Only an org admin may revoke." : r.data?.message || "Revoke failed.",
+            r.status === 403 ? t("Only an org admin may revoke.") : r.data?.message || t("Revoke failed."),
             "err",
           );
       }
@@ -13502,8 +13507,8 @@
             return void root.appendChild(
               emptyPara(
                 r.status === 403
-                  ? "Only an org admin can read the Slack mirror."
-                  : r.data?.message || `Failed to load (${r.status}).`,
+                  ? t("Only an org admin can read the Slack mirror.")
+                  : r.data?.message || `${t("Failed to load.")} (${r.status})`,
               ),
             );
           viewLoadedAt.slack = Date.now();
