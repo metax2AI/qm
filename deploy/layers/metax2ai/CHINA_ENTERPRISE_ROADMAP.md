@@ -1,7 +1,7 @@
 # QM 中国企业版开发计划
 
-- 状态：执行中（M1 与 M1.5 已集成，生产形态在线验收待环境）
-- 更新日期：2026-08-08
+- 状态：执行中（M0–M2 已交付，M2 演示闭环完成；下一步 M3 On-prem Runner）
+- 更新日期：2026-08-09
 - 适用范围：metax2AI 基于 QM 构建的中国大陆企业 Agent 产品
 
 ## 1. 目标
@@ -116,7 +116,7 @@ flowchart LR
 
 - `codex/china-deepseek-provider` 的原生 provider、Pi 运行时、模型目录、凭据、Admin、Web UI、CLI、部署配置和 Browse 子任务接入已经合入中国版集成分支。
 - 自动化验证、类型检查、lint、格式检查和使用本地假 DeepSeek 服务的工具调用闭环已经完成。
-- 真实 DeepSeek Key 与生产形态本地实例下的在线端到端验收仍待环境具备后执行；该环境验收必须在 M2 演示验收前完成，不再扩大 M1 的开发范围。
+- 在线端到端验收已完成（2026-08-09）：真实 DeepSeek Key 下，生产形态本地实例的有效模型为 `deepseek-v4-flash`（harness `pi`），Agent 完成多轮工具调用、文件读取与结构化输出，未出现降级到其他 provider 的情况。详见 M2 的当前状态。
 
 ### M1.5：Web UI 中文本地化
 
@@ -232,10 +232,67 @@ flowchart LR
 
 验收标准：
 
-- 上述流程可以在一套全新环境重复部署和演示。
+- 演示流程可以在一套实例上重复执行。**原文写的是「全新环境重复部署」，这一条在 M3 之前做不到**，理由见下方当前状态；改为可重复执行的演示流程，部署形态的可重复性随 M3 与 M4 交付。
 - 演示运行时不访问 Google、Slack 或 Fly.io。
 - Agent 输出错误时有可理解的用户提示和管理员记录。
 - 前端变化具备真实数据截图，Agent 行为经过本地端到端验证。
+
+当前状态（2026-08-09）：
+
+范围项逐条对照：
+
+| 范围项                                           | 状态                                         |
+| ------------------------------------------------ | -------------------------------------------- |
+| 企业 SMTP 魔法链接或 OIDC 登录                   | 代码具备并已配置，**在线路径未验证**（见下） |
+| Portal、登录邮件、Admin 简体中文覆盖             | 已完成                                       |
+| 上传 PDF/Word/Excel/CSV                          | 已完成并验证                                 |
+| 「客户跟进与经营摘要」行业 Skill                 | 已完成并验证                                 |
+| 资料问答、来源引用、表格分析、待办提取、回复草稿 | 已完成并验证                                 |
+| Cron 每日摘要，Web 内保留结果与执行记录          | 已完成并验证                                 |
+| 管理员可查用户、任务、模型调用、错误、审计       | 已完成并验证                                 |
+| 外部写操作保持关闭或只生成草稿                   | 已验证                                       |
+| 只用 Local Sandbox 处理脱敏数据                  | 已验证                                       |
+
+本轮补齐的两个缺口（原计划未预见）：
+
+- **沙箱缺少文档解析工具链。** 沙箱基础镜像的 agent venv 只装了 pip，Agent 遇到
+  `.xlsx`/`.docx`/`.pdf` 只能联网安装，而沙箱默认无出口——「上传 Office 文档并分析」这条
+  从未被真正走通。现已把 pandas、openpyxl、python-docx、pdfplumber、chardet 钉死预装进
+  三个 rootfs（fly、AWS MicroVM 及其 CLI 模板副本），并在计算机说明块中向 Agent 播报。
+  Fly Sprites 后端引导的是 provider 现成镜像，不经过这些 Dockerfile，因此**不在其中播报**，
+  作为已知限制记录。
+- **演示数据缺少真实办公格式。** 原数据只有 CSV 与 Markdown。现已补齐同源的
+  `.xlsx`/`.docx`/`.pdf`，并由入库的生成脚本从 `.csv`/`.md` 派生，避免手工同步漂移。
+  同时修正了数据本身的三处悬空章节引用与一处数值矛盾（纪要称「商务谈判 5 单 620 万」，
+  跟进表实为 4 单 533 万）——这类矛盾会让「跨格式不一致」这个缺陷信号变成假警报。
+
+演示验收执行记录（真实 DeepSeek Key，生产形态本地实例，`--no-slack`，Local Sandbox，Postgres）：
+
+- **有效模型** `deepseek-v4-flash`（harness `pi`），未降级到其他 provider。
+- **文件上传**：七个文件（csv/xlsx/md/docx/pdf）经 Web 上传接口进入个人 scope。
+- **优先级问答**：Agent 输出 6 家客户的优先级与理由，五条 CSV 行号引用逐条核对全部准确，
+  行号口径与 Skill 规定一致（表头算第 1 行）。
+- **办公格式解析**：在明确要求「只用 xlsx 与 pdf」的回合中，Agent 用 pandas+openpyxl 读
+  `.xlsx`、pdfplumber 读 `.pdf`、python-docx 读 `.docx`，**全程无 `pip install`**；PDF 引用
+  给出页码而非编造行号。得到的「商务谈判 4 家、533 万」与更正后的数据一致。
+- **待办与草稿**：8 条待办均带负责人、动作、截止日期与来源；回复草稿留占位符、附与历史
+  承诺的核对清单，未发生任何外部写操作。
+- **Cron**：按 `22 2 * * * Asia/Shanghai` 定时触发，执行记录 `status=ok`，摘要投递进用户
+  可见的 Web 会话，Web 端可读回结果与执行历史。
+- **审计**：`cron.fire`、`turn`、`file.upload` 等事件均落库；Admin 侧 scope、runs、sessions、
+  audit、files 五类数据均可读。
+
+未达成或无法在本环境取得的证据：
+
+- **企业 SMTP 魔法链接登录未在线验证。** dev instance 对 loopback 启用 portal 免登旁路，
+  真实 OIDC/魔法链接路径不经过。要验证需要一台可达的企业 SMTP 中继与真实邮箱，属于 M4
+  的部署环节。Portal 与 auth 的中文页面、`AUTH_EMAIL_TRANSPORT=smtp` 配置本身已就位。
+- **「不访问 Google/Slack/Fly」缺少 socket 层证据。** 本机运行 Clash 代理（fake-IP
+  `198.18.0.0/15` 与 ULA 段），socket 层看到的目的地址被改写，抓包无法证明真实目的地。
+  可核实的替代证据：实例以 `--no-slack` 启动、未提供任何 Slack/Fly/Google 凭据、
+  有效模型为 DeepSeek。**这条验收标准需要在一台没有透明代理的机器上重做。**
+- **中文桌面端截图未取得。** 浏览器扩展未连接，headless Chrome 在本机无法渲染。
+  这是本次唯一遗留的交付物。
 
 ### M3：On-prem Sandbox Runner
 
@@ -422,7 +479,9 @@ flowchart LR
 
 仍需确认，会改变后续设计和工期：
 
-- 使用 DeepSeek 公有 API、国内云模型服务还是客户私有模型。
+- 客户生产环境使用 DeepSeek 公有 API、国内云模型服务还是私有模型。演示与验收已用
+  DeepSeek 公有 API（`deepseek-v4-flash`）跑通，因此这不再是技术未知项，只是客户的
+  数据边界决策；接入私有模型走 Admin 的自定义 provider，不需要改动架构。
 - 客户邮箱是标准 IMAP/SMTP、Exchange、Coremail 还是其他厂商。
 - 永久文件使用本地盘、MinIO、OSS、COS 或其他对象存储。
 - 客户要求的 RPO、RTO、保留周期和审计周期。
@@ -430,8 +489,20 @@ flowchart LR
 
 ## 11. 建议的下一步
 
-1. 在具备真实 DeepSeek 凭据后补充 M1 在线端到端验收。
-2. 完成 M1.5 生产形态实例验收与中英文桌面端截图。
-3. 执行 M1.6，使界面与「Web 单入口、无境外服务」的产品定位一致。
-4. 使用脱敏数据完成 M2 的 Web 演示闭环。
-5. 在接入真实客户数据前完成 M3 Runner、M3.5 构建供应链与 M4 单机私有化部署。
+M0 至 M2 已交付，M2 的演示闭环已用真实 DeepSeek 跑通。剩余工作：
+
+1. 补 M1.5 与 M2 的中文桌面端截图——本轮唯一遗留的交付物。
+2. 在一台没有透明代理的机器上重做「不访问 Google、Slack、Fly.io」的取证。
+3. 执行 M3 On-prem Runner。它同时是三件事的前置：Agent 的安全执行、`docker`
+   部署目标摆脱 Fly 沙箱 app 的契约要求、以及 M2「全新环境可重复部署」的补齐。
+4. 执行 M3.5 构建供应链国产化，使国内网络的干净机器能从零构建。
+5. 执行 M4 单机私有化部署，其中包含企业 SMTP 魔法链接登录的在线验证。
+6. 在接入真实客户数据前完成 M3 与 M4 的安全验收。
+
+已登记、与里程碑并行处理的两项缺陷：
+
+- CLI 的 `validatePortalTrust` 仍把未设置的 `OIDC_ISSUER` 解析为 Slack 默认值，
+  配置校验会放过一份 Portal 将拒绝启动的配置（详见 M1.6 当前状态）。
+- `cli/src/config.ts` 的 `updateConfigStringMap` 在插入根级键时无条件补逗号，
+  对最后一个根属性带尾逗号的配置会写出 `,\n,` 并损坏文件；活跃调用点为
+  `qm sandbox` 与 Fly backend。
