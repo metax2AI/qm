@@ -16,6 +16,7 @@ export interface FakeDocker {
   runCount: number;
   daemonDown: boolean;
   imageMissing: boolean;
+  portFailures: number;
   imageId: string;
   imageFingerprint: string;
 }
@@ -31,6 +32,7 @@ export function installFakeDocker(daemonPort: number): FakeDocker {
     runCount: 0,
     daemonDown: false,
     imageMissing: false,
+    portFailures: 0,
     imageId: "sha256:image-v1",
     imageFingerprint: "",
     dockerExec: async (args) => exec(args),
@@ -125,6 +127,10 @@ export function installFakeDocker(daemonPort: number): FakeDocker {
       case "port": {
         const c = containers.get(rest[0]!);
         if (!c || !c.running) return fail("Error: No such container or not running");
+        if (self.portFailures > 0) {
+          self.portFailures--;
+          return ok("");
+        }
         return ok(`127.0.0.1:${daemonPort}`);
       }
       default:
