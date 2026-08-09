@@ -267,3 +267,15 @@ test("concurrent teardown and provision for one scope serialize (no stop of a fr
   await sb.teardown(h2);
   assert.equal(fake.containers.get(h2.id)!.running, false);
 });
+
+test("provision survives a docker port that is briefly empty right after run", async () => {
+  const fake = installFakeDocker(daemonPort);
+  fake.portFailures = 2;
+  const sb = makeSandbox(fake);
+  const scope = scopeId("personal", "U23");
+  const h = await sb.provision(rw(scope));
+  assert.equal(fake.portFailures, 0);
+  const r = await sb.run(h, "echo alive");
+  assert.equal(r.stdout.trim(), "alive");
+  await sb.teardown(h);
+});
