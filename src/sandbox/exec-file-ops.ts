@@ -38,6 +38,9 @@ export function createExecFileOps({ label, exec, writeInline }: ExecFileOpsDeps)
     async extractFiles(handle, entries): Promise<void> {
       const list = [...entries];
       if (!list.length) return;
+      for (const { path } of list) {
+        if (hasParentPathSegment(path)) throw new Error(`path must stay under ${handle.rootDir}: ${path}`);
+      }
       const tar = await makeTar(list.map((e) => ({ path: e.path, data: e.data })));
       const tmp = ".extract.tar";
       await writeInline(handle.id, posixJoin(handle.rootDir, tmp), tar, tmp);
@@ -51,6 +54,7 @@ export function createExecFileOps({ label, exec, writeInline }: ExecFileOpsDeps)
 
     async listDir(handle, relDir): Promise<string[]> {
       const rel = relDir.replace(/^\/+/, "") || ".";
+      if (hasParentPathSegment(rel)) throw new Error(`path must stay under ${handle.rootDir}: ${relDir}`);
       const r = await exec(
         handle.id,
         `cd ${shq(handle.rootDir)} 2>/dev/null && find ${shq(rel)} -type f 2>/dev/null`,

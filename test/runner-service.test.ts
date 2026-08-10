@@ -179,6 +179,12 @@ test("a workspace-relative path cannot climb out of the workspace", async () => 
       await assert.rejects(sb.writeFile(handle, rel, "escaped"), /path must stay under/, `write ${rel}`);
       await assert.rejects(sb.readFile(handle, rel), /path must stay under/, `read ${rel}`);
       await assert.rejects(sb.removeDir(handle, rel), /path must stay under/, `removeDir ${rel}`);
+      await assert.rejects(sb.listDir(handle, rel), /path must stay under/, `listDir ${rel}`);
+      await assert.rejects(
+        sb.extractFiles!(handle, [{ path: rel, data: Buffer.from("escaped") }]),
+        /path must stay under/,
+        `extractFiles ${rel}`,
+      );
     }
     assert.equal(existsSync(join(guestHome, "escaped.txt")), false);
     assert.equal(await sb.readFile(handle, "/etc/passwd"), null, "an absolute path stays workspace-relative");
@@ -442,4 +448,25 @@ test("health needs no signature so the container probe can reach it", async () =
   } finally {
     await h.close();
   }
+});
+
+test("the guest agent exits cleanly on SIGTERM, so a parked container is not an abnormal exit", async () => {
+  const port = await freePort();
+  const agent = spawn(process.execPath, [join(process.cwd(), "aws/microvm-agent/agent.mjs")], {
+    env: { ...process.env, AGENT_PORT: String(port), HOME: guestHome },
+    stdio: "ignore",
+  });
+  const exited = new Promise<number | null>((resolve) => agent.on("exit", (code) => resolve(code)));
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    try {
+      if ((await fetch(`http://127.0.0.1:${port}/health`)).status === 200) break;
+    } catch {
+      if (Date.now() > deadline) throw new Error("agent never became reachable");
+    }
+    await sleep(50);
+  }
+
+  agent.kill("SIGTERM");
+  assert.equal(await exited, 0, "docker stop must leave exit 0, not the 143 the recovery sweep reads as a failure");
 });

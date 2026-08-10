@@ -378,7 +378,8 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
         await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: destroy rm`, undefined));
         await removeNetwork(ref.id, `${label}-sandbox: destroy network rm`);
         if (scope) {
-          if (opts.homeQuota) await opts.homeQuota.destroy(scope);
+          if (opts.homeQuota)
+            await opts.homeQuota.destroy(scope).catch(swallowAs(`${label}-sandbox: destroy home quota`, undefined));
           else
             await dexec(["volume", "rm", volumeNameFor(namePrefix, scope)]).catch(
               swallowAs(`${label}-sandbox: destroy volume rm`, undefined),

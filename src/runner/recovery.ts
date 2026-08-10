@@ -68,8 +68,10 @@ export async function reconcileRunnerBoxes(deps: RunnerRecoveryDeps): Promise<nu
     else if (state.oomKilled) reason = "oom_killed";
     else if (!state.running && state.exitCode !== 0) reason = "abnormal_exit";
     if (!reason) continue;
+    const current = await deps.store.get(id);
+    if (!current || current.parked) continue;
     try {
-      await recycleRunnerBox(id, record, reason, deps);
+      await recycleRunnerBox(id, current, reason, deps);
       recycled++;
     } catch (error) {
       console.warn(`[runner] failed to recycle ${id}: ${errMessage(error)}`);

@@ -465,6 +465,24 @@ core 对 `..` 的防守此前只在四个调用点（publish 目录、attachment
   此后再无人回收它，额度被长期占住。现改为先写停泊意图再停容器，若该容器仍有其他 handle
   或停容器失败则回滚为活跃。
 
+第三轮独立评审（针对上一轮的修复本身）指出停泊竞态并未真正关闭，连同两项同类问题一并修复：
+
+- **恢复扫描先把整张表读进内存，再逐个 `docker inspect`。** 停泊若发生在快照之后，扫描手里
+  的记录仍是 `parked: false`，容器被重建，而随后落地的停泊标记又让它永远被跳过——把停泊
+  意图挪到停容器之前并不能解决，因为快照比这次写库更早。现改为回收前重新读一次记录；
+  更根本的一层是 guest agent 现在注册了 SIGTERM handler，正常停泊退出码变成 0，不再落进
+  「非零退出即异常」的判定。真机验证：`docker stop` 一个已启动的沙箱容器退出码为 0。
+  （容器刚启动、handler 尚未注册时被停，PID 1 会忽略 SIGTERM，10 秒后仍是 137——这一条
+  由停泊标记与重读兜底。）
+- **`homeQuota.destroy` 失败会让已销毁的 scope 复活。** 它是 destroy 分支里唯一没有被
+  `swallowAs` 包住的一步，抛出后 Runner 不会删记录，而容器与网络已经没了；下一轮扫描判为
+  `container_missing`，`recycle` 又把家目录重新建出来——运维明确销毁的数据回来了。现与相邻
+  的 `docker volume rm` 一致地吞掉并记录。
+- **`listDir` 与 `extractFiles` 是 `..` 防护漏掉的两个同类入口。** 前者把相对路径直接拼进
+  `find`，`publish` 工具的 `dir` 参数正好能走到（`primitives.ts` 那道 `hasParentPathSegment`
+  只在同时传了 `entrypoint` 时才生效）；后者的 tar 成员路径此前只靠 GNU tar 自己拒绝。两处
+  按仓库「同一处修全部实例」的要求补齐。
+
 残余风险（无法由现有测试证明，需运维与后续里程碑承担）：
 
 - **Runner 容器等价于宿主机 root。** 它持有 Docker Socket 与 `SYS_ADMIN`。这是本设计的取舍：处理不可信输入的是 Core，而 Core 已不再持有 Socket。Runner 必须按最小攻击面运维，不承载任何其他职责。

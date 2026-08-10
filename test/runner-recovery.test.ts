@@ -147,3 +147,58 @@ test("runner resource names are partitioned by organization", () => {
   assert.equal(runnerNamePrefix("acme"), "qmr-acme");
   assert.notEqual(runnerNamePrefix("acme"), runnerNamePrefix("globex"));
 });
+
+test("a box parked after the sweep read the store is left alone, not rebuilt and then orphaned", async () => {
+  const fake = installFakeDocker(1);
+  const store = createRunnerStore();
+  const lifecycle = lifecycleOn(fake);
+  const scope = "personal:U8";
+  const box = await lifecycle.ensureScope(scope);
+  await store.put(box.id, { ...record(box.id), scopeId: scope, volumeName: lifecycle.volumeNameOf(scope) });
+  await lifecycle.teardownBox({ id: box.id, scopeId: scope });
+  const stale = new Map(await store.entries());
+  const auditLog = createAuditLog();
+
+  const snapshotted = {
+    ...store,
+    entries: async () => [...stale.entries()],
+  };
+  await store.merge(box.id, { parked: true });
+
+  assert.equal(await reconcileRunnerBoxes({ store: snapshotted, lifecycle, auditLog, now: () => 6 }), 0);
+  assert.equal(fake.containers.get(box.id)?.running, false, "the parked container must stay stopped");
+  assert.equal((await store.get(box.id))?.parked, true);
+  assert.deepEqual(await auditLog.events(), []);
+});
+
+test("a home quota that refuses to release does not strand the destroyed box's record", async () => {
+  const fake = installFakeDocker(1);
+  const scope = "personal:U9";
+  const lifecycle = createDockerLifecycle({
+    label: "runner",
+    namePrefix: "qmr",
+    image: "qm-sandbox-local:latest",
+    homeDir: "/root",
+    buildHint: "publish the rootfs",
+    endpointMode: { kind: "container-dns" },
+    internalNetwork: true,
+    homeQuota: {
+      preflight: async () => {},
+      sourceOf: (s) => `/quota/${s}`,
+      ensure: async (s) => ({ source: `/quota/${s}`, coldStart: true }),
+      destroy: async () => {
+        throw new Error("xfs_quota: no such project");
+      },
+    },
+    waitReady: async () => {},
+    dockerExec: fake.dockerExec,
+    repoRoot: "/nonexistent-repo-root",
+  });
+
+  const box = await lifecycle.ensureScope(scope);
+  const { released } = await lifecycle.teardownBox({ id: box.id, scopeId: scope }, { destroy: true });
+
+  assert.equal(released, true, "the caller must still be told the box is gone, so it can delete the record");
+  assert.equal(fake.containers.has(box.id), false);
+  assert.equal(fake.networks.has(lifecycle.networkNameOf(box.id)), false);
+});
