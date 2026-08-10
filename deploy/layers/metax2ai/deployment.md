@@ -65,6 +65,12 @@ M3 的 **On-prem Sandbox Runner** 补上了缺的那一半：一个独占容器�
 
 镜像必须按 digest 钉死——Runner 拒绝启动未钉死的镜像。
 
+这里的镜像不是随便一个沙箱镜像：Runner 靠容器内的 guest agent 提供 exec 与文件读写，
+镜像必须自带它并以它为 `CMD`。`qm sandbox publish` 会在 `sandbox.backend` 为 `runner`
+时把 agent 层烤进去，所以**先把 `backend` 写成 `runner`，再 publish**；顺序反了会推出
+一个没有 agent 的镜像，Runner 起得来，但每个 scope 的沙箱都会卡在「agent 30 秒内没有
+就绪」。
+
 合入后本 layer 即可 `qm up`，但**先读上面的「宿主机准备」**：地址池与 XFS 两项都要在
 第一次部署前配好。
 

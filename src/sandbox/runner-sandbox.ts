@@ -11,6 +11,7 @@ import type {
   RunnerReadResponse,
   RunnerTeardownRequest,
 } from "../runner/protocol.ts";
+import { GUEST_TRANSFER_TIMEOUT_MS } from "./guest-agent-client.ts";
 import { createBoxSandbox, type BoxIo, type BoxLifecycle, type BoxRef } from "./box-sandbox.ts";
 import type { AgentComputerProfile, ExecResult, ProvisionOptions, Sandbox, TeardownOptions } from "./sandbox.ts";
 import { DOCUMENT_PARSERS_FACT } from "./sandbox.ts";
@@ -21,7 +22,6 @@ const WORKSPACE_BASENAME = "workspace";
 const LABEL = "runner";
 const EXEC_OVERHEAD_MS = 30_000;
 const CONTROL_TIMEOUT_MS = 180_000;
-const TRANSFER_TIMEOUT_MS = 600_000;
 
 export interface RunnerSandboxOptions {
   baseUrl: string;
@@ -109,14 +109,14 @@ export function createRunnerSandbox(workspace: WorkspaceStore, opts: RunnerSandb
       return { stdout: r.stdout ?? "", stderr: r.stderr ?? "", code: r.code, timedOut: !!r.timedOut };
     },
     async readAbs(id, absPath): Promise<Uint8Array | null> {
-      const r = await call<RunnerReadResponse>(runnerBoxPath(id, "read"), { path: absPath }, TRANSFER_TIMEOUT_MS);
+      const r = await call<RunnerReadResponse>(runnerBoxPath(id, "read"), { path: absPath }, GUEST_TRANSFER_TIMEOUT_MS);
       return r === null ? null : Buffer.from(r.b64, "base64");
     },
     async writeAbs(id, absPath, data): Promise<void> {
       await required(
         runnerBoxPath(id, "write"),
         { path: absPath, b64: Buffer.from(data).toString("base64") },
-        TRANSFER_TIMEOUT_MS,
+        GUEST_TRANSFER_TIMEOUT_MS,
       );
     },
   };

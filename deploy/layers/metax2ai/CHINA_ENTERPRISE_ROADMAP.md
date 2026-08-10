@@ -444,6 +444,27 @@ core 对 `..` 的防守此前只在四个调用点（publish 目录、attachment
 路由）各挡一次，沙箱层本身不设防。改为在所有路径都流经的 `posixJoin` 处拒绝 `..`；
 `test/runner-service.test.ts` 另加一条根套件测试，因为 CI 不跑 `test/docker/`。
 
+第二轮独立评审（在专项测试之后执行，同样由未参与实现的上下文进行）又发现三项，均已修复：
+
+- **`qm sandbox publish` 产出的镜像没有 guest agent，Runner 一个沙箱都起不来。** publish
+  构建的是 `FROM <sandbox-base>` 加工具 COPY，而 base（`fly/Dockerfile`）的 `CMD` 是 sleep
+  循环、不含 `agent.mjs`；只有 `local/Dockerfile` 加了 agent，而它正是所有测试用的镜像，
+  于是测试全绿掩盖了这个洞。按 `deployment.md` 部署会看到 Runner 正常启动、每个 scope 的
+  `ensureScope` 都在 30 秒后死于「agent 不可达」。现改为 `sandbox.backend` 为 `runner` 时
+  publish 自动烤入 agent 层与 `CMD`（用 buildx named context 带入 CLI 自带的 `agent.mjs`），
+  并已用真实 buildx 构建 + 启动容器验证 `/health` 应答。
+- **guest agent 答复的任何错误都被当成「agent 不可达」而销毁容器。** 客户端对非 200 一律抛
+  普通 Error，`viaAgent` 见错就回收：写文件撞上家目录配额（`EDQUOT` → 500）会让用户的沙箱
+  在回合中途被 `rm -f` 重建，后台进程全死、rootfs 重置，还写一条假的 `agent_unreachable`
+  审计。这与 `f062e3e` 修的超时误判同类，那次只覆盖了 exec。现改为客户端抛
+  `GuestAgentStatusError`，Runner 只在传输层真的够不到 agent 时才回收；同时把 read/write
+  的客户端超时（此前硬编码 120 秒）与 Runner 的传输预算（600 秒）统一，避免大文件传输超时
+  连带毁掉一个健康容器。
+- **停泊标记写在 `docker stop` 之后。** 30 秒的恢复扫描若落在 stop 返回与写库之间，会把刚
+  停泊的容器判为 143 异常退出并重建；随后写库落地，把一个**正在运行**的容器标成 parked，
+  此后再无人回收它，额度被长期占住。现改为先写停泊意图再停容器，若该容器仍有其他 handle
+  或停容器失败则回滚为活跃。
+
 残余风险（无法由现有测试证明，需运维与后续里程碑承担）：
 
 - **Runner 容器等价于宿主机 root。** 它持有 Docker Socket 与 `SYS_ADMIN`。这是本设计的取舍：处理不可信输入的是 Core，而 Core 已不再持有 Socket。Runner 必须按最小攻击面运维，不承载任何其他职责。

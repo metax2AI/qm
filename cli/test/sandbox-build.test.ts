@@ -150,3 +150,23 @@ test("a broken layer (tool with no executable and no Dockerfile) fails before bu
     rmSync(sb, { recursive: true, force: true });
   }
 });
+
+test("a runner deployment bakes the guest agent into the sandbox image, and nothing else does", () => {
+  const sb = sandboxDir((s) => tool(s, "t", { id: "t", install: { binary: "t" } }));
+  try {
+    const runner = dryRun({
+      sandboxDir: sb,
+      config: { ...CONFIG, sandbox: { backend: "runner", image: `r@sha256:${"a".repeat(64)}` } },
+    });
+    assert.match(runner, /COPY --from=qm-guest-agent agent\.mjs \/opt\/microvm-agent\/agent\.mjs/);
+    assert.match(runner, /CMD \["node", "\/opt\/microvm-agent\/agent\.mjs"\]/);
+    assert.match(runner, /--build-context qm-guest-agent=/);
+
+    for (const sandbox of [undefined, { backend: "sprites" as const, app: "acme-sandboxes" }]) {
+      const out = dryRun({ sandboxDir: sb, config: { ...CONFIG, ...(sandbox ? { sandbox } : {}) } });
+      assert.doesNotMatch(out, /qm-guest-agent/, `${sandbox?.backend ?? "no"} backend must not get the agent layer`);
+    }
+  } finally {
+    rmSync(sb, { recursive: true, force: true });
+  }
+});

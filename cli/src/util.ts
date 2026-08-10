@@ -338,3 +338,9 @@ export function promptHidden(name: string): Promise<string> {
     stdin.on("data", onData);
   });
 }
+
+export function microvmAgentAsset(name: string): Buffer {
+  const source = new URL(`../templates/aws/microvm-agent/${name}`, import.meta.url);
+  const packaged = new URL(`../../templates/aws/microvm-agent/${name}`, import.meta.url);
+  return readFileSync(existsSync(source) ? source : packaged);
+}

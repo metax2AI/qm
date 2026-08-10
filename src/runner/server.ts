@@ -4,7 +4,7 @@ import { createSourceAuth, type SourceAuth } from "../auth/source-auth.ts";
 import { errMessage } from "../util/errors.ts";
 import type { DurableMap } from "../persistence/durable-map.ts";
 import type { DockerLifecycle } from "../sandbox/docker-lifecycle.ts";
-import type { GuestAgent } from "../sandbox/guest-agent-client.ts";
+import { GuestAgentStatusError, type GuestAgent } from "../sandbox/guest-agent-client.ts";
 import { RUNNER_HEALTH_PATH, RUNNER_PATH_PREFIX } from "./protocol.ts";
 import type {
   RunnerEnsureRequest,
@@ -71,6 +71,7 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
     try {
       return await call(await liveEndpoint(id));
     } catch (error) {
+      if (error instanceof GuestAgentStatusError || error instanceof BadRequestError) throw error;
       const record = await store.get(id);
       if (record) {
         await recycleRunnerBox(id, record, "agent_unreachable", { lifecycle, store, auditLog, now }).catch((e) =>
@@ -138,17 +139,24 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
       const req = parsed as RunnerTeardownRequest;
       assertBoxName(id, namePrefix);
       const scopeId = (await store.get(id))?.scopeId;
-      const { released } = await lifecycle.teardownBox(
-        { id, ...(req.scratch ? { scratch: true } : {}), ...(scopeId ? { scopeId } : {}) },
-        {
-          ...(req.keepWarm ? { keepWarm: true } : {}),
-          ...(req.destroy ? { destroy: true } : {}),
-        },
-      );
+      const parking = !req.destroy && !req.keepWarm && !req.scratch;
+      if (parking) await store.merge(id, { lastActivityMs: now(), parked: true });
+      let released: boolean;
+      try {
+        ({ released } = await lifecycle.teardownBox(
+          { id, ...(req.scratch ? { scratch: true } : {}), ...(scopeId ? { scopeId } : {}) },
+          {
+            ...(req.keepWarm ? { keepWarm: true } : {}),
+            ...(req.destroy ? { destroy: true } : {}),
+          },
+        ));
+      } catch (error) {
+        if (parking) await touch(id);
+        throw error;
+      }
       if (!released) await touch(id);
       else if (req.destroy || req.scratch) await store.delete(id);
       else if (req.keepWarm) await touch(id);
-      else await store.merge(id, { lastActivityMs: now(), parked: true });
       return { status: 200, body: { ok: true } };
     }
     return { status: 404, body: { error: "not_found" } };

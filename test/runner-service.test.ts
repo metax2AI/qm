@@ -15,6 +15,7 @@ import { createGuestAgent } from "../src/sandbox/guest-agent-client.ts";
 import { createLocalWorkspaceStore } from "../src/workspace/workspace-store.ts";
 import { signedRequestHeaders } from "../src/auth/source-auth-sign.ts";
 import { installFakeDocker, type FakeDocker } from "./support/fake-docker.ts";
+import type { DockerExec } from "../src/sandbox/docker-exec.ts";
 import { sleep } from "../src/util/async.ts";
 import { scopeId } from "../src/types.ts";
 import type { DurableMap } from "../src/persistence/durable-map.ts";
@@ -68,11 +69,18 @@ interface Harness {
   close(): Promise<void>;
 }
 
-async function startRunner(maxExecTimeoutSec?: number): Promise<Harness> {
+async function startRunner(
+  maxExecTimeoutSec?: number,
+  watchDocker?: (args: string[]) => Promise<void>,
+): Promise<Harness> {
   const fake = installFakeDocker(daemonPort);
   const store = createRunnerStore();
   const auditLog = createAuditLog();
   const agent = createGuestAgent({ label: "runner" });
+  const dockerExec: DockerExec = async (args, timeoutMs) => {
+    await watchDocker?.(args);
+    return fake.dockerExec(args, timeoutMs);
+  };
   const lifecycle = createDockerLifecycle({
     label: "runner",
     namePrefix: "qmr",
@@ -81,7 +89,7 @@ async function startRunner(maxExecTimeoutSec?: number): Promise<Harness> {
     buildHint: "publish the rootfs",
     endpointMode: { kind: "published-port" },
     waitReady: (resolveEndpoint, name) => agent.waitReady(resolveEndpoint, name),
-    dockerExec: fake.dockerExec,
+    dockerExec,
     repoRoot: tmp,
   });
   const server = buildRunnerServer({
@@ -174,6 +182,50 @@ test("a workspace-relative path cannot climb out of the workspace", async () => 
     }
     assert.equal(existsSync(join(guestHome, "escaped.txt")), false);
     assert.equal(await sb.readFile(handle, "/etc/passwd"), null, "an absolute path stays workspace-relative");
+  } finally {
+    await h.close();
+  }
+});
+
+test("an error the guest agent answered with is the caller's problem, not the container's", async () => {
+  const h = await startRunner();
+  try {
+    const sb = clientFor(h);
+    const handle = await sb.provision(rw(scopeId("personal", "R-status")));
+    await sb.writeFile(handle, "blocked", "not a directory");
+    const runsBefore = h.fake.runCount;
+
+    await assert.rejects(sb.writeFile(handle, "blocked/child.txt", "nope"), /500/);
+
+    assert.equal(h.fake.runCount, runsBefore, "the box must not be rebuilt because a write failed inside it");
+    assert.equal(h.fake.containers.get(handle.id)?.running, true);
+    assert.deepEqual(await h.auditLog.events(), []);
+    assert.equal(await sb.readFile(handle, "blocked"), "not a directory");
+  } finally {
+    await h.close();
+  }
+});
+
+test("parking records the intent before the container stops, so the sweeper cannot resurrect it", async () => {
+  const parkedAtStop: Array<boolean | undefined> = [];
+  const h = await startRunner(undefined, async (args) => {
+    if (args[0] === "stop") parkedAtStop.push((await h.store.get(args.at(-1)!))?.parked);
+  });
+  try {
+    const sb = clientFor(h);
+    const scope = scopeId("personal", "R-park");
+    const first = await sb.provision(rw(scope));
+    const second = await sb.provision(rw(scope));
+
+    await sb.teardown(second);
+    assert.deepEqual(parkedAtStop, [], "a box another hold still owns is never stopped");
+    assert.equal((await h.store.get(first.id))?.parked, false, "and it is not recorded as parked either");
+
+    await sb.teardown(first);
+    assert.deepEqual(parkedAtStop, [true], "the stop must find the record already parked");
+    assert.equal((await h.store.get(first.id))?.parked, true);
+    assert.equal(await reconcileRunnerBoxes({ store: h.store, lifecycle: h.lifecycle, auditLog: h.auditLog }), 0);
+    assert.deepEqual(await h.auditLog.events(), []);
   } finally {
     await h.close();
   }

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { deflateRawSync } from "node:zlib";
@@ -7,7 +7,7 @@ import { withAwsLease } from "../aws-lease.ts";
 import { updateConfigCoreEnv, type QmConfig } from "../config.ts";
 import { CliError, ok, step } from "../log.ts";
 import { awsObjectStoreBucket } from "../terraform.ts";
-import { capture, sleep } from "../util.ts";
+import { capture, microvmAgentAsset, sleep } from "../util.ts";
 import { guardLambdaMicrovms } from "../backends/aws.ts";
 
 interface ImageSummary {
@@ -101,16 +101,10 @@ function zipFiles(files: Array<{ name: string; body: Buffer }>): Buffer {
   return Buffer.concat([...locals, directory, end]);
 }
 
-function asset(name: string): Buffer {
-  const source = new URL(`../../templates/aws/microvm-agent/${name}`, import.meta.url);
-  const packaged = new URL(`../../../templates/aws/microvm-agent/${name}`, import.meta.url);
-  return readFileSync(existsSync(source) ? source : packaged);
-}
-
 export function microvmBuildArchive(): Buffer {
   return zipFiles([
-    { name: "Dockerfile", body: asset("Dockerfile") },
-    { name: "agent.mjs", body: asset("agent.mjs") },
+    { name: "Dockerfile", body: microvmAgentAsset("Dockerfile") },
+    { name: "agent.mjs", body: microvmAgentAsset("agent.mjs") },
   ]);
 }
 
