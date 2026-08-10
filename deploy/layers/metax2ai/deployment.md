@@ -73,12 +73,13 @@ M3 的 **On-prem Sandbox Runner** 补上了缺的那一半：一个独占容器�
 就绪」。
 
 合入后先执行 `qm sandbox publish --app <registry>/qm-sandbox`，再运行 `qm up`；但**先读
-下面的「宿主机准备」**：地址池与 XFS 两项都要在第一次部署前配好。
+下面的「宿主机准备」**：地址池与 XFS 两项都要在第一次部署前配好，出网白名单要在交付前配好。
 
 ## 宿主机准备（部署前必做，顺序不能颠倒）
 
-以下两项都需要重启 Docker 守护进程，会重启机器上所有容器。**必须在第一次 `qm up`
-之前完成**——事后补做等于一次全栈停机，而其中地址池那项在撞墙之前没有任何征兆。
+前两项都需要重启 Docker 守护进程，会重启机器上所有容器。**必须在第一次 `qm up`
+之前完成**——事后补做等于一次全栈停机，而其中地址池那项在撞墙之前没有任何征兆。第三项
+（出网白名单）不重启任何东西，但要在把系统交给用户之前配好。
 
 ### 1. 一块启用 pquota 的 XFS 数据盘
 
@@ -164,6 +165,37 @@ Runner 启动时会检查这一项，用的还是默认池就告警：
 [runner] docker is on its default address pools, which hold about 30 networks
 and N are already taken — ...
 ```
+
+### 3. 沙箱出网白名单（第一次 `qm up` 之后、交付给用户之前）
+
+这一项不需要重启 Docker，但**不做的话 Agent 在沙箱里碰不到任何外部服务**，而现象很像 Bug：
+模型正常回话，一执行 `pip install`、`curl` 企业接口就失败，且失败在网络层，日志里看不到
+「被策略拒绝」这种自解释的字样。
+
+语义是**默认拒绝**：
+
+- 没有配置 `allowedHosts` 的 scope，实际白名单只有控制面主机一项，其余一律拒。
+- **控制面主机不需要手写**，`egressClaimAllowingControlPlane` 会从 `apiBaseUrl` 推导出来
+  并无条件追加。若 `apiBaseUrl` 未配置且白名单为空，白名单退化为哨兵 `deny.invalid`，
+  它匹配不到任何主机，等于全拒。
+- 白名单按主机名匹配且覆盖子域（`example.com` 放行 `api.example.com`），不接受协议、端口、
+  路径与通配符。
+
+管的是**沙箱内部发起的出网**——Agent 执行的命令、装包、调企业 CRM/ERP/内部 API。Core 自己
+调模型不走这条路径，所以「Agent 能回话」不能证明出网配置是对的。
+
+配置在 Admin 的 scope 配置里，org 一层配默认、单个 scope 可覆盖。Admin 同时会报告这套机制
+**是否真的生效**，读 `egressEnforcement.reason`：
+
+| reason                       | 含义                                       |
+| ---------------------------- | ------------------------------------------ |
+| `ready`                      | 域名级强制生效                             |
+| `backend_unsupported`        | 当前沙箱后端不做域名强制                   |
+| `control_plane_unconfigured` | 后端支持，但控制面没配好，实际退化为不强制 |
+
+最后一条容易踩：`local` 与 `aws` 后端的 `egressEnforcement` 在代码里写死 `none`，**这两个
+后端下白名单根本不生效**。出网策略的验收必须在 `runner`（或 `sprites`）后端上做，在本地
+`local` 后端上试出来的「能出网」不构成任何证据。
 
 ## M2 演示怎么跑
 
