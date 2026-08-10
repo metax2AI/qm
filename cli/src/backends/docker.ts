@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { CliError, bold, die, dim, errMessage, header, note, ok, step, warn } from "../log.ts";
 import {
   capture,
@@ -103,6 +103,20 @@ export function xfsDeviceOf(path: string, mountinfo: string): string | undefined
   return match.source;
 }
 
+export function realpathOfDeepestExisting(path: string): string {
+  const unresolved: string[] = [];
+  let head = path;
+  while (head !== dirname(head) && !existsSync(head)) {
+    unresolved.unshift(basename(head));
+    head = dirname(head);
+  }
+  try {
+    return join(realpathSync(head), ...unresolved);
+  } catch {
+    return path;
+  }
+}
+
 function runnerXfsDevice(orgHome: string): string | undefined {
   let mountinfo: string;
   try {
@@ -113,7 +127,7 @@ function runnerXfsDevice(orgHome: string): string | undefined {
     }
     return undefined;
   }
-  const device = xfsDeviceOf(existsSync(orgHome) ? realpathSync(orgHome) : orgHome, mountinfo);
+  const device = xfsDeviceOf(realpathOfDeepestExisting(orgHome), mountinfo);
   if (!device) {
     warn(`${orgHome} is not on an XFS disk — the runner's home quota preflight will fail`);
     return undefined;

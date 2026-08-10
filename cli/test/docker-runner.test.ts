@@ -1,9 +1,26 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { dockerDown, dockerLogs, dockerStatus, dockerUp, xfsDeviceOf } from "../src/backends/docker.ts";
+import {
+  dockerDown,
+  dockerLogs,
+  dockerStatus,
+  dockerUp,
+  realpathOfDeepestExisting,
+  xfsDeviceOf,
+} from "../src/backends/docker.ts";
 import { CONFIG_FILENAME, loadConfigAt } from "../src/config.ts";
 
 const SANDBOX_IMAGE = `registry.example.com/qm/sandbox@sha256:${"7a".repeat(32)}`;
@@ -214,4 +231,16 @@ test("a non-XFS mount over the sandbox homes yields no device, not the disk bene
 
   assert.equal(xfsDeviceOf("/var/lib/qm/sandbox-homes/acme", mountinfo), undefined);
   assert.equal(xfsDeviceOf("/data/acme", mountinfo), "/dev/vdb odd");
+});
+
+test("a symlinked home root resolves on the first boot, before the org directory exists", () => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "qm-xfs-link-")));
+  const disk = join(dir, "data", "qm-homes");
+  mkdirSync(disk, { recursive: true });
+  const link = join(dir, "sandbox-homes");
+  symlinkSync(disk, link);
+
+  assert.equal(realpathOfDeepestExisting(join(link, "acme")), join(disk, "acme"));
+  assert.equal(realpathOfDeepestExisting(join(dir, "absent", "acme")), join(dir, "absent", "acme"));
+  rmSync(dir, { recursive: true, force: true });
 });

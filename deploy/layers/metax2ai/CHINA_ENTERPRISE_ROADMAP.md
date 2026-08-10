@@ -515,6 +515,7 @@ core 对 `..` 的防守此前只在四个调用点（publish 目录、attachment
 - **沙箱可以到达 Runner 自身的 API 端口。** Runner 为提供容器 DNS 需接入每个 sandbox 网络。该端口要求签名请求，且 Runner 只绑定服务网络地址，但端口对沙箱可见这一事实本身是攻击面。
 - **磁盘隔离在非 XFS 主机上不存在。** 探测会告警，但不阻止启动。生产主机必须把 Docker data-root 放在 XFS 并启用 `pquota`，否则单个 scope 可以写满宿主机磁盘。
 - **XFS home 配额的验证内核不是生产内核。** CI 每轮都在真实 XFS（GitHub runner 上的 loop 设备，amd64）上跑完整路径并确认 80 MB 写入被 64 MB 配额挡下，但目标 ECS 的内核、云盘与 `xfs_quota` 版本仍不同，验收机到位后需原样重跑。
+- **挂载点解析用的是字符串最长前缀，不是挂载树。** 家目录所在的 XFS 若被**祖先方向**的挂载遮蔽（例如 `/data` 上已挂 XFS，运维之后又在 `/` 与 `/data` 之间的某一级挂了 tmpfs），被遮蔽的那条记录仍留在 mountinfo 里且仍以长度胜出，于是 Runner 会对一个已经够不到的目录树设配额。要正确处理需要按 mount id/parent id 还原挂载树，而不是比字符串。判定为不阻塞：该操作会同时破坏 Runner 的 bind mount，是运维事故而非常规路径。降序方向（更近的非 XFS 挂载遮住下面的 XFS）已修并有测试覆盖。
 - **允许私有网段的白名单可被 DNS 重绑定利用。** 白名单域名若解析到容器网段地址，代理会放行。`denyPrivateNetworks` 是对应的开关，但产品需要访问企业内网 CRM/ERP/内部 API，不能无条件开启，需按 scope 配置 `privateNetworkAllowedHosts`。
 - **命令超时会重建整个容器。** `timedOut` 是模型执行长命令时的常见结果，而 Runner 对外宣称支持后台进程会话，一次命令超时会杀掉该 scope 的全部后台进程。计划中「超时可以被回收」应理解为容器卡死而非每条命令超时，此处待决策，本轮未改动。
 - **CI 的 Docker 作业与根测试分片是两回事。** 根分片只覆盖 `test/*.test.ts`；`test/docker/` 的逃逸、路径穿越、重启与隔离四组测试由单独的 `Runner Docker tests` 作业执行，需要真实 Docker 守护进程。该作业的结论只代表 GitHub runner 那台机器的内核与存储驱动。
