@@ -203,6 +203,28 @@ test("parking a sandbox survives the recovery sweep instead of being resurrected
   }
 });
 
+test("a box another hold still owns keeps its durable record and its recovery eligibility", async () => {
+  const h = await startRunner();
+  try {
+    const sb = clientFor(h);
+    const scope = scopeId("personal", "R7");
+    const first = await sb.provision(rw(scope));
+    const second = await sb.provision(rw(scope));
+    assert.equal(first.id, second.id, "one scope, one box");
+
+    await sb.teardown(first, { destroy: true });
+    assert.ok(await h.store.get(first.id), "a box someone still holds must not lose its record to the other's destroy");
+    assert.equal(h.fake.containers.has(first.id), true);
+    assert.equal((await h.store.get(first.id))?.parked, false, "a running box must stay eligible for recovery");
+
+    await sb.teardown(second, { destroy: true });
+    assert.equal(await h.store.get(first.id), null, "the last hold releases it for real");
+    assert.equal(h.fake.containers.has(first.id), false);
+  } finally {
+    await h.close();
+  }
+});
+
 test("process sessions work over the runner transport", async () => {
   const h = await startRunner();
   try {

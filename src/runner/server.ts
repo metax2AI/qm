@@ -128,14 +128,16 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
     if (action === "teardown") {
       const req = parsed as RunnerTeardownRequest;
       assertBoxName(id, namePrefix);
-      await lifecycle.teardown(
-        { id, ...(req.scratch ? { scratch: true } : {}) },
+      const scopeId = (await store.get(id))?.scopeId;
+      const { released } = await lifecycle.teardownBox(
+        { id, ...(req.scratch ? { scratch: true } : {}), ...(scopeId ? { scopeId } : {}) },
         {
           ...(req.keepWarm ? { keepWarm: true } : {}),
           ...(req.destroy ? { destroy: true } : {}),
         },
       );
-      if (req.destroy || req.scratch) await store.delete(id);
+      if (!released) await touch(id);
+      else if (req.destroy || req.scratch) await store.delete(id);
       else if (req.keepWarm) await touch(id);
       else await store.merge(id, { lastActivityMs: now(), parked: true });
       return { status: 200, body: { ok: true } };

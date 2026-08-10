@@ -117,11 +117,12 @@ async function main(): Promise<void> {
   if (!rootfsQuota.enforced) {
     const measured =
       rootfsQuota.reportedMb === undefined
-        ? (rootfsQuota.detail ?? "unknown")
+        ? `the daemon refused it: ${rootfsQuota.detail ?? "unknown"}`
         : `asked for ${rootfsMb}m, a sandbox sees ${rootfsQuota.reportedMb}m`;
     console.warn(
-      `[runner] this Docker storage driver does not enforce --storage-opt size (${measured}) — ` +
-        "a sandbox can fill the host disk; put the Docker data-root on XFS with pquota",
+      `[runner] this Docker storage driver will not enforce --storage-opt size (${measured}) — ` +
+        "running without a rootfs cap, so one sandbox can fill the host disk; " +
+        "put the Docker data-root on XFS with pquota to get it back",
     );
   }
 
@@ -141,7 +142,7 @@ async function main(): Promise<void> {
     cpus,
     memoryMb,
     pidsLimit,
-    rootfsMb,
+    ...(rootfsQuota.enforced ? { rootfsMb } : {}),
     homeQuota,
     onError: (e) => console.warn(`[runner] ${e.category}/${e.code}: ${e.message}`),
   });

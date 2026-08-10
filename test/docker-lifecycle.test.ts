@@ -230,3 +230,52 @@ test("the rootfs quota probe asks for the configured size and reports failures r
   assert.equal(verdict.enforced, false);
   assert.match(verdict.detail!, /unreadable df output/);
 });
+
+test("a restarted runner still reclaims the scope's home, because the caller supplies the scope", async () => {
+  const fake = installFakeDocker(1);
+  const destroyed: string[] = [];
+  const homeQuota: XfsProjectQuota = {
+    preflight: async () => {},
+    sourceOf: (scope) => `/quota/${scope.replaceAll(":", "-")}`,
+    ensure: async (scope) => ({ source: `/quota/${scope.replaceAll(":", "-")}`, coldStart: true }),
+    destroy: async (scope) => void destroyed.push(scope),
+  };
+  const opts = {
+    label: "runner",
+    namePrefix: "qmr",
+    image: "qm-sandbox-local:latest",
+    homeDir: "/root",
+    buildHint: "publish the rootfs",
+    endpointMode: { kind: "container-dns" } as const,
+    internalNetwork: true,
+    homeQuota,
+    waitReady: async () => {},
+    dockerExec: fake.dockerExec,
+    repoRoot: "/nonexistent-repo-root",
+  };
+  const scope = scopeId("personal", "U8");
+  const box = await createDockerLifecycle(opts).ensureScope(scope);
+
+  const restarted = createDockerLifecycle(opts);
+  const outcome = await restarted.teardownBox({ id: box.id, scopeId: scope }, { destroy: true });
+
+  assert.equal(outcome.released, true);
+  assert.deepEqual(destroyed, [scope], "the home must be reclaimed from the durable scope, not process memory");
+  assert.equal(fake.containers.has(box.id), false);
+});
+
+test("tearing down one of several live holds releases nothing and says so", async () => {
+  const fake = installFakeDocker(1);
+  const lifecycle = runnerLifecycleOn(fake);
+  const scope = scopeId("personal", "U9");
+  const box = await lifecycle.ensureScope(scope);
+  await lifecycle.ensureScope(scope);
+
+  const held = await lifecycle.teardownBox({ id: box.id, scopeId: scope }, { destroy: true });
+  assert.equal(held.released, false, "another hold is still using this box");
+  assert.equal(fake.containers.has(box.id), true, "and it must survive");
+
+  const last = await lifecycle.teardownBox({ id: box.id, scopeId: scope }, { destroy: true });
+  assert.equal(last.released, true);
+  assert.equal(fake.containers.has(box.id), false);
+});

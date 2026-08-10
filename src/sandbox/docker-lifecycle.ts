@@ -83,12 +83,23 @@ export interface DockerLifecycleOptions {
   onError?: (e: { category: string; code: string; message: string; scopeLabel?: string }) => void;
 }
 
+export interface TeardownOutcome {
+  released: boolean;
+}
+
 export interface DockerLifecycle extends BoxLifecycle {
+  teardownBox(ref: BoxTeardownRef, opts?: TeardownOptions): Promise<TeardownOutcome>;
   endpointOf(name: string): Promise<string>;
   networkNameOf(containerName: string): string;
   volumeNameOf(scopeId: string): string;
   stateOf(name: string): Promise<DockerContainerState | null>;
   recycle(ref: { id: string; scopeId?: string; scratchKey?: string }): Promise<void>;
+}
+
+interface BoxTeardownRef {
+  id: string;
+  scratch?: boolean;
+  scopeId?: string;
 }
 
 interface DockerContainerState {
@@ -104,7 +115,7 @@ export interface RootfsQuotaProbe {
   detail?: string;
 }
 
-const ROOTFS_QUOTA_SLACK = 1.5;
+const ROOTFS_QUOTA_SLACK = 1.1;
 
 export async function probeRootfsQuota(dexec: DockerExec, image: string, rootfsMb: number): Promise<RootfsQuotaProbe> {
   const r = await dexec(
@@ -308,12 +319,61 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
     return hadVolume;
   }
 
-  function teardownQueueKey(ref: { id: string; scratch?: boolean }): string {
+  function teardownQueueKey(ref: BoxTeardownRef): string {
     if (ref.scratch) {
       for (const [k, name] of scratchByKey) if (name === ref.id) return `scratch:${k}`;
       return ref.id;
     }
-    return scopeByContainer.get(ref.id) ?? ref.id;
+    return ref.scopeId ?? scopeByContainer.get(ref.id) ?? ref.id;
+  }
+
+  async function teardownBox(ref: BoxTeardownRef, tdOpts?: TeardownOptions): Promise<TeardownOutcome> {
+    return provisionQueue(teardownQueueKey(ref), async () => {
+      const remaining = (activeByContainer.get(ref.id) ?? 1) - 1;
+      if (remaining > 0) {
+        activeByContainer.set(ref.id, remaining);
+        return { released: false };
+      }
+      activeByContainer.delete(ref.id);
+      const scope = ref.scopeId ?? scopeByContainer.get(ref.id);
+
+      if (ref.scratch) {
+        for (const [k, name] of scratchByKey) if (name === ref.id) scratchByKey.delete(k);
+        if (tdOpts?.destroy) await dexec(["rm", "-f", ref.id]);
+        else await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: scratch rm`, undefined));
+        await removeNetwork(ref.id, `${label}-sandbox: scratch network rm`);
+        portByName.delete(ref.id);
+        return { released: true };
+      }
+
+      if (tdOpts?.keepWarm) return { released: true };
+
+      if (tdOpts?.destroy) {
+        await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: destroy rm`, undefined));
+        await removeNetwork(ref.id, `${label}-sandbox: destroy network rm`);
+        if (scope) {
+          if (opts.homeQuota) await opts.homeQuota.destroy(scope);
+          else
+            await dexec(["volume", "rm", volumeNameFor(namePrefix, scope)]).catch(
+              swallowAs(`${label}-sandbox: destroy volume rm`, undefined),
+            );
+        }
+        scopeByContainer.delete(ref.id);
+        portByName.delete(ref.id);
+        return { released: true };
+      }
+
+      const r = await dexec(["stop", "-t", "2", ref.id], 60_000);
+      if (r.code !== 0)
+        opts.onError?.({
+          category: "sandbox_park",
+          code: "docker_stop_failed",
+          message: r.stderr.trim(),
+          ...(scope ? { scopeLabel: scope } : {}),
+        });
+      portByName.delete(ref.id);
+      return { released: true };
+    });
   }
 
   return {
@@ -386,52 +446,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
       });
     },
 
-    async teardown(ref: { id: string; scratch?: boolean }, tdOpts?: TeardownOptions): Promise<void> {
-      return provisionQueue(teardownQueueKey(ref), async () => {
-        const remaining = (activeByContainer.get(ref.id) ?? 1) - 1;
-        if (remaining > 0) {
-          activeByContainer.set(ref.id, remaining);
-          return;
-        }
-        activeByContainer.delete(ref.id);
-
-        if (ref.scratch) {
-          for (const [k, name] of scratchByKey) if (name === ref.id) scratchByKey.delete(k);
-          if (tdOpts?.destroy) await dexec(["rm", "-f", ref.id]);
-          else await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: scratch rm`, undefined));
-          await removeNetwork(ref.id, `${label}-sandbox: scratch network rm`);
-          portByName.delete(ref.id);
-          return;
-        }
-
-        if (tdOpts?.keepWarm) return;
-
-        if (tdOpts?.destroy) {
-          await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: destroy rm`, undefined));
-          await removeNetwork(ref.id, `${label}-sandbox: destroy network rm`);
-          const scope = scopeByContainer.get(ref.id);
-          if (scope) {
-            if (opts.homeQuota) await opts.homeQuota.destroy(scope);
-            else
-              await dexec(["volume", "rm", volumeNameFor(namePrefix, scope)]).catch(
-                swallowAs(`${label}-sandbox: destroy volume rm`, undefined),
-              );
-          }
-          scopeByContainer.delete(ref.id);
-          portByName.delete(ref.id);
-          return;
-        }
-
-        const r = await dexec(["stop", "-t", "2", ref.id], 60_000);
-        if (r.code !== 0)
-          opts.onError?.({
-            category: "sandbox_park",
-            code: "docker_stop_failed",
-            message: r.stderr.trim(),
-            ...(scopeByContainer.get(ref.id) ? { scopeLabel: scopeByContainer.get(ref.id)! } : {}),
-          });
-        portByName.delete(ref.id);
-      });
-    },
+    teardown: async (ref, tdOpts) => void (await teardownBox(ref, tdOpts)),
+    teardownBox,
   };
 }
