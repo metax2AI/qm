@@ -225,6 +225,25 @@ test("a box another hold still owns keeps its durable record and its recovery el
   }
 });
 
+test("a box whose agent cannot be reached is recycled and audited", async () => {
+  const h = await startRunner();
+  try {
+    const sb = clientFor(h);
+    const handle = await sb.provision(rw(scopeId("personal", "R9")));
+    h.fake.containers.delete(handle.id);
+
+    await assert.rejects(sb.run(handle, "echo hi"), "the caller learns this attempt failed");
+
+    assert.equal(h.fake.containers.has(handle.id), true, "and the box was rebuilt for the next one");
+    assert.deepEqual(
+      (await h.auditLog.events()).map(({ action, status }) => ({ action, status })),
+      [{ action: "sandbox.recycled", status: "agent_unreachable" }],
+    );
+  } finally {
+    await h.close();
+  }
+});
+
 test("process sessions work over the runner transport", async () => {
   const h = await startRunner();
   try {
@@ -272,20 +291,23 @@ test("the runner forces proxy variables from the turn token and drops caller-pro
   }
 });
 
-test("the runner caps a caller-requested execution timeout", async () => {
+test("a command that runs past its cap is the command's problem, not the box's", async () => {
   const h = await startRunner(1);
   try {
     const sb = clientFor(h);
     const handle = await sb.provision(rw(scopeId("personal", "R5")));
+    const { processId } = await sb.startProcess!(handle, "sleep 30");
     const started = Date.now();
     const result = await sb.run(handle, "sleep 5", { timeoutMs: 30_000 });
     assert.equal(result.timedOut, true);
-    assert.ok(Date.now() - started < 4_000);
-    assert.equal(h.fake.runCount, 2);
+    assert.ok(Date.now() - started < 4_000, "the cap decided when to stop, not the command");
+    assert.equal(h.fake.runCount, 1, "the agent killed the child and kept serving, so the box is untouched");
     assert.equal(h.fake.volumes.size, 1);
-    assert.deepEqual(
-      (await h.auditLog.events()).map(({ action, status }) => ({ action, status })),
-      [{ action: "sandbox.recycled", status: "timeout" }],
+    assert.deepEqual(await h.auditLog.events(), [], "nothing was recycled, so nothing to audit");
+    assert.equal((await sb.run(handle, "echo still here")).stdout.trim(), "still here");
+    assert.ok(
+      (await sb.listProcesses!(handle)).some((session) => session.processId === processId),
+      "the scope's background work outlives one command hitting its cap",
     );
   } finally {
     await h.close();

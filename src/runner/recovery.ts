@@ -5,7 +5,7 @@ import { scopeId } from "../types.ts";
 import { errMessage } from "../util/errors.ts";
 import type { RunnerBoxRecord } from "./store.ts";
 
-export type RunnerRecycleReason = "timeout" | "oom_killed" | "abnormal_exit" | "container_missing";
+export type RunnerRecycleReason = "agent_unreachable" | "oom_killed" | "abnormal_exit" | "container_missing";
 
 interface RunnerRecoveryDeps {
   lifecycle: DockerLifecycle;

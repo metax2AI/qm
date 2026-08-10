@@ -67,6 +67,20 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
     return lifecycle.endpointOf(id);
   }
 
+  async function viaAgent<T>(id: string, call: (endpoint: string) => Promise<T>): Promise<T> {
+    try {
+      return await call(await liveEndpoint(id));
+    } catch (error) {
+      const record = await store.get(id);
+      if (record) {
+        await recycleRunnerBox(id, record, "agent_unreachable", { lifecycle, store, auditLog, now }).catch((e) =>
+          console.warn(`[runner] could not recycle ${id} after an unreachable agent: ${errMessage(e)}`),
+        );
+      }
+      throw error;
+    }
+  }
+
   async function ensure(body: RunnerEnsureRequest): Promise<{ id: string; coldStart: boolean }> {
     const scopeId = body.scopeId?.trim();
     const scratchKey = body.scratchKey?.trim();
@@ -101,19 +115,14 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
       const req = parsed as RunnerExecRequest;
       if (typeof req.cmd !== "string") throw new BadRequestError("need cmd");
       const timeoutSec = Math.min(maxExecTimeoutSec, Math.max(1, Number(req.timeoutSec) || 60));
-      const result = await agent.exec(await liveEndpoint(id), req.cmd, timeoutSec);
-      if (result.timedOut) {
-        const record = await store.get(id);
-        if (!record) throw new Error(`runner sandbox record ${id} is gone`);
-        await recycleRunnerBox(id, record, "timeout", { lifecycle, store, auditLog, now });
-      }
+      const result = await viaAgent(id, (endpoint) => agent.exec(endpoint, req.cmd, timeoutSec));
       await touch(id);
       return { status: 200, body: result };
     }
     if (action === "read") {
       const req = parsed as RunnerReadRequest;
       if (typeof req.path !== "string") throw new BadRequestError("need path");
-      const bytes = await agent.readAbs(await liveEndpoint(id), req.path);
+      const bytes = await viaAgent(id, (endpoint) => agent.readAbs(endpoint, req.path));
       await touch(id);
       if (bytes === null) return { status: 404, body: { error: "not_found" } };
       return { status: 200, body: { b64: Buffer.from(bytes).toString("base64") } };
@@ -121,7 +130,7 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
     if (action === "write") {
       const req = parsed as RunnerWriteRequest;
       if (typeof req.path !== "string" || typeof req.b64 !== "string") throw new BadRequestError("need path + b64");
-      await agent.writeAbs(await liveEndpoint(id), req.path, Buffer.from(req.b64, "base64"));
+      await viaAgent(id, (endpoint) => agent.writeAbs(endpoint, req.path, Buffer.from(req.b64, "base64")));
       await touch(id);
       return { status: 200, body: { ok: true } };
     }
