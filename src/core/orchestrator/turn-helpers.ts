@@ -19,7 +19,7 @@ import { collectBytes } from "../../util/bytes.ts";
 import type { SkillBundle, SkillBundleStore } from "../../skills/skill-bundle-store.ts";
 import type { SkillResolution } from "../../skills/skill-store.ts";
 import type { FileArtifact, FileArtifactStore } from "../../files/file-artifact-store.ts";
-import { hostMatches } from "../../resolution/egress-policy.ts";
+import { EGRESS_DENY_ALL_HOST, hostMatches } from "../../resolution/egress-policy.ts";
 import { isVisionAttachment, MAX_VISION_IMAGE_BYTES } from "../attachments.ts";
 import { swallow } from "../../util/errors.ts";
 import { hashId } from "../../util/crypto.ts";
@@ -131,10 +131,9 @@ export function egressClaimAllowingControlPlane(
   egress: EgressPolicy,
   apiBaseUrl: string,
   denyPrivateNetworks = false,
-): EgressPolicy | undefined {
+): EgressPolicy {
   const allowedHosts = egress.allowedHosts ?? [];
   const deniedHosts = egress.deniedHosts ?? [];
-  if (allowedHosts.length === 0 && deniedHosts.length === 0 && !denyPrivateNetworks) return undefined;
   let coreHost = "";
   if (apiBaseUrl) {
     try {
@@ -144,17 +143,13 @@ export function egressClaimAllowingControlPlane(
     }
   }
   const safeDenied = coreHost ? deniedHosts.filter((d) => !hostMatches(coreHost, d)) : deniedHosts;
-  const allowedWithCore =
-    coreHost && allowedHosts.length > 0 && !allowedHosts.includes(coreHost)
-      ? [...allowedHosts, coreHost]
-      : allowedHosts;
-  const claim: EgressPolicy = {
-    allowedHosts: allowedWithCore,
+  const reachable = coreHost && !allowedHosts.includes(coreHost) ? [...allowedHosts, coreHost] : allowedHosts;
+  return {
+    allowedHosts: reachable.length ? reachable : [EGRESS_DENY_ALL_HOST],
     ...(denyPrivateNetworks ? { denyPrivateNetworks: true } : {}),
     ...(denyPrivateNetworks && coreHost ? { privateNetworkAllowedHosts: [coreHost] } : {}),
     ...(safeDenied.length ? { deniedHosts: safeDenied } : {}),
   };
-  return claim.allowedHosts.length || claim.deniedHosts?.length || claim.denyPrivateNetworks ? claim : undefined;
 }
 
 export function stripTurnBoilerplate(text: string): string {
