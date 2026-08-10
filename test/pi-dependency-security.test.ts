@@ -6,7 +6,7 @@ import test from "node:test";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 const piCodingAgentTarball =
-  "https://github.com/yc-software/pi/releases/download/qm-pi-coding-agent-0.82.0-security.2/earendil-works-pi-coding-agent-0.82.0-qm-security.2.tgz";
+  "https://github.com/metax2AI/pi/releases/download/qm-pi-coding-agent-0.82.0-security.3/earendil-works-pi-coding-agent-0.82.0-qm-security.3.tgz";
 
 function installedVersion(path: string): string {
   const manifestUrl = new URL(`../node_modules/${path}/package.json`, import.meta.url);
@@ -36,7 +36,7 @@ function lockedVersions(packages: Record<string, { version?: unknown }>, depende
 
 test("Pi and MCP security overrides are materialized by the root lockfile", () => {
   const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8")) as {
-    packages?: Record<string, { resolved?: unknown; version?: unknown; hasShrinkwrap?: unknown }>;
+    packages?: Record<string, { resolved?: unknown; version?: unknown }>;
   };
   const packages = lock.packages ?? {};
   const pi = packages["node_modules/@earendil-works/pi-coding-agent"];
@@ -44,13 +44,21 @@ test("Pi and MCP security overrides are materialized by the root lockfile", () =
   const minimatchManifest = createRequire(piManifest).resolve("minimatch/package.json");
 
   assert.equal(pi?.resolved, piCodingAgentTarball);
-  assert.equal(pi?.hasShrinkwrap, true);
-  assert.deepEqual(lockedVersions(packages, "brace-expansion"), ["5.0.8"]);
+  assert.ok(
+    JSON.parse(
+      readFileSync(new URL("../node_modules/@earendil-works/pi-coding-agent/npm-shrinkwrap.json", import.meta.url), {
+        encoding: "utf8",
+      }),
+    ).packages,
+    "the Pi tarball must ship a shrinkwrap so its transitive tree stays pinned",
+  );
+  assert.deepEqual(lockedVersions(packages, "brace-expansion"), ["5.0.9"]);
   assert.deepEqual(lockedVersions(packages, "protobufjs"), ["7.6.5"]);
-  assert.deepEqual(lockedVersions(packages, "@hono/node-server"), ["2.0.10"]);
-  assert.equal(dependencyVersion(minimatchManifest, "brace-expansion"), "5.0.8");
+  assert.deepEqual(lockedVersions(packages, "@hono/node-server"), ["2.1.0"]);
+  assert.equal(dependencyVersion(minimatchManifest, "brace-expansion"), "5.0.9");
+  assert.equal(dependencyVersion(piManifest, "undici"), "8.9.0");
   assert.equal(dependencyVersion(piManifest, "protobufjs"), "7.6.5");
-  assert.equal(installedVersion("@hono/node-server"), "2.0.10");
+  assert.equal(installedVersion("@hono/node-server"), "2.1.0");
   assert.match(
     readFileSync(new URL("../node_modules/@earendil-works/pi-coding-agent/LICENSE", import.meta.url), "utf8"),
     /Copyright \(c\) 2025 Mario Zechner/,
