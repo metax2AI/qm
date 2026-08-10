@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EGRESS_PROXY_AUD, mintCapabilityToken } from "../../src/auth/capability-token.ts";
 import { spawnDockerExec } from "../../src/sandbox/docker-exec.ts";
+import { probeRootfsQuota } from "../../src/sandbox/docker-lifecycle.ts";
 import { authenticatedProxyEnv } from "../../src/sandbox/sandbox-env.ts";
 import { scopeId } from "../../src/types.ts";
 
@@ -238,4 +239,38 @@ test("runner egress is forced through the domain policy proxy", async (t) => {
     for (const container of [box, proxy]) await docker(["rm", "-f", container], 15_000);
     for (const network of [sandboxNetwork, serviceNetwork]) await docker(["network", "rm", network], 15_000);
   }
+});
+
+test("the rootfs quota probe's verdict matches what the storage driver actually enforces", async (t) => {
+  if ((await docker(["version"], 15_000)).code !== 0) return t.skip("Docker daemon unavailable");
+  if ((await docker(["image", "inspect", image], 15_000)).code !== 0) return t.skip(`${image} unavailable`);
+
+  const capMb = 64;
+  const verdict = await probeRootfsQuota(docker, image, capMb);
+
+  const write = await docker(
+    [
+      "run",
+      "--rm",
+      "--network",
+      "none",
+      "--storage-opt",
+      `size=${capMb}m`,
+      image,
+      "sh",
+      "-c",
+      `dd if=/dev/zero of=/rootfs-quota-probe bs=1M count=${capMb * 2} 2>/dev/null`,
+    ],
+    120_000,
+  );
+  const kernelEnforces = write.code !== 0;
+
+  t.diagnostic(
+    `driver ${kernelEnforces ? "enforces" : "ignores"} --storage-opt size; probe reported ${verdict.reportedMb ?? "nothing"}m for a ${capMb}m cap`,
+  );
+  assert.equal(
+    verdict.enforced,
+    kernelEnforces,
+    "the probe must not claim a cap the driver ignores, nor deny one it honours",
+  );
 });

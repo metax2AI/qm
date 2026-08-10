@@ -1,6 +1,6 @@
 import { orgId as configOrgId } from "./config.ts";
 import { isStrongSigningSecret, MIN_SIGNING_SECRET_LENGTH } from "./auth/source-auth.ts";
-import { createDockerLifecycle } from "./sandbox/docker-lifecycle.ts";
+import { createDockerLifecycle, probeRootfsQuota } from "./sandbox/docker-lifecycle.ts";
 import { createGuestAgent } from "./sandbox/guest-agent-client.ts";
 import { spawnDockerExec, type DockerExec } from "./sandbox/docker-exec.ts";
 import { buildRunnerServer } from "./runner/server.ts";
@@ -112,6 +112,18 @@ async function main(): Promise<void> {
     limitMb: positiveNumEnv("RUNNER_SANDBOX_HOME_MB", process.env.RUNNER_SANDBOX_HOME_MB, DEFAULT_HOME_MB, true),
   });
   await homeQuota.preflight();
+
+  const rootfsQuota = await probeRootfsQuota(dexec, imageRef, rootfsMb);
+  if (!rootfsQuota.enforced) {
+    const measured =
+      rootfsQuota.reportedMb === undefined
+        ? (rootfsQuota.detail ?? "unknown")
+        : `asked for ${rootfsMb}m, a sandbox sees ${rootfsQuota.reportedMb}m`;
+    console.warn(
+      `[runner] this Docker storage driver does not enforce --storage-opt size (${measured}) — ` +
+        "a sandbox can fill the host disk; put the Docker data-root on XFS with pquota",
+    );
+  }
 
   const lifecycle = createDockerLifecycle({
     label: LABEL,

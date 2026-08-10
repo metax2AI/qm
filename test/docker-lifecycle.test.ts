@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createDockerLifecycle } from "../src/sandbox/docker-lifecycle.ts";
+import { createDockerLifecycle, probeRootfsQuota } from "../src/sandbox/docker-lifecycle.ts";
+import type { DockerExec } from "../src/sandbox/docker-exec.ts";
 import { installFakeDocker, type FakeDocker } from "./support/fake-docker.ts";
 import { scopeId } from "../src/types.ts";
 import type { XfsProjectQuota } from "../src/sandbox/xfs-project-quota.ts";
@@ -184,4 +185,48 @@ test("runner persistent homes use the quota-managed bind tree instead of an unbo
   assert.equal(fake.volumes.size, 0);
   await lifecycle.teardown({ id: box.id }, { destroy: true });
   assert.deepEqual(destroyed, [scope]);
+});
+
+function dfDocker(stdout: string, code = 0): { dexec: DockerExec; argv: string[][] } {
+  const argv: string[][] = [];
+  return {
+    argv,
+    dexec: async (args) => {
+      argv.push(args);
+      return { code, stdout, stderr: code === 0 ? "" : stdout };
+    },
+  };
+}
+
+const DF_HEADER = "Filesystem     1K-blocks  Used Available Use% Mounted on";
+
+test("the rootfs quota probe believes the kernel's own accounting, not the requested config", async () => {
+  const honoured = dfDocker(`${DF_HEADER}\noverlay          10485760 32768  10452992   1% /`);
+  assert.deepEqual(await probeRootfsQuota(honoured.dexec, "img", 10_240), { enforced: true, reportedMb: 10_240 });
+
+  const ignored = dfDocker(`${DF_HEADER}\noverlay         475270624 32768 475237856   1% /`);
+  assert.deepEqual(await probeRootfsQuota(ignored.dexec, "img", 10_240), { enforced: false, reportedMb: 464_131 });
+});
+
+test("the rootfs quota probe asks for the configured size and reports failures rather than throwing", async () => {
+  const probe = dfDocker("overlay 10485760 0 10485760 1% /");
+  await probeRootfsQuota(probe.dexec, "qm-sandbox:pinned", 4096);
+  const argv = probe.argv[0]!;
+  assert.deepEqual(argv.slice(argv.indexOf("--storage-opt"), argv.indexOf("--storage-opt") + 2), [
+    "--storage-opt",
+    "size=4096m",
+  ]);
+  assert.deepEqual(argv.slice(-4), ["qm-sandbox:pinned", "df", "-k", "/"]);
+  assert.ok(argv.includes("--rm") && argv.includes("none"), "the probe leaves no container or network behind");
+
+  const refused = dfDocker("Container size cannot be smaller than image size", 125);
+  assert.deepEqual(await probeRootfsQuota(refused.dexec, "img", 1), {
+    enforced: false,
+    detail: "Container size cannot be smaller than image size",
+  });
+
+  const garbled = dfDocker("df: /: cannot read");
+  const verdict = await probeRootfsQuota(garbled.dexec, "img", 1024);
+  assert.equal(verdict.enforced, false);
+  assert.match(verdict.detail!, /unreadable df output/);
 });

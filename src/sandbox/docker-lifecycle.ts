@@ -98,6 +98,27 @@ interface DockerContainerState {
   imageId: string;
 }
 
+export interface RootfsQuotaProbe {
+  enforced: boolean;
+  reportedMb?: number;
+  detail?: string;
+}
+
+const ROOTFS_QUOTA_SLACK = 1.5;
+
+export async function probeRootfsQuota(dexec: DockerExec, image: string, rootfsMb: number): Promise<RootfsQuotaProbe> {
+  const r = await dexec(
+    ["run", "--rm", "--network", "none", "--storage-opt", `size=${rootfsMb}m`, image, "df", "-k", "/"],
+    120_000,
+  );
+  if (r.code !== 0) return { enforced: false, detail: r.stderr.trim() || r.stdout.trim() };
+  const line = r.stdout.trim().split("\n").at(-1) ?? "";
+  const blocks = Number(line.trim().split(/\s+/)[1]);
+  if (!Number.isFinite(blocks) || blocks <= 0) return { enforced: false, detail: `unreadable df output: ${line}` };
+  const reportedMb = Math.round(blocks / 1024);
+  return { enforced: reportedMb <= rootfsMb * ROOTFS_QUOTA_SLACK, reportedMb };
+}
+
 export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifecycle {
   const { label, namePrefix, image, homeDir, buildHint, endpointMode, waitReady } = opts;
   const daemonHint = opts.daemonHint ? ` ${opts.daemonHint}` : "";
