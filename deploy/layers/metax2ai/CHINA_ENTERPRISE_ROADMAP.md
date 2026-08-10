@@ -1,6 +1,6 @@
 # QM 中国企业版开发计划
 
-- 状态：执行中（M3 Runner 已完成实现、真机验收与独立评审，待合入；两项待补：真实重启恢复、XFS 主机上的 home 配额）
+- 状态：执行中（M3 Runner 已完成实现、本地真实 Docker/Postgres 验收、逃逸与路径穿越专项测试及独立评审，待合入；目标 ECS 上的完整进程重启与 XFS `pquota` 验收暂缓）
 - 更新日期：2026-08-10
 - 适用范围：metax2AI 基于 QM 构建的中国大陆企业 Agent 产品
 
@@ -356,6 +356,11 @@ flowchart LR
 
 当前状态（2026-08-10）：
 
+云端采购与部署暂缓：先继续本地开发，并用生产形态本地实例向客户演示脱敏数据；等功能完成
+并进入 M4 后再购买 ECS。该决定不阻塞 M3 代码合入、本地安全测试与演示，但目标 ECS 上的
+`runner-main` 完整进程重启和 XFS home 配额仍是 M3 最终验收的未完成项。已选阿里云配置与
+购买前复核项记录在 `deployment.md`。
+
 实现分三个 PR 提交：Runner 本体与隔离边界、出网默认拒绝、依赖安全升级。后两者从 M3 分支拆出，因为它们各自的影响面与 M3 不同——出网策略是所有沙箱后端共用的代码，依赖升级与本里程碑无关。
 
 范围项逐条对照：
@@ -381,7 +386,7 @@ flowchart LR
 | 未授权外网请求在网络层失败            | **真机验证通过**                           |
 | Runner 重启后恢复或安全重建           | 本地真实容器重建通过；ECS 进程级重启待验收 |
 | 超时、资源耗尽、异常容器可回收并审计  | 已修：回收改由 agent 不可达触发            |
-| 专项安全测试与残余风险记录            | 测试已执行，残余风险见本节                 |
+| 专项安全测试与残余风险记录            | **逃逸面与路径穿越已补齐**，残余风险见本节 |
 
 真机验收执行记录（Docker Desktop 28.5.1，`test/docker/runner-security.test.ts`，三项全过）：
 
@@ -415,6 +420,30 @@ flowchart LR
 
 一项经真实沙箱验证确认为改进：镜像指纹比对此前拿 12 位短 ID 与 `sha256:<64>` 比较，永不相等，导致 local 后端**每个回合都销毁重建容器**。M3 顺带修正后容器改为复用。副作用是 rootfs 状态跨回合累积（同 scope 内，不跨界），而 local 后端不设 `--storage-opt`，该增长不受配额约束。
 
+容器逃逸与路径穿越专项测试执行记录（2026-08-10，Docker Desktop 28.5.1）：
+
+- **逃逸面**（`test/docker/runner-escape.test.ts`，两项全过）。沙箱由生产同一条
+  `createDockerLifecycle` 路径创建，不是手搓的 docker 参数。容器内 `CapEff`、`CapBnd`
+  全零，`NoNewPrivs=1`；`mount`、`mknod`、`dmesg`、写 `/proc/sys`、写 `/sys`、在 cgroup
+  树里建目录全部失败；`/dev` 只有 Docker 默认设备集，没有宿主机块设备；容器内不存在
+  docker socket。`docker inspect` 佐证：未开特权、未加 capability、无宿主机设备、未共享
+  宿主机 PID/IPC/网络 namespace，唯一挂载是该 scope 自己的 home 卷。跨 scope 部分：攻击者
+  容器的 PID namespace 里看不到受害者进程（受害者自己看得到，证明检测手段有效），home
+  卷里也没有受害者的文件。
+- **路径穿越**（`test/docker/runner-path-traversal.test.ts`，三项全过）。sandbox id 用手写
+  HTTP 请求发送——`fetch` 会在客户端就把 `..` 规范化掉，根本到不了服务端，用它测等于没测；
+  原始 socket 下 `..`、`%2f` 编码的穿越、别的前缀的容器名、前缀本身，四个动作
+  (`exec`/`read`/`write`/`teardown`) 一律 400。绝对路径参数只到达那一个容器的 mount
+  namespace：写进 `/etc` 的文件在另一个 scope 的容器里不存在，`/var/run/docker.sock` 读不到。
+
+专项测试发现并修复的一项：`posixJoin`（`src/sandbox/exec-file-ops.ts`，local、fly、aws、
+runner 四个后端的 `readFile`/`writeFile`/`removeDir`/`extractFiles` 都流经它）只剥掉前导
+`/`，不检查 `..`。于是 `readFile(handle, "../x")` 走出 workspace 到 scope 家目录，
+`removeDir(handle, "../.ssh")` 能删掉家目录里的内容——边界仍是容器与 scope，不跨界，但
+core 对 `..` 的防守此前只在四个调用点（publish 目录、attachments、surface-tools、reach
+路由）各挡一次，沙箱层本身不设防。改为在所有路径都流经的 `posixJoin` 处拒绝 `..`；
+`test/runner-service.test.ts` 另加一条根套件测试，因为 CI 不跑 `test/docker/`。
+
 残余风险（无法由现有测试证明，需运维与后续里程碑承担）：
 
 - **Runner 容器等价于宿主机 root。** 它持有 Docker Socket 与 `SYS_ADMIN`。这是本设计的取舍：处理不可信输入的是 Core，而 Core 已不再持有 Socket。Runner 必须按最小攻击面运维，不承载任何其他职责。
@@ -424,13 +453,16 @@ flowchart LR
 - **允许私有网段的白名单可被 DNS 重绑定利用。** 白名单域名若解析到容器网段地址，代理会放行。`denyPrivateNetworks` 是对应的开关，但产品需要访问企业内网 CRM/ERP/内部 API，不能无条件开启，需按 scope 配置 `privateNetworkAllowedHosts`。
 - **命令超时会重建整个容器。** `timedOut` 是模型执行长命令时的常见结果，而 Runner 对外宣称支持后台进程会话，一次命令超时会杀掉该 scope 的全部后台进程。计划中「超时可以被回收」应理解为容器卡死而非每条命令超时，此处待决策，本轮未改动。
 - **CI 不执行 `test/docker/`。** 根测试分片只覆盖 `test/*.test.ts`，容器安全测试需要真实 Docker 守护进程，只能人工执行。上述真机结论仅代表执行当时那台机器。
+- **逃逸测试证明的是「配置正确、常见逃逸原语不可用」，不是「不可能逃逸」。** 内核漏洞与
+  runc 漏洞不在测试能力范围内，仍由「Runner 容器等价于宿主机 root」那条取舍兜底。
+- **测试内核不是生产内核。** 上述两项在 macOS 的 Docker Desktop Linux VM 上执行，且 amd64
+  镜像在 arm64 主机上模拟运行；seccomp profile、内核版本与 LSM 都与目标 ECS 不同，验收机
+  到位后需原样重跑。
 
 未覆盖：
 
 - Runner 重启恢复已在本地真实 Docker 容器与 Postgres 状态下走过组件重建；完整
   `runner-main` 进程重启仍需在具备 XFS `pquota` 的目标 ECS 上验收。
-- 容器逃逸面未做专项测试。当前依据是 `cap-drop ALL`、`no-new-privileges` 与非特权容器的既有性质，不是本里程碑自证的结论。
-- 路径穿越只在 API 层验证了 sandbox id，未对 `read`/`write` 的路径参数做穿越测试——guest agent 接受绝对路径，穿越范围限于容器内，但未有测试证明。
 
 ### M3.5：构建供应链国产化
 
@@ -602,8 +634,9 @@ M0 至 M2 已交付，M3 的实现与真机隔离验收已完成，尚未合入�
 1. 合入 M3。三个 PR 分别是 Runner 本体、出网默认拒绝、依赖安全升级。独立评审已完成
    并提出十项，九项已修、一项经验证确认为改进；出网那个改的是所有沙箱后端共用的策略
    代码，单独合并会立即让现有部署的沙箱默认断网，需与 Runner 一并上线。
-2. 补 M3 未覆盖的三项：真实重启下的恢复、XFS 主机上的 home 配额、容器逃逸与路径
-   穿越的专项测试。
+2. 容器逃逸与路径穿越专项测试已在本地完成，并顺带修掉沙箱层不挡 `..` 的路径拼接；
+   目标 ECS 上的完整进程重启、XFS home 配额，以及在生产内核上重跑这两项测试，
+   保留到云端采购恢复后执行。
 3. 补英文界面截图与语言切换验证：M1.5 要求中英文两套关键路径截图，中文侧已完成，
    英文侧以及「切换后刷新是否保留选择」尚未验证。
 4. 在一台没有透明代理的机器上重做「不访问 Google、Slack、Fly.io」的取证。

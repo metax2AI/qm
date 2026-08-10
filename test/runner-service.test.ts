@@ -1,7 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import { createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -157,6 +157,23 @@ test("a full turn round-trips over the runner API: provision, exec, write, read,
     await sb.teardown(handle, { destroy: true });
     assert.equal(await h.store.get(handle.id), null);
     assert.equal(h.fake.containers.has(handle.id), false);
+  } finally {
+    await h.close();
+  }
+});
+
+test("a workspace-relative path cannot climb out of the workspace", async () => {
+  const h = await startRunner();
+  try {
+    const sb = clientFor(h);
+    const handle = await sb.provision(rw(scopeId("personal", "R-traversal")));
+    for (const rel of ["../escaped.txt", "..", "nested/../../escaped.txt", "../../../etc/passwd"]) {
+      await assert.rejects(sb.writeFile(handle, rel, "escaped"), /path must stay under/, `write ${rel}`);
+      await assert.rejects(sb.readFile(handle, rel), /path must stay under/, `read ${rel}`);
+      await assert.rejects(sb.removeDir(handle, rel), /path must stay under/, `removeDir ${rel}`);
+    }
+    assert.equal(existsSync(join(guestHome, "escaped.txt")), false);
+    assert.equal(await sb.readFile(handle, "/etc/passwd"), null, "an absolute path stays workspace-relative");
   } finally {
     await h.close();
   }

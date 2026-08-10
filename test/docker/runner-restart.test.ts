@@ -11,15 +11,13 @@ import { createPostgresMapFactory, type PostgresArtifactMaps } from "../../src/p
 import { reconcileRunnerBoxes } from "../../src/runner/recovery.ts";
 import { buildRunnerServer } from "../../src/runner/server.ts";
 import type { RunnerBoxRecord } from "../../src/runner/store.ts";
-import { spawnDockerExec } from "../../src/sandbox/docker-exec.ts";
+import { docker, removeDockerResources, sandboxImage } from "./runner-harness.ts";
 import { createDockerLifecycle } from "../../src/sandbox/docker-lifecycle.ts";
 import { createGuestAgent } from "../../src/sandbox/guest-agent-client.ts";
 import { createRunnerSandbox } from "../../src/sandbox/runner-sandbox.ts";
 import { scopeId } from "../../src/types.ts";
 import { createLocalWorkspaceStore } from "../../src/workspace/workspace-store.ts";
 
-const docker = spawnDockerExec("docker");
-const image = "qm-sandbox-local:latest";
 const secret = "runner-restart-test-secret-that-is-long-enough";
 
 async function listen(server: Server): Promise<string> {
@@ -38,15 +36,6 @@ async function close(server: Server | undefined): Promise<void> {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
 
-async function removeDockerResources(namePrefix: string): Promise<void> {
-  const containers = await docker(["ps", "-aq", "--filter", `name=^/${namePrefix}-`], 15_000);
-  for (const id of containers.stdout.trim().split("\n").filter(Boolean)) await docker(["rm", "-f", id], 15_000);
-  const networks = await docker(["network", "ls", "--filter", `name=^${namePrefix}-`, "-q"], 15_000);
-  for (const id of networks.stdout.trim().split("\n").filter(Boolean)) await docker(["network", "rm", id], 15_000);
-  const volumes = await docker(["volume", "ls", "--filter", `name=^${namePrefix}-`, "-q"], 15_000);
-  for (const id of volumes.stdout.trim().split("\n").filter(Boolean)) await docker(["volume", "rm", id], 15_000);
-}
-
 async function dropTable(factory: PostgresArtifactMaps, table: string): Promise<void> {
   await factory.pool.query(`DROP TABLE IF EXISTS ${table}`);
   await factory.pool.query("DELETE FROM durable_map_versions WHERE tbl = $1", [table]).catch(() => undefined);
@@ -59,7 +48,8 @@ test(
     const databaseUrl = process.env.RUNNER_TEST_DATABASE_URL ?? process.env.DATABASE_URL;
     if (!databaseUrl) return t.skip("RUNNER_TEST_DATABASE_URL or DATABASE_URL unavailable");
     if ((await docker(["version"], 15_000)).code !== 0) return t.skip("Docker daemon unavailable");
-    if ((await docker(["image", "inspect", image], 15_000)).code !== 0) return t.skip(`${image} unavailable`);
+    if ((await docker(["image", "inspect", sandboxImage], 15_000)).code !== 0)
+      return t.skip(`${sandboxImage} unavailable`);
 
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
     const namePrefix = `qmrr-${suffix}`;
@@ -78,7 +68,7 @@ test(
       createDockerLifecycle({
         label: "runner-restart",
         namePrefix,
-        image,
+        image: sandboxImage,
         homeDir: "/root",
         buildHint: "run npm run sandbox:local:build",
         endpointMode: { kind: "published-port" },
@@ -100,7 +90,7 @@ test(
         store: firstStore,
         signingSecret: secret,
         namePrefix,
-        imageRef: image,
+        imageRef: sandboxImage,
         orgId: "runner-restart-test",
         auditLog,
       });
@@ -130,7 +120,7 @@ test(
         store: secondStore,
         signingSecret: secret,
         namePrefix,
-        imageRef: image,
+        imageRef: sandboxImage,
         orgId: "runner-restart-test",
         auditLog,
       });

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { shq } from "../util/shell.ts";
 import { swallowAs } from "../util/errors.ts";
 import { makeTar, parseTar } from "./tar.ts";
+import { hasParentPathSegment } from "./sandbox.ts";
 
 import type {
   AgentComputerBackupArea,
@@ -16,6 +17,7 @@ export const BLOB_TRANSFER_TTL_MS = 2 * 60_000;
 
 export function posixJoin(base: string, rel: string): string {
   const clean = rel.replace(/^\/+/, "");
+  if (hasParentPathSegment(clean)) throw new Error(`path must stay under ${base}: ${rel}`);
   return clean ? `${base.replace(/\/+$/, "")}/${clean}` : base;
 }
 
