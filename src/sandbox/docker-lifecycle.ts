@@ -117,6 +117,23 @@ export interface RootfsQuotaProbe {
 
 const ROOTFS_QUOTA_SLACK = 1.1;
 
+export const DEFAULT_ADDRESS_POOL_NETWORKS = 30;
+
+export interface AddressPoolProbe {
+  configured: boolean;
+  bridgeNetworks: number;
+}
+
+export async function probeAddressPools(dexec: DockerExec): Promise<AddressPoolProbe> {
+  const pools = await dexec(["info", "--format", "{{json .DefaultAddressPools}}"], 15_000);
+  const declared = pools.code === 0 ? pools.stdout.trim() : "";
+  const nets = await dexec(["network", "ls", "--filter", "driver=bridge", "-q"], 15_000);
+  return {
+    configured: declared !== "" && declared !== "null" && declared !== "[]",
+    bridgeNetworks: nets.code === 0 ? nets.stdout.trim().split("\n").filter(Boolean).length : 0,
+  };
+}
+
 export async function probeRootfsQuota(dexec: DockerExec, image: string, rootfsMb: number): Promise<RootfsQuotaProbe> {
   const r = await dexec(
     ["run", "--rm", "--network", "none", "--storage-opt", `size=${rootfsMb}m`, image, "df", "-k", "/"],
@@ -242,7 +259,16 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
     const net = networkNameFor(namePrefix, name);
     const inspected = await dexec(["network", "inspect", "-f", "{{.Internal}}", net]);
     if (inspected.code !== 0) {
-      const r = await dexec(["network", "create", ...(opts.internalNetwork ? ["--internal"] : []), net]);
+      const r = await dexec([
+        "network",
+        "create",
+        ...(opts.internalNetwork ? ["--internal"] : []),
+        "--label",
+        "qm.sandbox=1",
+        "--label",
+        `qm.org=${configOrgId()}`,
+        net,
+      ]);
       if (r.code !== 0 && !/already exists/i.test(r.stderr)) {
         throw new Error(`docker network create ${net} failed: ${r.stderr.trim()}`);
       }

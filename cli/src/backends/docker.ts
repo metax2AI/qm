@@ -830,6 +830,23 @@ function listDeploymentContainers(orgId: string): string[] {
   return psNames(["-a", "--filter", `label=${ORG_LABEL_KEY}=${orgId}`]);
 }
 
+function listSandboxNetworks(orgId: string): string[] {
+  const out = captureBoth("docker", [
+    "network",
+    "ls",
+    "--filter",
+    `label=${ORG_LABEL_KEY}=${orgId}`,
+    "--filter",
+    "label=qm.sandbox=1",
+    "--format",
+    "{{.Name}}",
+  ]);
+  return out
+    .split("\n")
+    .map((n) => n.trim())
+    .filter(Boolean);
+}
+
 export async function dockerLogs(config: QmConfig, service: string | undefined, opts: LogOpts = {}): Promise<void> {
   requireDocker();
   const prefix = dockerPrefix(config);
@@ -884,10 +901,18 @@ export async function dockerDown(config: QmConfig, opts: { purge?: boolean } = {
     step(`removing ${name}`);
     docker(["rm", "-f", name], /No such container/);
   }
+  for (const network of listSandboxNetworks(config.orgId)) {
+    step(`removing sandbox network ${network}`);
+    docker(["network", "rm", network], /not found|No such|has active endpoints/);
+  }
   if (opts.purge) {
     warn("purging the network and Postgres volume (durable data will be lost)");
     docker(["network", "rm", prefix], /not found|No such/);
     docker(["volume", "rm", `${prefix}-pgdata`, `${prefix}-coredata`], /No such volume|not found|in use/);
+    if (runnerEnabled(config) && existsSync(RUNNER_HOME_ROOT)) {
+      warn(`purging sandbox homes under ${RUNNER_HOME_ROOT}`);
+      rmSync(RUNNER_HOME_ROOT, { recursive: true, force: true });
+    }
   }
   ok("down.");
 }

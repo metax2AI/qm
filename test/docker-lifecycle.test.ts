@@ -1,9 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createDockerLifecycle, probeRootfsQuota } from "../src/sandbox/docker-lifecycle.ts";
+import { createDockerLifecycle, probeAddressPools, probeRootfsQuota } from "../src/sandbox/docker-lifecycle.ts";
 import type { DockerExec } from "../src/sandbox/docker-exec.ts";
 import { installFakeDocker, type FakeDocker } from "./support/fake-docker.ts";
 import { scopeId } from "../src/types.ts";
+import { orgId } from "../src/config.ts";
 import type { XfsProjectQuota } from "../src/sandbox/xfs-project-quota.ts";
 
 function lifecycleOn(fake: FakeDocker, namePrefix: string) {
@@ -278,4 +279,37 @@ test("tearing down one of several live holds releases nothing and says so", asyn
   const last = await lifecycle.teardownBox({ id: box.id, scopeId: scope }, { destroy: true });
   assert.equal(last.released, true);
   assert.equal(fake.containers.has(box.id), false);
+});
+
+test("sandbox networks carry the org label, so teardown can find them without guessing at names", async () => {
+  const fake = installFakeDocker(1);
+  const lifecycle = runnerLifecycleOn(fake);
+  await lifecycle.ensureScope(scopeId("personal", "U10"));
+
+  const created = fake.networkArgv.at(-1)!;
+  assert.ok(created.includes("--internal"), "sandbox networks stay internal");
+  assert.deepEqual(
+    created.filter((a, i) => created[i - 1] === "--label"),
+    ["qm.sandbox=1", `qm.org=${orgId()}`],
+  );
+});
+
+test("the address pool probe tells a configured daemon from one running on the defaults", async () => {
+  const answers = (pools: string, networks: string): DockerExec => {
+    return async (args) => ({
+      code: 0,
+      stdout: args[0] === "info" ? pools : networks,
+      stderr: "",
+    });
+  };
+
+  assert.deepEqual(await probeAddressPools(answers("null", "a\nb\nc")), {
+    configured: false,
+    bridgeNetworks: 3,
+  });
+  assert.deepEqual(await probeAddressPools(answers("[]", "")), { configured: false, bridgeNetworks: 0 });
+  assert.deepEqual(await probeAddressPools(answers('[{"Base":"10.201.0.0/16","Size":28}]', "a")), {
+    configured: true,
+    bridgeNetworks: 1,
+  });
 });

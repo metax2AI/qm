@@ -1,6 +1,11 @@
 import { orgId as configOrgId } from "./config.ts";
 import { isStrongSigningSecret, MIN_SIGNING_SECRET_LENGTH } from "./auth/source-auth.ts";
-import { createDockerLifecycle, probeRootfsQuota } from "./sandbox/docker-lifecycle.ts";
+import {
+  createDockerLifecycle,
+  DEFAULT_ADDRESS_POOL_NETWORKS,
+  probeAddressPools,
+  probeRootfsQuota,
+} from "./sandbox/docker-lifecycle.ts";
 import { createGuestAgent } from "./sandbox/guest-agent-client.ts";
 import { spawnDockerExec, type DockerExec } from "./sandbox/docker-exec.ts";
 import { buildRunnerServer } from "./runner/server.ts";
@@ -123,6 +128,15 @@ async function main(): Promise<void> {
       `[runner] this Docker storage driver will not enforce --storage-opt size (${measured}) — ` +
         "running without a rootfs cap, so one sandbox can fill the host disk; " +
         "put the Docker data-root on XFS with pquota to get it back",
+    );
+  }
+
+  const addressPools = await probeAddressPools(dexec);
+  if (!addressPools.configured) {
+    console.warn(
+      `[runner] docker is on its default address pools, which hold about ${DEFAULT_ADDRESS_POOL_NETWORKS} networks ` +
+        `and ${addressPools.bridgeNetworks} are already taken — sandboxes get one network each, and provisioning ` +
+        "fails outright once the pools are subnetted; declare default-address-pools in the daemon config",
     );
   }
 

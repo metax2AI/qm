@@ -22,25 +22,108 @@
   `validatePortalTrust` 把未设置的 issuer 解析成 Slack 的那条已知遗留问题只影响使用
   外部 OIDC 的部署，本 layer 不受影响。
 
-**尚不可单机部署**——这是当前唯一的阻塞项：
+**单机部署的阻塞项已由 M3 解除**（实现完成，待评审合入）：
 
-`qm check` 会失败，报错如下，而这条报错是准确的：
+此前 `docker` 目标在契约层面强制要求一个 Fly agent-computer app，可声明的沙箱后端只有
+`sprites`（Fly）与 `aws`——core 镜像不含 Docker 客户端，docker 后端也不挂载宿主机
+Docker socket，因此容器化的 core 够不到 `local` 沙箱，而生产环境下 core 必须显式声明
+`SANDBOX_BACKEND`。配置里因此故意不写 `sandbox`。
+
+M3 的 **On-prem Sandbox Runner** 补上了缺的那一半：一个独占容器运行时的独立服务，core
+通过带鉴权的内网 API 调用它，因此 core 依然不持有宿主机 Docker Socket。`docker` 目标
+不再要求 Fly app，沙箱声明改为：
+
+```jsonc
+"sandbox": { "backend": "runner", "image": "<registry>/qm-sandbox@sha256:..." }
+```
+
+镜像必须按 digest 钉死——Runner 拒绝启动未钉死的镜像。
+
+合入后本 layer 即可 `qm up`，但**先读上面的「宿主机准备」**：地址池与 XFS 两项都要在
+第一次部署前配好。
+
+## 宿主机准备（部署前必做，顺序不能颠倒）
+
+以下两项都需要重启 Docker 守护进程，会重启机器上所有容器。**必须在第一次 `qm up`
+之前完成**——事后补做等于一次全栈停机，而其中地址池那项在撞墙之前没有任何征兆。
+
+### 1. 一块启用 pquota 的 XFS 数据盘
+
+Runner 用 XFS 项目配额限制每个 scope 的家目录，用 `--storage-opt size=` 限制容器
+可写层。两者都要求所在文件系统是 XFS 且挂载时启用了项目配额。
+
+不满足的后果分两种，都不好：
+
+- **家目录配额**：`RUNNER_SANDBOX_HOME_ROOT` 不在启用 pquota 的 XFS 上时，Runner 的
+  preflight 直接失败，服务起不来。这是硬要求。
+- **容器可写层配额**：存储驱动不支持时，Runner 会告警并**放弃这一层限制**继续启动，
+  于是单个沙箱可以写满宿主机磁盘。告警长这样：
+
+  ```
+  [runner] this Docker storage driver will not enforce --storage-opt size (...)
+  ```
+
+挂一块云盘，格式化为 XFS，挂载时带 `pquota`（设备名按实际调整）：
+
+```sh
+mkfs.xfs /dev/vdb
+mkdir -p /data
+echo '/dev/vdb /data xfs defaults,pquota 0 0' >> /etc/fstab
+mount -a
+xfs_quota -x -c 'state -p' /data     # Accounting 与 Enforcement 都应为 ON
+```
+
+然后把 Docker 的数据根目录和沙箱家目录都放到这块盘上：
+
+- `/etc/docker/daemon.json` 里 `"data-root": "/data/docker"`
+- `RUNNER_SANDBOX_HOME_ROOT=/data/qm/sandbox-homes`（默认值 `/var/lib/qm/sandbox-homes`
+  在系统盘上，系统盘通常是 ext4，必须改）
+
+### 2. 扩大 Docker 的网络地址池
+
+每个 scope 拿一个独立 Docker 网络，这是 scope 之间不能互相访问的实现方式。而 Docker
+默认地址池只够约 **30 个**用户自定义网络（`172.17–172.31/16` 共 15 段，`192.168.0.0/16`
+切 `/20` 共 16 段，`docker0` 自己占一个）。
+
+用满之后，第 31 个员工的沙箱直接建不出来，报错是 Docker 原文：
 
 ```
-contract sandbox.app: a Fly agent-computer app is required for docker and fly targets
+Error response from daemon: all predefined address pools have been fully subnetted
 ```
 
-`docker` 目标在契约层面强制要求一个 Fly agent-computer app。可声明的沙箱后端只有
-`sprites`（Fly）与 `aws`，没有 `local`：core 镜像不含 Docker 客户端，docker 后端也不
-挂载宿主机 Docker socket，因此容器化的 core 够不到本地沙箱；而生产环境下 core 必须
-显式声明 `SANDBOX_BACKEND`。
+在 `/etc/docker/daemon.json` 中声明更大的池：
 
-配置里因此**故意不写 `sandbox`**。塞一个占位的 Fly app 只会让 `qm check` 变绿，同时把
-产品明确排除的依赖固化进提交的配置。
+```json
+{ "default-address-pools": [{ "base": "10.201.0.0/16", "size": 28 }] }
+```
 
-解除阻塞的是 **M3 的 On-prem Sandbox Runner**：一个独占容器运行时的独立服务，core 通过
-带鉴权的内网 API 调用它，因此 core 依然不持有宿主机 Docker Socket。在那之前，本 layer
-是一份**已验证的配置与密钥契约**，不是一个可以 `qm up` 起来跑 Agent 的部署。
+`/16` 切 `/28` 得到 4096 个网络，每个 13 个可用地址（每个沙箱网络实际只需要 6 个：
+网络地址、网关、广播，加沙箱容器、Runner、出口代理各一）。
+
+**这个网段必须与客户内网确认，不能照抄。** 宿主机路由按最长前缀匹配，如果容器网络
+和企业内网真实网段重叠，发往那些地址的流量会被送进容器网络，表现为「某几台内网服务器
+突然不通，其他都正常」——不报错、不超时，极难排查。
+
+选段的方法：
+
+1. 向客户网络管理员要 IP 规划表，问清现用与规划中的网段。
+2. 要不到就在目标机器上勘察：`ip route`、`ip -4 addr`、`/etc/resolv.conf`、VPN 网段。
+3. 选 `10.x` 的高位、不整齐的数字。企业内网习惯从低位排（`10.0.x`、`10.1.x`、
+   `10.10.x`），高位撞车概率低。避开 `172.16–172.31`（Docker 自己），以及
+   `10.244.0.0/16`（Flannel）、`10.96.0.0/12`（K8s Service）、`10.42/10.43`（K3s）
+   ——踩中会和客户日后上 K8s 冲突。
+4. 落盘前在目标机器上验一次：
+
+   ```sh
+   ip route | grep -E '(^| )10\.201\.' || echo '10.201.0.0/16 is clear'
+   ```
+
+Runner 启动时会检查这一项，用的还是默认池就告警：
+
+```
+[runner] docker is on its default address pools, which hold about 30 networks
+and N are already taken — ...
+```
 
 ## M2 演示怎么跑
 

@@ -18,6 +18,7 @@ export interface FakeDocker {
   internalNetworks: Set<string>;
   attachments: Map<string, Set<string>>;
   runArgv: string[][];
+  networkArgv: string[][];
   runCount: number;
   daemonDown: boolean;
   imageMissing: boolean;
@@ -39,6 +40,7 @@ export function installFakeDocker(daemonPort: number): FakeDocker {
     internalNetworks,
     attachments,
     runArgv: [],
+    networkArgv: [],
     runCount: 0,
     daemonDown: false,
     imageMissing: false,
@@ -115,6 +117,7 @@ export function installFakeDocker(daemonPort: number): FakeDocker {
             : fail(`Error: No such network: ${name}`);
         if (sub === "create") {
           if (networks.has(name)) return fail(`network with name ${name} already exists`);
+          self.networkArgv.push(rest);
           networks.add(name);
           if (rest.includes("--internal")) internalNetworks.add(name);
           return ok(name);
