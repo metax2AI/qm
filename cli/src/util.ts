@@ -208,7 +208,10 @@ export function isInvalidSecret(name: string, value: string | undefined): boolea
     );
   }
   return (
-    (name === "CONNECTOR_SECRET_KEY" || name === "CORE_SIGNING_SECRET" || name === "SKILL_SIGNING_SECRET") &&
+    (name === "CONNECTOR_SECRET_KEY" ||
+      name === "CORE_SIGNING_SECRET" ||
+      name === "SANDBOX_RUNNER_SECRET" ||
+      name === "SKILL_SIGNING_SECRET") &&
     candidate.length < 32
   );
 }
@@ -334,4 +337,10 @@ export function promptHidden(name: string): Promise<string> {
     stdin.resume();
     stdin.on("data", onData);
   });
+}
+
+export function microvmAgentAsset(name: string): Buffer {
+  const source = new URL(`../templates/aws/microvm-agent/${name}`, import.meta.url);
+  const packaged = new URL(`../../templates/aws/microvm-agent/${name}`, import.meta.url);
+  return readFileSync(existsSync(source) ? source : packaged);
 }

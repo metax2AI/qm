@@ -100,6 +100,7 @@ import { createMemoryFileArtifactStore, type FileArtifactStore } from "./files/f
 import { createPostgresFileArtifactStore } from "./files/postgres-file-artifact-store.ts";
 import { createAwsSandbox, type StoredMicrovm } from "./sandbox/aws-sandbox.ts";
 import { createLocalSandbox } from "./sandbox/local-sandbox.ts";
+import { createRunnerSandbox } from "./sandbox/runner-sandbox.ts";
 import { createSpritesSandbox } from "./sandbox/sprites-sandbox.ts";
 import {
   createSandboxRouter,
@@ -596,10 +597,17 @@ export function buildApp(
       onError: sandboxOnError,
     });
   };
+  const buildRunner = (): Sandbox => {
+    const { baseUrl, signingSecret, ...rest } = config.runnerSandbox;
+    if (!baseUrl) throw new Error("SANDBOX_BACKEND=runner requires RUNNER_URL");
+    if (!signingSecret) throw new Error("SANDBOX_BACKEND=runner requires SANDBOX_RUNNER_SECRET");
+    return createRunnerSandbox(workspace, { ...rest, baseUrl, signingSecret });
+  };
   const buildBackend: Record<Config["sandboxBackend"], () => Sandbox> = {
     local: buildLocal,
     sprites: buildSprites,
     aws: buildAws,
+    runner: buildRunner,
   };
   const sandboxBackends: Partial<Record<SandboxBackendName, Sandbox>> = {
     [config.sandboxBackend]: buildBackend[config.sandboxBackend](),

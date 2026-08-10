@@ -1,0 +1,182 @@
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+interface QuotaExecResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+export type QuotaExec = (args: string[]) => Promise<QuotaExecResult>;
+
+export interface XfsProjectQuota {
+  preflight(): Promise<void>;
+  ensure(scope: string): Promise<{ source: string; coldStart: boolean }>;
+  destroy(scope: string): Promise<void>;
+  sourceOf(scope: string): string;
+}
+
+function quotaKey(namespace: string, scope: string): string {
+  return `${namespace}\0${scope}`;
+}
+
+export function xfsScopeHash(namespace: string, scope: string): string {
+  return createHash("sha256").update(quotaKey(namespace, scope)).digest("hex");
+}
+
+export function xfsProjectId(namespace: string, scope: string): number {
+  const raw = createHash("sha256").update(quotaKey(namespace, scope)).digest().readUInt32BE(0);
+  return 10_000 + (raw % (2_147_483_647 - 10_000));
+}
+
+interface MountEntry {
+  mountPoint: string;
+  fstype: string;
+  source: string;
+}
+
+function unescapeMountField(field: string): string {
+  return field.replace(/\\(\d{3})/g, (_, octal: string) => String.fromCharCode(parseInt(octal, 8)));
+}
+
+function mountHolding(path: string, mountinfo: string): MountEntry | undefined {
+  let held: MountEntry | undefined;
+  for (const line of mountinfo.split("\n")) {
+    const separator = line.indexOf(" - ");
+    if (separator < 0) continue;
+    const mountPoint = unescapeMountField(line.slice(0, separator).split(" ")[4] ?? "");
+    const [fstype, source] = line.slice(separator + 3).split(" ");
+    if (!mountPoint || !fstype) continue;
+    if (path !== mountPoint && !path.startsWith(mountPoint === "/" ? "/" : `${mountPoint}/`)) continue;
+    if (held && mountPoint.length < held.mountPoint.length) continue;
+    held = { mountPoint, fstype, source: unescapeMountField(source ?? "") };
+  }
+  return held;
+}
+
+export function xfsMountPointOf(path: string, mountinfo: string): string {
+  const held = mountHolding(path, mountinfo);
+  if (!held) throw new Error(`no mounted filesystem holds ${path}, so project quotas cannot be applied`);
+  if (held.fstype !== "xfs") {
+    throw new Error(
+      `${path} is on ${held.mountPoint} (${held.fstype}), not an XFS filesystem, so project quotas cannot be applied`,
+    );
+  }
+  return held.mountPoint;
+}
+
+function spawnQuotaExec(binary: string): QuotaExec {
+  return async (args) =>
+    new Promise((resolve) => {
+      const child = spawn(binary, args, { timeout: 60_000, killSignal: "SIGKILL" });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (chunk) => (stdout += String(chunk)));
+      child.stderr.on("data", (chunk) => (stderr += String(chunk)));
+      child.on("error", (error) => resolve({ code: 1, stdout, stderr: `${stderr}${error.message}` }));
+      child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+    });
+}
+
+export function createXfsProjectQuota(opts: {
+  root: string;
+  registryRoot: string;
+  namespace: string;
+  limitMb: number;
+  quotaExec?: QuotaExec;
+  xfsQuotaBin?: string;
+  mountinfoPath?: string;
+}): XfsProjectQuota {
+  if (!/^\/[A-Za-z0-9._/-]+$/.test(opts.root)) throw new Error("RUNNER_SANDBOX_HOME_ROOT must be a safe absolute path");
+  if (!/^\/[A-Za-z0-9._/-]+$/.test(opts.registryRoot)) {
+    throw new Error("XFS project registry root must be a safe absolute path");
+  }
+  if (!opts.namespace.trim()) throw new Error("XFS project quota namespace must be non-empty");
+  if (!Number.isInteger(opts.limitMb) || opts.limitMb <= 0) {
+    throw new Error("RUNNER_SANDBOX_HOME_MB must be a positive integer");
+  }
+  const quotaExec = opts.quotaExec ?? spawnQuotaExec(opts.xfsQuotaBin ?? "xfs_quota");
+  const projectsDir = join(opts.registryRoot, ".projects");
+  const scopesDir = join(opts.root, "scopes");
+  const mountinfoPath = opts.mountinfoPath ?? "/proc/self/mountinfo";
+  let preflightPromise: Promise<string> | null = null;
+
+  async function checked(args: string[], action: string): Promise<QuotaExecResult> {
+    const result = await quotaExec(args);
+    const diagnostic = /^xfs_quota: .*/m.exec(`${result.stdout}\n${result.stderr}`)?.[0];
+    if (result.code !== 0 || diagnostic) {
+      throw new Error(`${action} failed: ${diagnostic ?? (result.stderr.trim() || result.stdout.trim())}`);
+    }
+    return result;
+  }
+
+  async function prepare(): Promise<string> {
+    preflightPromise ??= (async () => {
+      await mkdir(opts.root, { recursive: true, mode: 0o700 });
+      const filesystem = xfsMountPointOf(await realpath(opts.root), await readFile(mountinfoPath, "utf8"));
+      const state = await checked(["-x", "-c", "state -p", filesystem], "xfs project quota state");
+      if (!/Accounting:\s+ON/.test(state.stdout) || !/Enforcement:\s+ON/.test(state.stdout)) {
+        throw new Error(`XFS project quota accounting and enforcement must both be ON for ${filesystem}`);
+      }
+      await mkdir(projectsDir, { recursive: true, mode: 0o700 });
+      await mkdir(scopesDir, { recursive: true, mode: 0o700 });
+      return filesystem;
+    })().catch((error) => {
+      preflightPromise = null;
+      throw error;
+    });
+    return preflightPromise;
+  }
+
+  async function preflight(): Promise<void> {
+    await prepare();
+  }
+
+  function sourceOf(scope: string): string {
+    return join(scopesDir, xfsScopeHash(opts.namespace, scope));
+  }
+
+  async function claimProject(scope: string, projectId: number): Promise<void> {
+    const allocation = join(projectsDir, String(projectId));
+    const hash = xfsScopeHash(opts.namespace, scope);
+    try {
+      await writeFile(allocation, hash, { flag: "wx", mode: 0o600 });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if ((await readFile(allocation, "utf8")) !== hash) {
+        throw new Error(`XFS project id collision for ${projectId}`, { cause: error });
+      }
+    }
+  }
+
+  return {
+    preflight,
+    sourceOf,
+    async ensure(scope) {
+      const filesystem = await prepare();
+      const source = sourceOf(scope);
+      let coldStart = false;
+      try {
+        await stat(source);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        coldStart = true;
+        await mkdir(source, { recursive: true, mode: 0o700 });
+      }
+      const projectId = xfsProjectId(opts.namespace, scope);
+      await claimProject(scope, projectId);
+      await checked(["-x", "-c", `project -s -p ${source} ${projectId}`, filesystem], "xfs project setup");
+      await checked(["-x", "-c", `limit -p bhard=${opts.limitMb}m ${projectId}`, filesystem], "xfs project limit");
+      return { source, coldStart };
+    },
+    async destroy(scope) {
+      const filesystem = await prepare();
+      const projectId = xfsProjectId(opts.namespace, scope);
+      await rm(sourceOf(scope), { recursive: true, force: true });
+      await checked(["-x", "-c", `limit -p bsoft=0 bhard=0 ${projectId}`, filesystem], "xfs project clear");
+      await rm(join(projectsDir, String(projectId)), { force: true });
+    },
+  };
+}

@@ -6,7 +6,7 @@ import { CliError, bold, die, errMessage, header, note, ok, warn } from "../log.
 import { updateConfigSandbox, type QmConfig } from "../config.ts";
 import { sandboxBaseRef } from "../manifest.ts";
 import { validateSandboxLayer, type SandboxValidation } from "../sandbox-layer.ts";
-import { deploymentSecretValue, flyBin, readEnvFile } from "../util.ts";
+import { deploymentSecretValue, flyBin, microvmAgentAsset, readEnvFile } from "../util.ts";
 
 const SANDBOX_RUNTIME_PLATFORM = "linux/amd64";
 
@@ -33,6 +33,23 @@ interface PreparedBuild {
   layer: SandboxValidation;
   binaries: string[];
   hasCustom: boolean;
+  buildContexts: string[];
+}
+
+const GUEST_AGENT_CONTEXT = "qm-guest-agent";
+
+const guestAgentLayer = (): string =>
+  `COPY --from=${GUEST_AGENT_CONTEXT} agent.mjs /opt/microvm-agent/agent.mjs\n` +
+  `RUN node --version >/dev/null\n` +
+  `ENV HOME=/root\n` +
+  `WORKDIR /root\n` +
+  `EXPOSE 8080\n` +
+  `CMD ["node", "/opt/microvm-agent/agent.mjs"]\n`;
+
+function guestAgentContext(): string {
+  const dir = mkdtempSync(join(tmpdir(), "qm-guest-agent-"));
+  writeFileSync(join(dir, "agent.mjs"), microvmAgentAsset("agent.mjs"));
+  return dir;
 }
 
 interface DockerfileLogicalLine {
@@ -292,9 +309,14 @@ function prepare(opts: SandboxBuildOpts): PreparedBuild {
       .join("\n");
     dockerfileBody = `FROM ${base}\n${copies}\nRUN chmod -R a+rx /usr/local/bin\n${presenceCheck}`;
   }
+  const buildContexts: string[] = [];
+  if (opts.config.sandbox?.backend === "runner") {
+    dockerfileBody += guestAgentLayer();
+    buildContexts.push("--build-context", `${GUEST_AGENT_CONTEXT}=${guestAgentContext()}`);
+  }
   const dockerfilePath = join(mkdtempSync(join(tmpdir(), "qm-sandbox-")), "Dockerfile");
   writeFileSync(dockerfilePath, dockerfileBody);
-  return { sandboxDir, dockerfilePath, dockerfileBody, base, layer, binaries, hasCustom };
+  return { sandboxDir, dockerfilePath, dockerfileBody, base, layer, binaries, hasCustom, buildContexts };
 }
 
 function runDocker(args: string[], failure: string): void {
@@ -323,6 +345,7 @@ export function runSandboxBuild(opts: SandboxBuildOpts): void {
     "--load",
     "-t",
     tag,
+    ...prepared.buildContexts,
     "--file",
     prepared.dockerfilePath,
     prepared.sandboxDir,
@@ -473,6 +496,7 @@ export function runSandboxPublish(opts: SandboxPublishOpts): { image: string } |
     tagged,
     "--metadata-file",
     metadataPath,
+    ...prepared.buildContexts,
     "--file",
     prepared.dockerfilePath,
     prepared.sandboxDir,

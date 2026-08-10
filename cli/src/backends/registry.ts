@@ -153,9 +153,18 @@ const docker: HostingProvider = {
     },
   }),
   coordinates: () => ({}),
-  requiresSandboxApp: true,
+  requiresSandboxApp: false,
   publishSandbox: (ctx, opts) => publishFlySandbox(ctx, opts, false),
-  validateConfig: (config) => sandboxImagePinErrors(config),
+  validateConfig: (config) => {
+    const errors = sandboxImagePinErrors(config);
+    if (config.sandbox?.backend !== "runner" && !config.sandbox?.app?.trim()) {
+      errors.push({
+        clause: "config.v1",
+        message: 'contract sandbox.app: a Fly agent-computer app is required unless sandbox.backend is "runner"',
+      });
+    }
+    return errors;
+  },
 };
 
 const fly: HostingProvider = {

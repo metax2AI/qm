@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { ServiceName } from "./services.ts";
 
+export type RuntimeImageName = ServiceName | "runner" | "egress-proxy";
+
 interface ImageManifest {
   sandboxBase: string;
   services: Record<string, string>;
@@ -40,7 +42,7 @@ export function cliVersion(): string {
   return cliPackage().version;
 }
 
-export function manifestRef(service: ServiceName): string {
+export function manifestRef(service: RuntimeImageName): string {
   const m = loadManifest();
   const ref = m.services[service];
   if (!ref) throw new Error(`no image manifest entry for service "${service}"`);

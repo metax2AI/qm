@@ -12,6 +12,7 @@ type SecretCondition =
   | { kind: "all"; conditions: SecretCondition[] }
   | { kind: "any"; conditions: SecretCondition[] }
   | { kind: "target"; target: QmConfig["target"] }
+  | { kind: "sandbox-backend"; backend: NonNullable<NonNullable<QmConfig["sandbox"]>["backend"]> }
   | { kind: "model-provider"; provider: ModelProvider };
 
 export interface SecretSpec {
@@ -93,6 +94,13 @@ export const FIRST_PARTY_SECRET_SPECS: readonly SecretSpec[] = [
     service: "core",
     required: true,
     description: "Signing key for scoped agent capabilities and egress grants; must differ from every other key.",
+    generate: MINT_LOCALLY,
+  },
+  {
+    name: "SANDBOX_RUNNER_SECRET",
+    service: "core",
+    required: { when: { kind: "sandbox-backend", backend: "runner" } },
+    description: "HMAC key shared only by core and the on-prem sandbox runner.",
     generate: MINT_LOCALLY,
   },
   {
@@ -379,6 +387,7 @@ function conditionMatches(config: QmConfig, condition: SecretCondition): boolean
   if (condition.kind === "all") return condition.conditions.every((nested) => conditionMatches(config, nested));
   if (condition.kind === "any") return condition.conditions.some((nested) => conditionMatches(config, nested));
   if (condition.kind === "target") return config.target === condition.target;
+  if (condition.kind === "sandbox-backend") return config.sandbox?.backend === condition.backend;
   if (condition.kind === "model-provider") return effectiveModelProvider(config) === condition.provider;
   if (condition.kind === "env-all-absent") {
     return condition.names.every((name) => !config.env[condition.service]?.[name]?.trim());
@@ -568,6 +577,7 @@ function conditionClause(condition: SecretCondition): string {
   if (condition.kind === "all") return condition.conditions.map(conditionClause).join(" and ");
   if (condition.kind === "any") return condition.conditions.map(conditionClause).join(" or ");
   if (condition.kind === "target") return `the target is ${condition.target}`;
+  if (condition.kind === "sandbox-backend") return `sandbox.backend is ${JSON.stringify(condition.backend)}`;
   if (condition.kind === "env-all-absent")
     return `none of env.${condition.service}.{${condition.names.join(", ")}} are set`;
   if (condition.kind === "env-absent") return `env.${condition.service}.${condition.name} is not set`;

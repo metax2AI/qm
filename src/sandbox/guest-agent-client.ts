@@ -14,6 +14,17 @@ export interface GuestAgent {
   waitReady(resolveEndpoint: () => Promise<string>, name: string): Promise<void>;
 }
 
+export const GUEST_TRANSFER_TIMEOUT_MS = 600_000;
+
+export class GuestAgentStatusError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "GuestAgentStatusError";
+    this.status = status;
+  }
+}
+
 export function createGuestAgent({ label, fetchImpl = fetch }: GuestAgentOptions): GuestAgent {
   async function call(
     endpoint: string,
@@ -35,23 +46,37 @@ export function createGuestAgent({ label, fetchImpl = fetch }: GuestAgentOptions
     async exec(endpoint, command, timeoutSec, signal): Promise<ExecResult> {
       const res = await call(endpoint, "/exec", { cmd: command, timeoutSec }, (timeoutSec + 15) * 1000, signal);
       if (res.status !== 200)
-        throw new Error(`${label} sandbox exec failed (${res.status}): ${res.text.slice(0, 300)}`);
+        throw new GuestAgentStatusError(
+          `${label} sandbox exec failed (${res.status}): ${res.text.slice(0, 300)}`,
+          res.status,
+        );
       const j = JSON.parse(res.text) as { stdout: string; stderr: string; code: number; timedOut: boolean };
       return { stdout: j.stdout ?? "", stderr: j.stderr ?? "", code: j.code, timedOut: !!j.timedOut };
     },
 
     async readAbs(endpoint, absPath): Promise<Uint8Array | null> {
-      const res = await call(endpoint, "/read", { path: absPath }, 120_000);
+      const res = await call(endpoint, "/read", { path: absPath }, GUEST_TRANSFER_TIMEOUT_MS);
       if (res.status === 404) return null;
       if (res.status !== 200)
-        throw new Error(`${label} sandbox read ${absPath} failed (${res.status}): ${res.text.slice(0, 200)}`);
+        throw new GuestAgentStatusError(
+          `${label} sandbox read ${absPath} failed (${res.status}): ${res.text.slice(0, 200)}`,
+          res.status,
+        );
       return Buffer.from((JSON.parse(res.text) as { b64: string }).b64, "base64");
     },
 
     async writeAbs(endpoint, absPath, data): Promise<void> {
-      const res = await call(endpoint, "/write", { path: absPath, b64: Buffer.from(data).toString("base64") }, 120_000);
+      const res = await call(
+        endpoint,
+        "/write",
+        { path: absPath, b64: Buffer.from(data).toString("base64") },
+        GUEST_TRANSFER_TIMEOUT_MS,
+      );
       if (res.status !== 200)
-        throw new Error(`${label} sandbox write ${absPath} failed (${res.status}): ${res.text.slice(0, 200)}`);
+        throw new GuestAgentStatusError(
+          `${label} sandbox write ${absPath} failed (${res.status}): ${res.text.slice(0, 200)}`,
+          res.status,
+        );
     },
 
     async waitReady(resolveEndpoint, name): Promise<void> {

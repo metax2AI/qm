@@ -39,7 +39,7 @@ export interface PluginEntry {
 }
 
 export interface SandboxConfig {
-  backend?: "sprites" | "aws";
+  backend?: "sprites" | "aws" | "runner";
   app?: string;
   image?: string;
   baseImage?: string;
@@ -197,14 +197,15 @@ export const dockerBasePort = (config: QmConfig): number => envNum("QM_BASE_PORT
 
 export const isDigestPinned = (ref: string): boolean => /@sha256:[0-9a-f]{64}$/.test(ref);
 
-const SANDBOX_PIN_PENDING = `"sandbox.app" is set but no sandbox layer image is pinned; run \`qm sandbox publish\` to build and record the digest-pinned "sandbox.image" agents boot from`;
+const SANDBOX_PIN_PENDING = `no sandbox layer image is pinned; run \`qm sandbox publish\` to build and record the digest-pinned "sandbox.image" agents boot from`;
 
 export const sandboxPinPending = (config: QmConfig): boolean =>
-  config.target !== "aws" && Boolean(config.sandbox?.app && !config.sandbox.image);
+  config.target !== "aws" &&
+  Boolean((config.sandbox?.app || config.sandbox?.backend === "runner") && !config.sandbox.image);
 
 export function sandboxImagePinErrors(config: QmConfig): Array<{ clause: string; message: string }> {
   const sb = config.sandbox;
-  if (!sb?.app || !sb.image || isDigestPinned(sb.image)) return [];
+  if (!sb?.image || isDigestPinned(sb.image)) return [];
   return [
     {
       clause: "config.v1",
@@ -221,7 +222,13 @@ export function sandboxCoreEnv(
   const missingSecrets: string[] = [];
   const sb = config.sandbox;
   if (!sb) return { env, missingSecrets };
-  if (sb.app) {
+  if (sb.backend === "runner") {
+    if (!sb.image) throw new CliError(SANDBOX_PIN_PENDING, { clause: "config.v1" });
+    const violation = sandboxImagePinErrors(config)[0];
+    if (violation) throw new CliError(violation.message, { clause: violation.clause });
+    env.SANDBOX_BACKEND = "runner";
+  }
+  if (sb.app && sb.backend !== "runner") {
     if (!sb.image) throw new CliError(SANDBOX_PIN_PENDING, { clause: "config.v1" });
     const violation = sandboxImagePinErrors(config)[0];
     if (violation) throw new CliError(violation.message, { clause: violation.clause });
@@ -1274,9 +1281,9 @@ function validateSandbox(raw: unknown, path: string, target: Target): SandboxCon
   };
   const out: SandboxConfig = {};
   if (o["backend"] !== undefined) {
-    if (o["backend"] !== "sprites" && o["backend"] !== "aws") {
+    if (o["backend"] !== "sprites" && o["backend"] !== "aws" && o["backend"] !== "runner") {
       throw new CliError(
-        `${path}: "sandbox.backend" must be "sprites" (Fly Sprites, booting the operator-published layer image from the Fly app in "sandbox.app") or "aws" (Lambda MicroVM sandboxes)`,
+        `${path}: "sandbox.backend" must be "sprites" (Fly Sprites), "runner" (on-prem Docker), or "aws" (Lambda MicroVM sandboxes)`,
       );
     }
     out.backend = o["backend"];
@@ -1311,6 +1318,14 @@ function validateSandbox(raw: unknown, path: string, target: Target): SandboxCon
     for (const name of se) assertEnvName(name, `"sandbox.secretEnv" entry`);
     out.secretEnv = se;
   }
+  if (out.backend === "runner") {
+    if (target !== "docker") {
+      throw new CliError(`${path}: "sandbox.backend": "runner" requires target "docker"`);
+    }
+    if (out.image && !isDigestPinned(out.image)) {
+      throw new CliError(`${path}: "sandbox.image" must be pinned by digest (@sha256:...)`);
+    }
+  }
   if (out.backend === "aws") {
     if (target !== "aws") {
       throw new CliError(`${path}: "sandbox.backend": "aws" (Lambda MicroVM sandboxes) requires target "aws"`);
@@ -1322,7 +1337,7 @@ function validateSandbox(raw: unknown, path: string, target: Target): SandboxCon
       );
     }
   }
-  if (out.image && !out.app) {
+  if (out.image && !out.app && out.backend !== "runner") {
     throw new CliError(`${path}: "sandbox.image" requires "sandbox.app" (the app the microVMs run in)`);
   }
   if (out.backend === "sprites" && !out.app) {

@@ -25,6 +25,7 @@
     "gallery:shots": "node test/live-slack/screenshots.ts",
     "gallery:shots:login": "node test/live-slack/screenshots.ts --login",
     "test:all": "node --experimental-test-module-mocks --test 'test/**/*.test.ts'",
+    "test:runner:docker": "node --test --test-concurrency=1 test/docker/runner-escape.test.ts test/docker/runner-path-traversal.test.ts test/docker/runner-restart.test.ts test/docker/runner-security.test.ts",
     "smoke:pi": "node scripts/pi-smoke.ts",
     "smoke:monitor": "node scripts/monitor-smoke.ts",
     "smoke:git-cli": "node scripts/git-cli-smoke.ts",

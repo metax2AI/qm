@@ -31,6 +31,16 @@ path locally.
 The CLI deploys long-running QM services; it is not the runtime. Docker runs
 them locally, Fly runs them as Fly apps with Fly Machines for agent computers, and AWS
 runs digest-pinned ARM64 tasks on ECS Fargate with Lambda MicroVM agent computers.
+With `sandbox.backend: "runner"`, Docker also starts a private authenticated Runner and
+forced egress proxy before core. Only Runner receives the host Docker socket; core reaches
+it over the deployment network and each scope runs in its own internal network and quota-managed
+persistent directory.
+
+The Runner target requires a Linux host with `/var/lib/qm/sandbox-homes` on XFS mounted with
+`prjquota`/`pquota`. Startup fails unless project quota accounting and enforcement are both active.
+Each scope receives a hard limit of 10240 MiB by default; set `RUNNER_SANDBOX_HOME_MB` in
+`env.core` to change it. The Runner receives `SYS_ADMIN` solely to manage XFS project quotas; it
+already owns the host Docker socket and remains the only service with either capability.
 
 ## Deployment directory
 

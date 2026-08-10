@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { shq } from "../util/shell.ts";
 import { swallowAs } from "../util/errors.ts";
 import { makeTar, parseTar } from "./tar.ts";
+import { hasParentPathSegment } from "./sandbox.ts";
 
 import type {
   AgentComputerBackupArea,
@@ -16,13 +17,19 @@ export const BLOB_TRANSFER_TTL_MS = 2 * 60_000;
 
 export function posixJoin(base: string, rel: string): string {
   const clean = rel.replace(/^\/+/, "");
+  if (hasParentPathSegment(clean)) throw new Error(`path must stay under ${base}: ${rel}`);
   return clean ? `${base.replace(/\/+$/, "")}/${clean}` : base;
 }
 
 export interface ExecFileOpsDeps {
   label: string;
-  exec(id: string, script: string, timeoutSec: number): Promise<{ code: number; stdout: string; stderr: string }>;
-  writeInline(id: string, abs: string, data: Uint8Array, label: string): Promise<void>;
+  exec(
+    id: string,
+    script: string,
+    timeoutSec: number,
+    acquisitionId?: string,
+  ): Promise<{ code: number; stdout: string; stderr: string }>;
+  writeInline(id: string, abs: string, data: Uint8Array, label: string, acquisitionId?: string): Promise<void>;
 }
 
 export interface ExecFileOps {
@@ -36,23 +43,29 @@ export function createExecFileOps({ label, exec, writeInline }: ExecFileOpsDeps)
     async extractFiles(handle, entries): Promise<void> {
       const list = [...entries];
       if (!list.length) return;
+      for (const { path } of list) {
+        if (hasParentPathSegment(path)) throw new Error(`path must stay under ${handle.rootDir}: ${path}`);
+      }
       const tar = await makeTar(list.map((e) => ({ path: e.path, data: e.data })));
       const tmp = ".extract.tar";
-      await writeInline(handle.id, posixJoin(handle.rootDir, tmp), tar, tmp);
+      await writeInline(handle.id, posixJoin(handle.rootDir, tmp), tar, tmp, handle.acquisitionId);
       const r = await exec(
         handle.id,
         `cd ${shq(handle.rootDir)} && tar -xf ${shq(tmp)}; rc=$?; rm -f ${shq(tmp)}; exit $rc`,
         120,
+        handle.acquisitionId,
       );
       if (r.code !== 0) throw new Error(`${label} extractFiles failed: ${r.stderr}`);
     },
 
     async listDir(handle, relDir): Promise<string[]> {
       const rel = relDir.replace(/^\/+/, "") || ".";
+      if (hasParentPathSegment(rel)) throw new Error(`path must stay under ${handle.rootDir}: ${relDir}`);
       const r = await exec(
         handle.id,
         `cd ${shq(handle.rootDir)} 2>/dev/null && find ${shq(rel)} -type f 2>/dev/null`,
         60,
+        handle.acquisitionId,
       );
       if (r.code !== 0) return [];
       return r.stdout
@@ -66,7 +79,7 @@ export function createExecFileOps({ label, exec, writeInline }: ExecFileOpsDeps)
       if (!rel) return;
       const abs = posixJoin(handle.rootDir, rel);
       if (abs === handle.rootDir) return;
-      const r = await exec(handle.id, `rm -rf ${shq(abs)}`, 60);
+      const r = await exec(handle.id, `rm -rf ${shq(abs)}`, 60, handle.acquisitionId);
       if (r.code !== 0) throw new Error(`${label} removeDir ${relDir} failed: ${r.stderr}`);
     },
   };
@@ -114,7 +127,7 @@ async function parseTarBackup(
 export interface ExecBackupDeps {
   label: string;
   exec: ExecFileOpsDeps["exec"];
-  readAbsBytes(id: string, absPath: string): Promise<Uint8Array | null>;
+  readAbsBytes(id: string, absPath: string, acquisitionId?: string): Promise<Uint8Array | null>;
   defaultHomeDir: string;
   ephemeralCredentialPrefixes: readonly string[];
 }
@@ -162,7 +175,7 @@ export function createExecBackup({
               "-path '*/.cache'",
               "-path '*/.cache/*'",
             ];
-        const made = await exec(handle.id, `mktemp /tmp/agent-computer-backup.XXXXXX`, 60);
+        const made = await exec(handle.id, `mktemp /tmp/agent-computer-backup.XXXXXX`, 60, handle.acquisitionId);
         if (made.code !== 0) throw new Error(`${label} backup ${area} mktemp failed: ${made.stderr}`);
         const tmp = made.stdout.trim();
         try {
@@ -176,13 +189,15 @@ export function createExecBackup({
             `cd ${shq(root)} 2>/dev/null || exit 0; ` +
             `find ${flag}${start} ${pruneClause}-type f -print0 ` +
             `| tar ${deref}--null -T - -cf ${shq(tmp)} 2>/dev/null`;
-          const archived = await exec(handle.id, script, 120);
+          const archived = await exec(handle.id, script, 120, handle.acquisitionId);
           if (archived.code !== 0) throw new Error(`${label} backup ${area} archive failed: ${archived.stderr}`);
-          const raw = await readAbsBytes(handle.id, tmp);
+          const raw = await readAbsBytes(handle.id, tmp, handle.acquisitionId);
           if (raw === null) throw new Error(`${label} backup ${area} read-back failed`);
           if (raw.length) entries.push(...(await parseTarBackup(area, raw, exclude)));
         } finally {
-          await exec(handle.id, `rm -f ${shq(tmp)}`, 60).catch(swallowAs(`${label}: backup temp cleanup`, undefined));
+          await exec(handle.id, `rm -f ${shq(tmp)}`, 60, handle.acquisitionId).catch(
+            swallowAs(`${label}: backup temp cleanup`, undefined),
+          );
         }
       }
       return entries;

@@ -66,6 +66,17 @@ test("a valid sandbox layer passes and returns the parsed tools + skills", () =>
   }
 });
 
+test("the Docker runner backend does not require a Fly sandbox app", () => {
+  const d = deployment(() => {}, {
+    sandbox: { backend: "runner", image: `registry.example.com/qm/sandbox@sha256:${"c".repeat(64)}` },
+  });
+  try {
+    assert.doesNotThrow(() => check(d));
+  } finally {
+    rmSync(d.dir, { recursive: true, force: true });
+  }
+});
+
 test("every Fly deployment requires durable S3-compatible stores", () => {
   const base = {
     target: "fly" as const,

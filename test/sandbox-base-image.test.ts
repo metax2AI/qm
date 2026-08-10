@@ -19,6 +19,10 @@ test("the sandbox base permits Claude Code's required install script", () => {
   assert.match(read("fly/Dockerfile"), /npm install -g --allow-scripts=@anthropic-ai\/claude-code/);
 });
 
+test("the runner image ships the Alpine package that provides xfs_quota", () => {
+  assert.match(read("deploy/runner/Dockerfile"), /apk add --no-cache .*xfsprogs-extra/);
+});
+
 for (const path of AGENT_ROOTFS) {
   test(`${path} ships pinned document parsers, so agents never install them over the network`, () => {
     const text = read(path);

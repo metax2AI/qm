@@ -1,7 +1,7 @@
 # QM 中国企业版开发计划
 
-- 状态：执行中（M2 演示闭环已用真实 DeepSeek 跑通并完成中文界面走查，两项验收待补：SMTP 登录在线验证、出网取证）
-- 更新日期：2026-08-09
+- 状态：执行中（M3 Runner 已完成实现、本地真实 Docker/Postgres 验收、逃逸与路径穿越专项测试及独立评审，XFS home 配额已由 CI 在真实 XFS 上验证生效，待合入；目标 ECS 上的完整进程重启验收暂缓）
+- 更新日期：2026-08-10
 - 适用范围：metax2AI 基于 QM 构建的中国大陆企业 Agent 产品
 
 ## 1. 目标
@@ -354,6 +354,182 @@ flowchart LR
 - 超时、资源耗尽和异常容器可以被回收并记录审计。
 - 对容器逃逸面、路径穿越、凭据泄漏和出口绕过完成专项安全测试，并记录无法由测试证明的残余风险。
 
+当前状态（2026-08-10）：
+
+云端采购与部署暂缓：先继续本地开发，并用生产形态本地实例向客户演示脱敏数据；等功能完成
+并进入 M4 后再购买 ECS。该决定不阻塞 M3 代码合入、本地安全测试与演示，但目标 ECS 上的
+`runner-main` 完整进程重启和 XFS home 配额仍是 M3 最终验收的未完成项。已选阿里云配置与
+购买前复核项记录在 `deployment.md`。
+
+实现分三个 PR 提交：Runner 本体与隔离边界、出网默认拒绝、依赖安全升级。后两者从 M3 分支拆出，因为它们各自的影响面与 M3 不同——出网策略是所有沙箱后端共用的代码，依赖升级与本里程碑无关。
+
+范围项逐条对照：
+
+| 范围项                                    | 状态                                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 独立 Runner 服务，独占容器运行时          | 已完成                                                                                      |
+| Core 经带鉴权内网 API 调用，不挂 Socket   | 已完成                                                                                      |
+| Runner 实现 Sandbox 接口全部能力          | 已完成，复用 `box-sandbox` 与 `docker-lifecycle`                                            |
+| 每 scope 独立容器、网络、持久卷           | 已完成并真机验证                                                                            |
+| CPU、内存、PID、超时、镜像 digest 限制    | 已完成并真机验证                                                                            |
+| 磁盘限制                                  | 家目录配额已在真实 XFS 上验证生效；容器可写层**依赖存储驱动，不保证生效，启动时探测并告警** |
+| 默认拒绝出网，代理与域名白名单逐项放行    | 已完成并真机验证，需与出网默认拒绝的改动一并上线                                            |
+| Postgres 持久记录 scope/容器/卷/镜像/活动 | 已完成，新增停泊状态                                                                        |
+| 部署配置支持 Runner，取消 Fly app 要求    | 已完成                                                                                      |
+
+验收标准逐条对照：
+
+| 验收标准                              | 状态                                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------------- |
+| Core 无法直接访问 Docker Socket       | 成立。Socket 只挂给 Runner 容器                                                   |
+| 两个 scope 不能读取对方文件/进程/网络 | **真机验证通过**                                                                  |
+| 未授权外网请求在网络层失败            | **真机验证通过**                                                                  |
+| Runner 重启后恢复或安全重建           | 本地真实容器重建通过；生产镜像已在 CI 的真实 XFS 上完整启动；ECS 进程级重启待验收 |
+| 超时、资源耗尽、异常容器可回收并审计  | 已修：回收改由 agent 不可达触发                                                   |
+| 专项安全测试与残余风险记录            | **逃逸面与路径穿越已补齐**，残余风险见本节                                        |
+
+真机验收执行记录（Docker Desktop 28.5.1，`test/docker/runner-security.test.ts`，三项全过）：
+
+- **跨 scope 隔离**：两个 `--internal` 网络上的容器，`boxA → boxB:8080` 被拒。
+- **直连出网拒绝**：清除代理环境变量后 `curl https://example.com` 失败，`getent hosts` 连域名都解析不出来——出网在网络层断，不依赖模型自觉。
+- **强制走代理**：白名单含 `example.com` 时经代理可达；`iana.org` 被拒；持有代理地址但无 capability token 的请求被拒（`EGRESS_TOKENLESS=deny`）。
+- **资源上限真实落到内核**：容器内读出 `memory.max=67108864`、`pids.max=32`。
+
+重启恢复执行记录（Docker Desktop 28.5.1、临时 Postgres 17，
+`test/docker/runner-restart.test.ts`，一项通过）：首个 Runner 服务、生命周期对象与 Postgres
+连接全部关闭后，真实沙箱容器被 `SIGKILL`；全新实例从 Postgres 读出原记录，将退出码 137
+判为 `abnormal_exit` 并重建容器。重建后持久卷中的文件可读、命令可执行，且审计记录状态为
+`abnormal_exit`。该测试替换了全部 Runner 组件实例，但未启动完整 `runner-main` 进程，也未替代
+目标 ECS 上的进程级重启验收。
+
+计划未预见的三个缺口，均在本轮修复：
+
+- **出网默认是放行而非拒绝。** 第 346 行「默认允许列表为空，没有硬编码白名单需要清理」把空列表的语义读反了：`egressDecision` 对空 `allowedHosts` 返回放行，而未配置策略的 scope 在 `egressClaimAllowingControlPlane` 里根本拿不到策略对象。于是默认状态是无限制出网。更重的连带后果是横向移动——强制代理同时接在每个 scope 的内网和服务网络上，是唯一的桥，无策略时可被用来 `CONNECT` 到另一个 scope 的 guest agent（该 agent 自身无任何鉴权，等于任意 exec 与读写）或 Postgres。改为出网默认拒绝后，白名单至少含控制面主机，其余一律拒，横向移动随之关闭。
+- **停泊的容器被恢复循环复活。** 恢复逻辑用「退出码非零」判定异常，但停泊走的是 `docker stop`，guest agent 未注册 SIGTERM handler，被信号终止的进程退出码是 143。每个正常回合都以停泊结束，于是每个停泊容器都被判为异常，30 秒内被销毁重建。后果是容器永不停泊、各自长期占满 CPU 与内存额度，单机部署撑不住；每次停泊还写一条虚假的 `sandbox.recycled` 审计并重置容器 rootfs。改为由 store 记录停泊意图，恢复循环跳过停泊记录。假 docker 此前从 `stop` 返回 0，正是这个假前提让旧判定通过了测试。
+- **磁盘配额静默失效。** `--storage-opt size=` 会被不支持的存储驱动接受后忽略：容器正常启动，`HostConfig.StorageOpt` 如实报告配额值，而容器内可以写满宿主机磁盘。原安全测试断言的正是 `HostConfig`——申请的配置而非实际效果——所以无论驱动是否兑现都亮绿灯。现改为启动时用一次性容器读 `df` 与配额比对，不生效则告警但不阻止启动；集成测试改为验证探测结论与驱动实际行为一致。
+
+独立评审（由未参与实现的上下文执行）又发现七项，均已修复：
+
+- **引用计数下的持久状态处理错误。** `teardown` 在同一容器仍有其他 handle 时提前返回，容器继续运行，但 Runner 无条件改写记录：一个 handle 的 `destroy` 会删掉仍在服务的容器的记录，容器泄漏且恢复循环再也看不到它；停泊分支则把运行中的容器标记为已停泊，于是它 OOM 后不会被恢复——后者是上一条修复自己引入的。`teardownBox` 改为返回是否真正释放，Runner 据此决定写什么。
+- **重启后销毁的数据会复活。** `destroy` 依赖进程内 Map 找 scope 才删家目录，而部署即重启，重启后该 Map 为空：容器与网络被删、XFS 项目树留在盘上、记录随后也被删除，无人可再回收；同一 scope 下次 `ensure` 时家目录仍在，`coldStart` 报 false，被显式销毁的数据原样返回。改为由 Runner 从 store 读出 scope 随请求下传。
+- **队列 key 在重启后退化**，导致停泊与恢复循环不再互斥。同一根因，随上一条一并修复。
+- **网络地址池只够约 30 个 scope。** 每 scope 一个 Docker 网络是隔离的实现方式，而 Docker 默认地址池实测只能再建 24 个（已有 6 个时），随后 `all predefined address pools have been fully subnetted`。第 31 名员工的沙箱直接建不出来且事先无任何征兆。属于部署前必须完成的宿主机配置，已写入 `deployment.md`，Runner 启动时另有探测告警。
+- **`qm down` 不回收沙箱网络。** 容器被回收而网络不被回收，每轮 up/down 泄漏一个网络，直接吃掉上一条的额度（发现时机器上已有 4 个孤儿网络）。根因是沙箱网络是唯一没有标签的资源，下游只能靠名字猜；现已打上与容器相同的标签并按标签回收，`--purge` 另清家目录树。
+- **超时回收指错了信号。** 命令超时被当作容器故障，容器被销毁重建，而 guest agent 只是 SIGKILL 掉子进程后继续服务——容器本身健康。代价是该 scope 的全部后台进程被杀（而 profile 宣称支持进程会话）以及 rootfs 被重置。真正需要回收的是 agent 不响应：容器在 Docker 看来正常，内部却无人应答，而这恰是恢复循环看不见的盲区（它读容器状态，不与 agent 通信）。回收触发条件改为 agent 不可达。
+- **磁盘配额探测只覆盖了一种失效模式。** 驱动除了「接受后忽略」，也可能直接拒绝该选项；原实现告警后继续启动而 `runContainer` 照传该参数，结果是 Runner 起得来但一个沙箱都建不出。现由探测结论决定是否传该参数。探测容差同时从 1.5 倍收紧到 1.1 倍——按默认 10G 上限，旧容差会把任何磁盘小于 15G 的主机判为合规。
+
+一项经真实沙箱验证确认为改进：镜像指纹比对此前拿 12 位短 ID 与 `sha256:<64>` 比较，永不相等，导致 local 后端**每个回合都销毁重建容器**。M3 顺带修正后容器改为复用。副作用是 rootfs 状态跨回合累积（同 scope 内，不跨界），而 local 后端不设 `--storage-opt`，该增长不受配额约束。
+
+容器逃逸与路径穿越专项测试执行记录（2026-08-10，Docker Desktop 28.5.1）：
+
+- **逃逸面**（`test/docker/runner-escape.test.ts`，两项全过）。沙箱由生产同一条
+  `createDockerLifecycle` 路径创建，不是手搓的 docker 参数。容器内 `CapEff`、`CapBnd`
+  全零，`NoNewPrivs=1`；`mount`、`mknod`、`dmesg`、写 `/proc/sys`、写 `/sys`、在 cgroup
+  树里建目录全部失败；`/dev` 只有 Docker 默认设备集，没有宿主机块设备；容器内不存在
+  docker socket。`docker inspect` 佐证：未开特权、未加 capability、无宿主机设备、未共享
+  宿主机 PID/IPC/网络 namespace，唯一挂载是该 scope 自己的 home 卷。跨 scope 部分：攻击者
+  容器的 PID namespace 里看不到受害者进程（受害者自己看得到，证明检测手段有效），home
+  卷里也没有受害者的文件。
+- **路径穿越**（`test/docker/runner-path-traversal.test.ts`，三项全过）。sandbox id 用手写
+  HTTP 请求发送——`fetch` 会在客户端就把 `..` 规范化掉，根本到不了服务端，用它测等于没测；
+  原始 socket 下 `..`、`%2f` 编码的穿越、别的前缀的容器名、前缀本身，四个动作
+  (`exec`/`read`/`write`/`teardown`) 一律 400。绝对路径参数只到达那一个容器的 mount
+  namespace：写进 `/etc` 的文件在另一个 scope 的容器里不存在，`/var/run/docker.sock` 读不到。
+
+专项测试发现并修复的一项：`posixJoin`（`src/sandbox/exec-file-ops.ts`，local、fly、aws、
+runner 四个后端的 `readFile`/`writeFile`/`removeDir`/`extractFiles` 都流经它）只剥掉前导
+`/`，不检查 `..`。于是 `readFile(handle, "../x")` 走出 workspace 到 scope 家目录，
+`removeDir(handle, "../.ssh")` 能删掉家目录里的内容——边界仍是容器与 scope，不跨界，但
+core 对 `..` 的防守此前只在四个调用点（publish 目录、attachments、surface-tools、reach
+路由）各挡一次，沙箱层本身不设防。改为在所有路径都流经的 `posixJoin` 处拒绝 `..`；
+`test/runner-service.test.ts` 另加一条根套件测试，因为 CI 不跑 `test/docker/`。
+
+第二轮独立评审（在专项测试之后执行，同样由未参与实现的上下文进行）又发现三项，均已修复：
+
+- **`qm sandbox publish` 产出的镜像没有 guest agent，Runner 一个沙箱都起不来。** publish
+  构建的是 `FROM <sandbox-base>` 加工具 COPY，而 base（`fly/Dockerfile`）的 `CMD` 是 sleep
+  循环、不含 `agent.mjs`；只有 `local/Dockerfile` 加了 agent，而它正是所有测试用的镜像，
+  于是测试全绿掩盖了这个洞。按 `deployment.md` 部署会看到 Runner 正常启动、每个 scope 的
+  `ensureScope` 都在 30 秒后死于「agent 不可达」。现改为 `sandbox.backend` 为 `runner` 时
+  publish 自动烤入 agent 层与 `CMD`（用 buildx named context 带入 CLI 自带的 `agent.mjs`），
+  并已用真实 buildx 构建 + 启动容器验证 `/health` 应答。
+- **guest agent 答复的任何错误都被当成「agent 不可达」而销毁容器。** 客户端对非 200 一律抛
+  普通 Error，`viaAgent` 见错就回收：写文件撞上家目录配额（`EDQUOT` → 500）会让用户的沙箱
+  在回合中途被 `rm -f` 重建，后台进程全死、rootfs 重置，还写一条假的 `agent_unreachable`
+  审计。这与 `f062e3e` 修的超时误判同类，那次只覆盖了 exec。现改为客户端抛
+  `GuestAgentStatusError`，Runner 只在传输层真的够不到 agent 时才回收；同时把 read/write
+  的客户端超时（此前硬编码 120 秒）与 Runner 的传输预算（600 秒）统一，避免大文件传输超时
+  连带毁掉一个健康容器。
+- **停泊标记写在 `docker stop` 之后。** 30 秒的恢复扫描若落在 stop 返回与写库之间，会把刚
+  停泊的容器判为 143 异常退出并重建；随后写库落地，把一个**正在运行**的容器标成 parked，
+  此后再无人回收它，额度被长期占住。现改为先写停泊意图再停容器，若该容器仍有其他 handle
+  或停容器失败则回滚为活跃。
+
+第三轮独立评审（针对上一轮的修复本身）指出停泊竞态并未真正关闭，连同两项同类问题一并修复：
+
+- **恢复扫描先把整张表读进内存，再逐个 `docker inspect`。** 停泊若发生在快照之后，扫描手里
+  的记录仍是 `parked: false`，容器被重建，而随后落地的停泊标记又让它永远被跳过——把停泊
+  意图挪到停容器之前并不能解决，因为快照比这次写库更早。现改为回收前重新读一次记录；
+  更根本的一层是 guest agent 现在注册了 SIGTERM handler，正常停泊退出码变成 0，不再落进
+  「非零退出即异常」的判定。真机验证：`docker stop` 一个已启动的沙箱容器退出码为 0。
+  （容器刚启动、handler 尚未注册时被停，PID 1 会忽略 SIGTERM，10 秒后仍是 137——这一条
+  由停泊标记与重读兜底。）
+- **`homeQuota.destroy` 失败会让已销毁的 scope 复活。** 它是 destroy 分支里唯一没有被
+  `swallowAs` 包住的一步，抛出后 Runner 不会删记录，而容器与网络已经没了；下一轮扫描判为
+  `container_missing`，`recycle` 又把家目录重新建出来——运维明确销毁的数据回来了。现与相邻
+  的 `docker volume rm` 一致地吞掉并记录。
+- **`listDir` 与 `extractFiles` 是 `..` 防护漏掉的两个同类入口。** 前者把相对路径直接拼进
+  `find`，`publish` 工具的 `dir` 参数正好能走到（`primitives.ts` 那道 `hasParentPathSegment`
+  只在同时传了 `entrypoint` 时才生效）；后者的 tar 成员路径此前只靠 GNU tar 自己拒绝。两处
+  按仓库「同一处修全部实例」的要求补齐。
+
+在 CI 里加一步「用生产 Runner 镜像在真实 XFS 上启动」之后暴露的三项，均已修复。这一步的价值
+正在于此：XFS 配额此前只有单元测试，而单元测试喂的是伪造的 `xfs_quota` 输出，掩盖了下面全部三项。
+修复后该步骤已通过：Runner 用生产镜像在挂了 `pquota` 的真实 XFS 上启动，经签名 API 建出沙箱、
+写文件、`dd` 写 80 MB 被 64 MB 家目录配额挡下（`dd` 返回非零即判定配额生效），销毁后 scope 目录树
+与项目注册表都为空。**这是 M3「磁盘限制」第一次由真实文件系统而非断言证明。**
+
+- **`xfs_quota` 失败时退出码是 0。** 用生产镜像实测：路径无法解析时它把
+  `xfs_quota: cannot setup path for mount ...` 打到 stderr，然后 **exit 0**。于是
+  `checked()` 的退出码判断形同虚设：preflight 拿到空输出，报的是「accounting 与 enforcement
+  必须都为 ON」——一个与真实原因无关的结论，运维照着它去查配额挂载选项永远查不出问题。
+  更重的是 `ensure()` 里的 `project -s` 与 `limit -p`：它们失败同样静默通过，**scope 家目录
+  于是完全没有配额，而 Runner 报告成功**。这与磁盘配额那条（`--storage-opt` 被驱动接受后
+  忽略）是同一类错误的第二次出现：申请成功不等于生效。现改为把 `xfs_quota: ` 开头的诊断
+  一律视为失败。
+- **配额命令发给了子目录，而 `xfs_quota` 只接受挂载点或设备文件。** man page 原文是
+  「mount points or device files which identify XFS filesystems」。而 Runner 传的是
+  `RUNNER_SANDBOX_HOME_ROOT/<orgId>`，即挂载点下的子目录（部署文档里是
+  `/data/qm/sandbox-homes/<org>`，挂载点是 `/data`）。也就是说按文档部署，home 配额
+  **一次也没有生效过**，preflight 必然失败关闭且给出上面那条错误信息。现改为从
+  `/proc/self/mountinfo` 解析包含该目录的最长 XFS 挂载点，命令一律发给挂载点；家目录不在
+  XFS 上时报的是「不在 XFS 文件系统上」而不是配额没开。
+- **Runner 容器里没有 XFS 的设备节点。** `xfs_quota` 通过设备节点做 quotactl，而 docker 不会
+  为 bind mount 创建设备节点，容器内因此 ENXIO。`qm up` 的 docker 后端此前只挂 home 目录和
+  `SYS_ADMIN`，没有 `--device`，目标 ECS 上会撞上同一堵墙。现由 CLI 从宿主机 mountinfo 解析
+  出该文件系统的设备并传 `--device`。
+
+残余风险（无法由现有测试证明，需运维与后续里程碑承担）：
+
+- **Runner 容器等价于宿主机 root。** 它持有 Docker Socket 与 `SYS_ADMIN`。这是本设计的取舍：处理不可信输入的是 Core，而 Core 已不再持有 Socket。Runner 必须按最小攻击面运维，不承载任何其他职责。
+- **沙箱可以到达 Runner 自身的 API 端口。** Runner 为提供容器 DNS 需接入每个 sandbox 网络。该端口要求签名请求，且 Runner 只绑定服务网络地址，但端口对沙箱可见这一事实本身是攻击面。
+- **磁盘隔离在非 XFS 主机上不存在。** 探测会告警，但不阻止启动。生产主机必须把 Docker data-root 放在 XFS 并启用 `pquota`，否则单个 scope 可以写满宿主机磁盘。
+- **XFS home 配额的验证内核不是生产内核。** CI 每轮都在真实 XFS（GitHub runner 上的 loop 设备，amd64）上跑完整路径并确认 80 MB 写入被 64 MB 配额挡下，但目标 ECS 的内核、云盘与 `xfs_quota` 版本仍不同，验收机到位后需原样重跑。
+- **挂载点解析用的是字符串最长前缀，不是挂载树。** 家目录所在的 XFS 若被**祖先方向**的挂载遮蔽（例如 `/data` 上已挂 XFS，运维之后又在 `/` 与 `/data` 之间的某一级挂了 tmpfs），被遮蔽的那条记录仍留在 mountinfo 里且仍以长度胜出，于是 Runner 会对一个已经够不到的目录树设配额。要正确处理需要按 mount id/parent id 还原挂载树，而不是比字符串。判定为不阻塞：该操作会同时破坏 Runner 的 bind mount，是运维事故而非常规路径。降序方向（更近的非 XFS 挂载遮住下面的 XFS）已修并有测试覆盖。
+- **允许私有网段的白名单可被 DNS 重绑定利用。** 白名单域名若解析到容器网段地址，代理会放行。`denyPrivateNetworks` 是对应的开关，但产品需要访问企业内网 CRM/ERP/内部 API，不能无条件开启，需按 scope 配置 `privateNetworkAllowedHosts`。
+- **命令超时会重建整个容器。** `timedOut` 是模型执行长命令时的常见结果，而 Runner 对外宣称支持后台进程会话，一次命令超时会杀掉该 scope 的全部后台进程。计划中「超时可以被回收」应理解为容器卡死而非每条命令超时，此处待决策，本轮未改动。
+- **CI 的 Docker 作业与根测试分片是两回事。** 根分片只覆盖 `test/*.test.ts`；`test/docker/` 的逃逸、路径穿越、重启与隔离四组测试由单独的 `Runner Docker tests` 作业执行，需要真实 Docker 守护进程。该作业的结论只代表 GitHub runner 那台机器的内核与存储驱动。
+- **逃逸测试证明的是「配置正确、常见逃逸原语不可用」，不是「不可能逃逸」。** 内核漏洞与
+  runc 漏洞不在测试能力范围内，仍由「Runner 容器等价于宿主机 root」那条取舍兜底。
+- **测试内核不是生产内核。** 上述两项在 macOS 的 Docker Desktop Linux VM 上执行，且 amd64
+  镜像在 arm64 主机上模拟运行；seccomp profile、内核版本与 LSM 都与目标 ECS 不同，验收机
+  到位后需原样重跑。
+
+未覆盖：
+
+- Runner 重启恢复已在本地真实 Docker 容器与 Postgres 状态下走过组件重建；完整
+  `runner-main` 进程重启仍需在具备 XFS `pquota` 的目标 ECS 上验收。
+
 ### M3.5：构建供应链国产化
 
 建议分支：`codex/china-build-supply-chain`
@@ -519,21 +695,39 @@ flowchart LR
 
 ## 11. 建议的下一步
 
-M0 至 M2 已交付，M2 的演示闭环已用真实 DeepSeek 跑通。剩余工作：
+M0 至 M2 已交付，M3 的实现与真机隔离验收已完成，尚未合入。剩余工作：
 
-1. 补英文界面截图与语言切换验证：M1.5 要求中英文两套关键路径截图，中文侧已完成，
+1. 合入 M3。三个 PR 分别是 Runner 本体、出网默认拒绝、依赖安全升级。独立评审已完成
+   并提出十项，九项已修、一项经验证确认为改进；出网那个改的是所有沙箱后端共用的策略
+   代码，单独合并会立即让现有部署的沙箱默认断网，需与 Runner 一并上线。
+2. 容器逃逸与路径穿越专项测试已在本地完成，并顺带修掉沙箱层不挡 `..` 的路径拼接；
+   目标 ECS 上的完整进程重启、XFS home 配额，以及在生产内核上重跑这两项测试，
+   保留到云端采购恢复后执行。
+3. 补英文界面截图与语言切换验证：M1.5 要求中英文两套关键路径截图，中文侧已完成，
    英文侧以及「切换后刷新是否保留选择」尚未验证。
-2. 在一台没有透明代理的机器上重做「不访问 Google、Slack、Fly.io」的取证。
-3. 执行 M3 On-prem Runner。它同时是三件事的前置：Agent 的安全执行、`docker`
-   部署目标摆脱 Fly 沙箱 app 的契约要求、以及 M2「全新环境可重复部署」的补齐。
-4. 执行 M3.5 构建供应链国产化，使国内网络的干净机器能从零构建。
-5. 执行 M4 单机私有化部署，其中包含企业 SMTP 魔法链接登录的在线验证。
-6. 在接入真实客户数据前完成 M3 与 M4 的安全验收。
+4. 在一台没有透明代理的机器上重做「不访问 Google、Slack、Fly.io」的取证。
+5. 执行 M3.5 构建供应链国产化，使国内网络的干净机器能从零构建。
+6. 执行 M4 单机私有化部署，其中包含企业 SMTP 魔法链接登录的在线验证。M4 必须把
+   Docker data-root 放在启用 `pquota` 的 XFS 上，否则磁盘隔离不存在。
+7. 在接入真实客户数据前完成 M3 与 M4 的安全验收。
 
-已登记、与里程碑并行处理的两项缺陷：
+已登记、与里程碑并行处理的缺陷：
 
 - CLI 的 `validatePortalTrust` 仍把未设置的 `OIDC_ISSUER` 解析为 Slack 默认值，
   配置校验会放过一份 Portal 将拒绝启动的配置（详见 M1.6 当前状态）。
 - `cli/src/config.ts` 的 `updateConfigStringMap` 在插入根级键时无条件补逗号，
   对最后一个根属性带尾逗号的配置会写出 `,\n,` 并损坏文件；活跃调用点为
   `qm sandbox` 与 Fly backend。
+- `.github/workflows/` 的镜像仓库硬编码为上游 `ghcr.io/yc-software/qm/...`。M3 往
+  其中加了 runner 与 egress-proxy 两个镜像条目，在中国版仓库执行会推向上游或拉取
+  不到。已确认不阻塞合入：`release-package.yml` 与 `publish-cli.yml` 只能由
+  `workflow_call` 或 `workflow_dispatch` 触发，唯一的调用方 `release.yml` 也是
+  `workflow_dispatch`，三者在本仓库从未运行过。阻塞的是首次发版——切自建镜像仓库
+  与 npm 包名要在 M4 之前完成。
+- 沙箱停泊会杀死后台进程，但进程会话记录仍报告 `running`。停泊走 `docker stop`，
+  容器内进程随之终止，而 `listProcesses` 不知情，Agent 会以为自己启动的服务还在跑。
+  正常路径下窗口很窄——`src/core/orchestrator/sandboxes.ts:568` 会在停泊前检查活进程
+  并置 `keepWarm`；但 571 行的 `liveByScope` 一旦抛错，574 行回退为 `keepWarm = false`
+  直接停泊。该缺陷早于 M3（旧的每回合重建同样杀进程），且对所有后端成立（Runner 的
+  停泊也是 `docker stop`）。修复需要先定语义：停泊时把会话标记为已停止，还是有活会话
+  就绝不停泊。

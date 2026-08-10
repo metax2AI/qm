@@ -768,6 +768,41 @@ test("sandbox.image requires sandbox.app and must be non-empty", () => {
   });
 });
 
+test("docker runner accepts a digest-pinned sandbox image without a Fly app", () => {
+  const image = `registry.example.com/qm/sandbox@sha256:${"4d".repeat(32)}`;
+  withConfig({ sandbox: { backend: "runner", image } }, ({ path }) => {
+    const { config } = loadConfigAt(path);
+    assert.deepEqual(config.sandbox, { backend: "runner", image });
+    assert.deepEqual(sandboxCoreEnv(config), {
+      env: { SANDBOX_BACKEND: "runner" },
+      missingSecrets: [],
+    });
+    assert.deepEqual(sandboxImagePinErrors(config), []);
+  });
+});
+
+test("runner sandbox configuration fails closed outside Docker or without an immutable image", () => {
+  const image = `registry.example.com/qm/sandbox@sha256:${"5e".repeat(32)}`;
+  const cases: Array<{ extra: Record<string, unknown>; rx: RegExp }> = [
+    { extra: { sandbox: { backend: "runner" } }, rx: /no sandbox layer image is pinned/ },
+    {
+      extra: { sandbox: { backend: "runner", image: "registry.example.com/qm/sandbox:latest" } },
+      rx: /must be pinned by digest/,
+    },
+    { extra: { target: "fly", sandbox: { backend: "runner", image } }, rx: /runner.*requires target "docker"/i },
+    { extra: { target: "aws", sandbox: { backend: "runner", image } }, rx: /runner.*requires target "docker"/i },
+  ];
+  for (const { extra, rx } of cases) {
+    withConfig(extra, ({ path }) => {
+      if ((extra.sandbox as { backend?: string } | undefined)?.backend === "runner" && extra.target === undefined) {
+        assert.throws(() => sandboxCoreEnv(loadConfigAt(path).config), rx);
+      } else {
+        assert.throws(() => loadConfigAt(path), rx);
+      }
+    });
+  }
+});
+
 test("sandbox.env (literals) + sandbox.secretEnv (resolved) become FLY_RESIDENT_ENV_<KEY>", () => {
   withConfig(
     {

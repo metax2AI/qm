@@ -89,6 +89,16 @@ test("harness security posture defaults to auto and validates named modes", () =
       shadow: false,
     },
   );
+  assert.throws(
+    () =>
+      loadConfig({
+        SANDBOX_BACKEND: "runner",
+        RUNNER_URL: "http://runner:48090",
+        SANDBOX_RUNNER_SECRET: "x".repeat(32),
+        CORE_SIGNING_SECRET: "x".repeat(32),
+      }),
+    /SANDBOX_RUNNER_SECRET must differ from CORE_SIGNING_SECRET/,
+  );
   for (const timeout of ["0", "-1", "1.5", "2147483648"]) {
     assert.throws(
       () => loadConfig({ SECURITY_SCREEN_TIMEOUT_MS: timeout }),
@@ -221,6 +231,21 @@ test("a set-but-unparseable env value refuses to boot instead of silently taking
 
 test("sandbox backend is parsed once before production backend guards", () => {
   assert.equal(loadConfig({ SANDBOX_BACKEND: " aws " }).sandboxBackend, "aws");
+  assert.deepEqual(
+    loadConfig({
+      SANDBOX_BACKEND: "runner",
+      RUNNER_URL: "http://runner:48090",
+      RUNNER_EGRESS_PROXY_URL: "http://egress:48080",
+      SANDBOX_RUNNER_SECRET: "x".repeat(32),
+      FLY_RESIDENT_ENV_TZ: "Asia/Shanghai",
+    }).runnerSandbox,
+    {
+      baseUrl: "http://runner:48090",
+      egressProxyUrl: "http://egress:48080",
+      residentEnv: { TZ: "Asia/Shanghai" },
+      signingSecret: "x".repeat(32),
+    },
+  );
   assert.throws(
     () => loadConfig({ ...productionEnv, SANDBOX_BACKEND: "bogus" }),
     /SANDBOX_BACKEND="bogus" is not recognized/,

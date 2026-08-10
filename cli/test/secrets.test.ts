@@ -379,6 +379,20 @@ test("an explicit sandbox.backend wins, and non-fly targets keep their own defau
   assert.equal(sandboxCoreEnv(docker).env.SANDBOX_BACKEND, undefined);
 });
 
+test("the runner API secret is required only by the runner sandbox backend", () => {
+  const runner = makeConfig({
+    sandbox: { backend: "runner", image: `registry.example.com/qm/sandbox@sha256:${"6f".repeat(32)}` },
+  });
+  const secret = secretByName(runner, "SANDBOX_RUNNER_SECRET");
+  assert.equal(secret.required, true);
+  assert.equal(secret.generate, "openssl rand -hex 32");
+  assert.deepEqual([...secretDestinations(secret).keys()], ["core"]);
+  assert.equal(
+    computedSecrets(makeConfig()).some((candidate) => candidate.name === "SANDBOX_RUNNER_SECRET"),
+    false,
+  );
+});
+
 test("the .env.example catalog names every secret exactly once", () => {
   for (const services of [["core"], ["core", "portal"], ["core", "portal", "auth"], SERVICE_NAMES] as const) {
     const rendered = renderEnvExample(makeConfig({ services: [...services] as QmConfig["services"] }));
