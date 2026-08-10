@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createDockerLifecycle } from "../src/sandbox/docker-lifecycle.ts";
 import { installFakeDocker, type FakeDocker } from "./support/fake-docker.ts";
 import { scopeId } from "../src/types.ts";
+import type { XfsProjectQuota } from "../src/sandbox/xfs-project-quota.ts";
 
 function lifecycleOn(fake: FakeDocker, namePrefix: string) {
   return createDockerLifecycle({
@@ -41,14 +42,19 @@ test("two docker-backed backends on one daemon never touch each other's containe
   assert.equal(fake.volumes.size, 1);
 });
 
-function runnerLifecycleOn(fake: FakeDocker, selfContainer?: string) {
+function runnerLifecycleOn(fake: FakeDocker, attachContainers: string[] = []) {
   return createDockerLifecycle({
     label: "runner",
     namePrefix: "qmr",
     image: "qm-sandbox-local:latest",
     homeDir: "/root",
     buildHint: "publish the rootfs",
-    endpointMode: { kind: "container-dns", ...(selfContainer ? { selfContainer } : {}) },
+    endpointMode: { kind: "container-dns", attachContainers },
+    internalNetwork: true,
+    cpus: 2,
+    memoryMb: 2048,
+    pidsLimit: 256,
+    rootfsMb: 10_240,
     waitReady: async () => {},
     dockerExec: fake.dockerExec,
     repoRoot: "/nonexistent-repo-root",
@@ -67,20 +73,115 @@ test("container-dns boxes publish no host port and are addressed by container na
     false,
   );
   assert.equal(await lifecycle.endpointOf(box.id), `http://${box.id}:8080`);
+  assert.equal(fake.internalNetworks.has(lifecycle.networkNameOf(box.id)), true);
+  assert.deepEqual(argv.slice(argv.indexOf("--cpus"), argv.indexOf("--cpus") + 14), [
+    "--cpus",
+    "2",
+    "--memory",
+    "2048m",
+    "--memory-swap",
+    "2048m",
+    "--pids-limit",
+    "256",
+    "--storage-opt",
+    "size=10240m",
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges:true",
+  ]);
 });
 
 test("the runner attaches itself to each sandbox network, and re-attaches after the network is recreated", async () => {
   const fake = installFakeDocker(1);
-  const lifecycle = runnerLifecycleOn(fake, "qm-org-runner");
+  const lifecycle = runnerLifecycleOn(fake, ["qm-org-runner", "qm-org-egress"]);
   const scope = scopeId("personal", "U3");
 
   const box = await lifecycle.ensureScope(scope);
   const net = lifecycle.networkNameOf(box.id);
-  assert.deepEqual([...(fake.attachments.get(net) ?? [])], ["qm-org-runner"]);
+  assert.deepEqual([...(fake.attachments.get(net) ?? [])], ["qm-org-runner", "qm-org-egress"]);
 
+  fake.attachments.set(net, new Set());
+  await lifecycle.ensureScope(scope);
+  assert.deepEqual([...(fake.attachments.get(net) ?? [])], ["qm-org-runner", "qm-org-egress"]);
+
+  await lifecycle.teardown({ id: box.id }, { destroy: true });
   await lifecycle.teardown({ id: box.id }, { destroy: true });
   assert.equal(fake.networks.has(net), false);
 
   const again = await lifecycle.ensureScope(scope);
-  assert.deepEqual([...(fake.attachments.get(lifecycle.networkNameOf(again.id)) ?? [])], ["qm-org-runner"]);
+  assert.deepEqual(
+    [...(fake.attachments.get(lifecycle.networkNameOf(again.id)) ?? [])],
+    ["qm-org-runner", "qm-org-egress"],
+  );
+});
+
+test("the runner refuses a pre-existing sandbox network that is not internal", async () => {
+  const fake = installFakeDocker(1);
+  const scope = scopeId("personal", "U4");
+  await lifecycleOn(fake, "qmr").ensureScope(scope);
+  const lifecycle = runnerLifecycleOn(fake, ["qm-org-runner"]);
+
+  await assert.rejects(lifecycle.ensureScope(scope), /must be internal/);
+});
+
+test("recycling a runner container preserves its persistent volume", async () => {
+  const fake = installFakeDocker(1);
+  const lifecycle = runnerLifecycleOn(fake, ["qm-org-runner", "qm-org-egress"]);
+  const scope = scopeId("personal", "U5");
+  const box = await lifecycle.ensureScope(scope);
+  const volume = lifecycle.volumeNameOf(scope);
+
+  await lifecycle.recycle({ id: box.id, scopeId: scope });
+
+  assert.equal(fake.runCount, 2);
+  assert.equal(fake.containers.has(box.id), true);
+  assert.deepEqual([...fake.volumes], [volume]);
+  assert.equal(fake.networks.has(lifecycle.networkNameOf(box.id)), true);
+});
+
+test("destroy disconnects runner peers before removing the scope network", async () => {
+  const fake = installFakeDocker(1);
+  const lifecycle = runnerLifecycleOn(fake, ["qm-org-runner", "qm-org-egress"]);
+  const box = await lifecycle.ensureScope(scopeId("personal", "U6"));
+  const network = lifecycle.networkNameOf(box.id);
+
+  await lifecycle.teardown({ id: box.id }, { destroy: true });
+
+  assert.equal(fake.networks.has(network), false);
+});
+
+test("runner persistent homes use the quota-managed bind tree instead of an unbounded named volume", async () => {
+  const fake = installFakeDocker(1);
+  const destroyed: string[] = [];
+  const homeQuota: XfsProjectQuota = {
+    preflight: async () => {},
+    sourceOf: (scope) => `/quota/${scope.replaceAll(":", "-")}`,
+    ensure: async (scope) => ({ source: `/quota/${scope.replaceAll(":", "-")}`, coldStart: true }),
+    destroy: async (scope) => void destroyed.push(scope),
+  };
+  const lifecycle = createDockerLifecycle({
+    label: "runner",
+    namePrefix: "qmr",
+    image: "qm-sandbox-local:latest",
+    homeDir: "/root",
+    buildHint: "publish the rootfs",
+    endpointMode: { kind: "container-dns" },
+    internalNetwork: true,
+    homeQuota,
+    waitReady: async () => {},
+    dockerExec: fake.dockerExec,
+    repoRoot: "/nonexistent-repo-root",
+  });
+  const scope = scopeId("personal", "U7");
+  const box = await lifecycle.ensureScope(scope);
+  const argv = fake.runArgv.at(-1)!;
+
+  assert.deepEqual(argv.slice(argv.indexOf("--mount"), argv.indexOf("--mount") + 2), [
+    "--mount",
+    "type=bind,src=/quota/personal-U7,dst=/root",
+  ]);
+  assert.equal(fake.volumes.size, 0);
+  await lifecycle.teardown({ id: box.id }, { destroy: true });
+  assert.deepEqual(destroyed, [scope]);
 });

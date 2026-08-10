@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { arch } from "node:os";
 import type { WorkspaceStore } from "../workspace/workspace-store.ts";
+import type { WorkspaceLayer } from "../types.ts";
+import { isStrongSigningSecret, MIN_SIGNING_SECRET_LENGTH } from "../auth/source-auth.ts";
 import { signedRequestHeaders } from "../auth/source-auth-sign.ts";
 import { runnerBoxPath, runnerEnsurePath } from "../runner/protocol.ts";
 import type {
@@ -10,8 +12,9 @@ import type {
   RunnerTeardownRequest,
 } from "../runner/protocol.ts";
 import { createBoxSandbox, type BoxIo, type BoxLifecycle, type BoxRef } from "./box-sandbox.ts";
-import type { AgentComputerProfile, ExecResult, Sandbox, TeardownOptions } from "./sandbox.ts";
+import type { AgentComputerProfile, ExecResult, ProvisionOptions, Sandbox, TeardownOptions } from "./sandbox.ts";
 import { DOCUMENT_PARSERS_FACT } from "./sandbox.ts";
+import { authenticatedProxyEnv, DROPPED_PROXY_ENV } from "./sandbox-env.ts";
 
 const HOME_DIR = "/root";
 const WORKSPACE_BASENAME = "workspace";
@@ -27,6 +30,8 @@ export interface RunnerSandboxOptions {
   memoryMb?: number;
   defaultTimeoutSec?: number;
   homeDir?: string;
+  egressProxyUrl?: string;
+  residentEnv?: Record<string, string>;
   fetchImpl?: typeof fetch;
 }
 
@@ -40,6 +45,9 @@ class RunnerApiError extends Error {
 }
 
 export function createRunnerSandbox(workspace: WorkspaceStore, opts: RunnerSandboxOptions): Sandbox {
+  if (!isStrongSigningSecret(opts.signingSecret)) {
+    throw new Error(`SANDBOX_RUNNER_SECRET must be at least ${MIN_SIGNING_SECRET_LENGTH} characters`);
+  }
   const base = opts.baseUrl.replace(/\/+$/, "");
   const fetchImpl = opts.fetchImpl ?? fetch;
   const homeDir = opts.homeDir ?? HOME_DIR;
@@ -117,7 +125,7 @@ export function createRunnerSandbox(workspace: WorkspaceStore, opts: RunnerSandb
     backend: "onprem-runner",
     writablePersistence: "resident_disk",
     processSessions: true,
-    egressEnforcement: "none",
+    egressEnforcement: opts.egressProxyUrl ? "domain" : "none",
     spec: {
       os: `Debian 12 (bookworm), glibc — on-prem container on a ${arch()} host`,
       runtimes: ["Node 24", "Python 3 (venv on PATH)", DOCUMENT_PARSERS_FACT],
@@ -130,7 +138,7 @@ export function createRunnerSandbox(workspace: WorkspaceStore, opts: RunnerSandb
     },
   };
 
-  return createBoxSandbox({
+  const box = createBoxSandbox({
     label: LABEL,
     workspace,
     lifecycle,
@@ -140,4 +148,20 @@ export function createRunnerSandbox(workspace: WorkspaceStore, opts: RunnerSandb
     workspaceDir,
     defaultTimeoutSec: opts.defaultTimeoutSec ?? 600,
   });
+
+  return {
+    ...box,
+    async provision(layers: WorkspaceLayer[], provOpts?: ProvisionOptions) {
+      const { env: suppliedEnv, ...rest } = provOpts ?? {};
+      const turnEnv = Object.fromEntries(
+        Object.entries({ ...opts.residentEnv, ...suppliedEnv }).filter(([key]) => !DROPPED_PROXY_ENV.has(key)),
+      );
+      const forceEgress = !!opts.egressProxyUrl && !!provOpts?.egressToken;
+      const env = {
+        ...turnEnv,
+        ...(forceEgress ? authenticatedProxyEnv(opts.egressProxyUrl!, provOpts!.egressToken!) : {}),
+      };
+      return box.provision(layers, { ...rest, ...(Object.keys(env).length ? { env } : {}) });
+    },
+  };
 }

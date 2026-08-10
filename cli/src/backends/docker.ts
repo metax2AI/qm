@@ -37,6 +37,17 @@ const safe = (s: string): string => s.replace(/[^A-Za-z0-9_.-]/g, "-");
 const ORG_LABEL_KEY = "qm.org";
 const orgLabelArgs = (ctx: DockerCtx): string[] => ["--label", `${ORG_LABEL_KEY}=${ctx.config.orgId}`];
 const baseHostPort = (ctx: DockerCtx): number => dockerBasePort(ctx.config);
+const RUNNER_PORT = 48090;
+const EGRESS_PROXY_PORT = 48080;
+const RUNNER_HOME_ROOT = "/var/lib/qm/sandbox-homes";
+const RUNNER_RESOURCE_ENV = [
+  "RUNNER_SANDBOX_CPUS",
+  "RUNNER_SANDBOX_MEMORY_MB",
+  "RUNNER_SANDBOX_PIDS_LIMIT",
+  "RUNNER_SANDBOX_ROOTFS_MB",
+  "RUNNER_SANDBOX_HOME_MB",
+  "RUNNER_SANDBOX_TIMEOUT_SEC",
+] as const;
 
 interface DockerCtx {
   config: QmConfig;
@@ -57,6 +68,11 @@ interface DockerCtx {
 const dockerPrefix = (config: QmConfig): string => `qm-${safe(config.orgId)}`;
 const cname = (ctx: DockerCtx, name: string): string => `${ctx.prefix}-${name}`;
 const pgVolume = (ctx: DockerCtx): string => `${ctx.prefix}-pgdata`;
+const runnerEnabled = (config: QmConfig): boolean => config.sandbox?.backend === "runner";
+const runnerName = (ctx: DockerCtx): string => cname(ctx, "runner");
+const egressProxyName = (ctx: DockerCtx): string => cname(ctx, "egress-proxy");
+const runnerUrl = (ctx: DockerCtx): string => `http://${runnerName(ctx)}:${RUNNER_PORT}`;
+const egressProxyUrl = (ctx: DockerCtx): string => `http://${egressProxyName(ctx)}:${EGRESS_PROXY_PORT}`;
 
 function requireDocker(): void {
   if (!which("docker")) die("docker not found on PATH (the docker target needs a running Docker daemon).");
@@ -161,6 +177,30 @@ function resolvePluginImage(ctx: DockerCtx, p: ResolvedPlugin): string {
   step(`pulling plugin ${p.name} (${p.image})`);
   dockerInherit(["pull", p.image!], `failed to pull ${p.image} for plugin ${p.name}.`);
   return p.image!;
+}
+
+function resolveInfrastructureImage(ctx: DockerCtx, name: "runner" | "egress-proxy"): string {
+  if (ctx.buildFrom) {
+    const root = ctx.repoRoot!;
+    const dockerfile = join(root, "deploy", name, "Dockerfile");
+    if (!existsSync(dockerfile)) throw new CliError(`no Dockerfile at ${dockerfile}`);
+    const tag = `qm-${name}:local`;
+    step(`building ${name} from ${dockerfile}`);
+    dockerInherit(["build", "-f", dockerfile, "-t", tag, root]);
+    return tag;
+  }
+  const ref = manifestRef(name);
+  step(`pulling ${ref}`);
+  dockerInherit(["pull", ref], `failed to pull ${ref}.`);
+  return ref;
+}
+
+function resolveRunnerSandboxImage(ctx: DockerCtx): string {
+  const ref = ctx.config.sandbox?.image;
+  if (!ref) throw new CliError('sandbox.backend "runner" requires sandbox.image');
+  step(`pulling sandbox ${ref}`);
+  dockerInherit(["pull", "--platform", "linux/amd64", ref], `failed to pull runner sandbox image ${ref}.`);
+  return ref;
 }
 
 function ensureNetwork(ctx: DockerCtx): void {
@@ -331,6 +371,11 @@ function serviceEnv(ctx: DockerCtx, service: ServiceName): Record<string, string
   if (ctx.signingSecret) env.CORE_SIGNING_SECRET = ctx.signingSecret;
   if (service === "core") {
     env.DATABASE_URL = ctx.databaseUrl;
+    if (runnerEnabled(config)) {
+      env.SANDBOX_BACKEND = "runner";
+      env.RUNNER_URL = runnerUrl(ctx);
+      env.RUNNER_EGRESS_PROXY_URL = egressProxyUrl(ctx);
+    }
     for (const key of ctx.sandboxSecretKeys) {
       const value = out[key];
       if (value !== undefined) env[key] = value;
@@ -338,6 +383,61 @@ function serviceEnv(ctx: DockerCtx, service: ServiceName): Record<string, string
     }
   }
   return env;
+}
+
+function infrastructureSecrets(ctx: DockerCtx, names: string[]): Record<string, string> {
+  const core = secretValues(ctx, "core");
+  return Object.fromEntries(
+    names.map((name) => [name, name === "DATABASE_URL" ? ctx.databaseUrl : core[name]!]),
+  ) as Record<string, string>;
+}
+
+function runnerEnv(ctx: DockerCtx, sandboxImage: string): Record<string, string> {
+  const env: Record<string, string> = {
+    ORG_ID: ctx.config.orgId,
+    RUNNER_PORT: String(RUNNER_PORT),
+    RUNNER_SELF_CONTAINER: runnerName(ctx),
+    RUNNER_SERVICE_NETWORK: ctx.network,
+    RUNNER_SANDBOX_IMAGE: sandboxImage,
+    RUNNER_SANDBOX_HOME_ROOT: RUNNER_HOME_ROOT,
+    RUNNER_EGRESS_PROXY_URL: egressProxyUrl(ctx),
+  };
+  for (const key of RUNNER_RESOURCE_ENV) {
+    const value = ctx.config.env.core?.[key];
+    if (value !== undefined) env[key] = value;
+  }
+  return env;
+}
+
+function infrastructureRunArgs(
+  ctx: DockerCtx,
+  name: "runner" | "egress-proxy",
+  image: string,
+  env: Record<string, string>,
+  secrets: Record<string, string>,
+): { args: string[]; cleanup: () => void } {
+  const container = cname(ctx, name);
+  const args = [
+    "run",
+    "-d",
+    "--name",
+    container,
+    ...orgLabelArgs(ctx),
+    "--network",
+    ctx.network,
+    "--network-alias",
+    name,
+    "--restart",
+    "no",
+  ];
+  if (name === "runner") {
+    args.push("--cap-add", "SYS_ADMIN");
+    args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
+    args.push("-v", `${RUNNER_HOME_ROOT}:${RUNNER_HOME_ROOT}`);
+  } else args.push("--cap-add", "NET_ADMIN");
+  const cleanup = pushEnvArgs(args, { ...env, ...secrets }, new Set(Object.keys(secrets)));
+  args.push(image);
+  return { args, cleanup };
 }
 
 function secretEnvKeys(ctx: DockerCtx, service: string): Set<string> {
@@ -457,6 +557,57 @@ async function waitPluginUp(name: string): Promise<void> {
   persistRestart(name);
 }
 
+async function waitInfrastructureUp(name: string, readiness: RegExp): Promise<void> {
+  for (let i = 0; i < 90; i++) {
+    const logs = captureBoth("docker", ["logs", name]);
+    if (readiness.test(logs)) {
+      persistRestart(name);
+      return;
+    }
+    if (!containerRunning(name)) {
+      noteLogTail(name, logs);
+      throw new CliError(`${name} exited before becoming ready (see logs above)`);
+    }
+    await sleep(1000);
+  }
+  throw new CliError(`${name} did not become ready in 90s`);
+}
+
+async function startRunnerInfrastructure(ctx: DockerCtx): Promise<void> {
+  const sandboxImage = resolveRunnerSandboxImage(ctx);
+  const proxyImage = resolveInfrastructureImage(ctx, "egress-proxy");
+  const runnerImage = resolveInfrastructureImage(ctx, "runner");
+  const components = [
+    {
+      name: "egress-proxy" as const,
+      image: proxyImage,
+      env: {},
+      secrets: infrastructureSecrets(ctx, ["CAPABILITY_SECRET", "DATABASE_URL"]),
+      readiness: /\[egress-authz\] listening on/,
+    },
+    {
+      name: "runner" as const,
+      image: runnerImage,
+      env: runnerEnv(ctx, sandboxImage),
+      secrets: infrastructureSecrets(ctx, ["SANDBOX_RUNNER_SECRET", "DATABASE_URL"]),
+      readiness: /\[runner\] listening on/,
+    },
+  ];
+  for (const component of components) {
+    const name = cname(ctx, component.name);
+    docker(["rm", "-f", name], /No such container|is not running/);
+    step(`starting ${component.name}`);
+    const run = infrastructureRunArgs(ctx, component.name, component.image, component.env, component.secrets);
+    try {
+      docker(run.args);
+    } finally {
+      run.cleanup();
+    }
+    await waitInfrastructureUp(name, component.readiness);
+    ok(`${component.name} ready`);
+  }
+}
+
 function buildCtx(
   config: QmConfig,
   configDir: string,
@@ -539,6 +690,13 @@ export async function dockerUp(
   if (opts.dryRun) {
     ctx.databaseUrl = ensurePostgres(ctx, true);
     step(`network: ${ctx.network}`);
+    if (runnerEnabled(config)) {
+      step(`sandbox: pull ${config.sandbox!.image}`);
+      step(
+        `egress-proxy: image ${ctx.buildFrom ? "build deploy/egress-proxy/Dockerfile" : manifestRef("egress-proxy")}`,
+      );
+      step(`runner: image ${ctx.buildFrom ? "build deploy/runner/Dockerfile" : manifestRef("runner")}`);
+    }
     for (const def of ordered(runnableServices(config.services))) {
       const ports =
         def.docker.hostPortOffset !== undefined ? ` (host :${baseHostPort(ctx) + def.docker.hostPortOffset})` : "";
@@ -574,6 +732,7 @@ export async function dockerUp(
   ensureNetwork(ctx);
   ctx.databaseUrl = ensurePostgres(ctx, false);
   if (!externalDatabaseUrl(ctx)) await waitPostgres(ctx);
+  if (runnerEnabled(config)) await startRunnerInfrastructure(ctx);
 
   for (const def of ordered(runnableServices(config.services))) {
     const image = resolveImage(ctx, def.name);
@@ -709,15 +868,16 @@ export async function dockerDown(config: QmConfig, opts: { purge?: boolean } = {
   const prefix = dockerPrefix(config);
   header(`qm down — ${config.orgId}`);
   const serviceNames = teardownOrdered(runnableServices(config.services)).map((d) => `${prefix}-${d.name}`);
+  const infrastructureNames = runnerEnabled(config) ? [`${prefix}-runner`, `${prefix}-egress-proxy`] : [];
   const pgName = `${prefix}-pg`;
-  const known = new Set([...serviceNames, pgName]);
+  const known = new Set([...serviceNames, ...infrastructureNames, pgName]);
   const pluginNames = [
     ...new Set([
       ...config.plugins.map((p) => `${prefix}-${p.name}`),
       ...listDeploymentContainers(config.orgId).filter((n) => !known.has(n)),
     ]),
   ];
-  const candidates = [...pluginNames, ...serviceNames, pgName];
+  const candidates = [...pluginNames, ...serviceNames, ...infrastructureNames, pgName];
   const present = new Set(psNames(["-a"]));
   for (const name of candidates) {
     if (!present.has(name)) continue;

@@ -59,7 +59,7 @@ test("init scaffolds a loadable config, generated local secrets, and a valid san
     assert.equal(config.publicUrl, "http://localhost:8082");
     assert.equal(config.env.core?.HARNESS, "pi");
     assert.equal(config.modelProvider, "anthropic", "init names a base model provider by default");
-    assert.deepEqual(config.sandbox, { app: "acme-sandboxes" });
+    assert.deepEqual(config.sandbox, { backend: "runner" });
 
     const env = readFileSync(join(dir, ".env.example"), "utf8");
     assert.equal(env, renderEnvExample(config), ".env.example is exactly renderEnvExample output");
@@ -236,11 +236,11 @@ test("init keeps stable qm Slack branding for long org ids", () => {
   }
 });
 
-test("init derives sandbox.app from --org", () => {
+test("docker init selects the on-prem runner without requiring a Fly app", () => {
   const dir = mkdtempSync(join(tmpdir(), "qm-init-"));
   try {
     quiet(() => runInit({ dir, org: "globex" }));
-    assert.deepEqual(loadConfigInDir(dir).config.sandbox, { app: "globex-sandboxes" });
+    assert.deepEqual(loadConfigInDir(dir).config.sandbox, { backend: "runner" });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -9,6 +9,7 @@ export interface RunnerBoxRecord {
   orgId: string;
   createdAtMs: number;
   lastActivityMs: number;
+  parked?: boolean;
   scopeId?: string;
   scratchKey?: string;
   volumeName?: string;

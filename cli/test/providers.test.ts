@@ -17,6 +17,7 @@ test("the hosting provider registry owns target discovery and lifecycle capabili
     assert.equal(typeof provider.validateConfig, "function");
   }
   assert.deepEqual(hostingProvider("docker").upFlags, ["build-from", "only"]);
+  assert.equal(hostingProvider("docker").requiresSandboxApp, false);
   assert.ok(hostingProvider("fly").upFlags.includes("image-from"));
   assert.ok(hostingProvider("aws").upFlags.includes("yes"));
   assert.deepEqual(hostingProviderUpFlags(), [

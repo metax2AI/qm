@@ -8,6 +8,8 @@ import { canonicalJson, flyBin, isInvalidSecret, readEnvFile, writeEnvValue } fr
 test("managed credential encryption keys require strong material", () => {
   assert.equal(isInvalidSecret("CONNECTOR_SECRET_KEY", "short"), true);
   assert.equal(isInvalidSecret("CONNECTOR_SECRET_KEY", "x".repeat(32)), false);
+  assert.equal(isInvalidSecret("SANDBOX_RUNNER_SECRET", "short"), true);
+  assert.equal(isInvalidSecret("SANDBOX_RUNNER_SECRET", "x".repeat(32)), false);
 });
 
 test("flyBin honors $FLY_BIN verbatim", () => {

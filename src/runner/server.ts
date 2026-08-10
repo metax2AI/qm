@@ -14,6 +14,8 @@ import type {
   RunnerWriteRequest,
 } from "./protocol.ts";
 import type { RunnerBoxRecord } from "./store.ts";
+import type { AuditLog } from "../audit/audit-log.ts";
+import { recycleRunnerBox } from "./recovery.ts";
 
 const MAX_RUNNER_BODY_BYTES = 256 * 1024 * 1024;
 const BOX_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
@@ -26,6 +28,8 @@ export interface RunnerServerOptions {
   namePrefix: string;
   imageRef: string;
   orgId: string;
+  auditLog: AuditLog;
+  maxExecTimeoutSec?: number;
   now?: () => number;
   auth?: SourceAuth;
 }
@@ -48,12 +52,13 @@ function parseRoute(pathname: string): { id: string; action: string } | null {
 }
 
 export function buildRunnerServer(opts: RunnerServerOptions): Server {
-  const { lifecycle, agent, store, signingSecret, namePrefix, imageRef, orgId } = opts;
+  const { lifecycle, agent, store, signingSecret, namePrefix, imageRef, orgId, auditLog } = opts;
   const now = opts.now ?? (() => Date.now());
+  const maxExecTimeoutSec = opts.maxExecTimeoutSec ?? 600;
   const auth = opts.auth ?? createSourceAuth({ signingSecret, now });
 
   async function touch(id: string): Promise<void> {
-    await store.merge(id, { lastActivityMs: now() });
+    await store.merge(id, { lastActivityMs: now(), parked: false });
   }
 
   async function liveEndpoint(id: string): Promise<string> {
@@ -95,8 +100,13 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
     if (action === "exec") {
       const req = parsed as RunnerExecRequest;
       if (typeof req.cmd !== "string") throw new BadRequestError("need cmd");
-      const timeoutSec = Math.max(1, Number(req.timeoutSec) || 60);
+      const timeoutSec = Math.min(maxExecTimeoutSec, Math.max(1, Number(req.timeoutSec) || 60));
       const result = await agent.exec(await liveEndpoint(id), req.cmd, timeoutSec);
+      if (result.timedOut) {
+        const record = await store.get(id);
+        if (!record) throw new Error(`runner sandbox record ${id} is gone`);
+        await recycleRunnerBox(id, record, "timeout", { lifecycle, store, auditLog, now });
+      }
       await touch(id);
       return { status: 200, body: result };
     }
@@ -126,7 +136,8 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
         },
       );
       if (req.destroy || req.scratch) await store.delete(id);
-      else await touch(id);
+      else if (req.keepWarm) await touch(id);
+      else await store.merge(id, { lastActivityMs: now(), parked: true });
       return { status: 200, body: { ok: true } };
     }
     return { status: 404, body: { error: "not_found" } };

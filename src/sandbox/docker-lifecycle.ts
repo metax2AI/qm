@@ -8,6 +8,7 @@ import { shortHash } from "../util/crypto.ts";
 import { spawnDockerExec, type DockerExec } from "./docker-exec.ts";
 import type { BoxLifecycle, BoxRef } from "./box-sandbox.ts";
 import type { TeardownOptions } from "./sandbox.ts";
+import type { XfsProjectQuota } from "./xfs-project-quota.ts";
 
 const AGENT_PORT = 8080;
 const FINGERPRINT_LABEL = "qm.sandbox-fingerprint";
@@ -59,7 +60,7 @@ function localSlug(id: string): string {
   return `${cleaned.slice(0, 40).replace(/-+$/, "") || "scope"}-${shortHash(id)}`;
 }
 
-type SandboxEndpointMode = { kind: "published-port" } | { kind: "container-dns"; selfContainer?: string };
+type SandboxEndpointMode = { kind: "published-port" } | { kind: "container-dns"; attachContainers?: string[] };
 
 export interface DockerLifecycleOptions {
   label: string;
@@ -74,6 +75,10 @@ export interface DockerLifecycleOptions {
   dockerExec?: DockerExec;
   cpus?: number;
   memoryMb?: number;
+  pidsLimit?: number;
+  rootfsMb?: number;
+  homeQuota?: XfsProjectQuota;
+  internalNetwork?: boolean;
   repoRoot?: string;
   onError?: (e: { category: string; code: string; message: string; scopeLabel?: string }) => void;
 }
@@ -82,6 +87,15 @@ export interface DockerLifecycle extends BoxLifecycle {
   endpointOf(name: string): Promise<string>;
   networkNameOf(containerName: string): string;
   volumeNameOf(scopeId: string): string;
+  stateOf(name: string): Promise<DockerContainerState | null>;
+  recycle(ref: { id: string; scopeId?: string; scratchKey?: string }): Promise<void>;
+}
+
+interface DockerContainerState {
+  running: boolean;
+  oomKilled: boolean;
+  exitCode: number;
+  imageId: string;
 }
 
 export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifecycle {
@@ -90,9 +104,9 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
   const dexec = opts.dockerExec ?? spawnDockerExec(opts.dockerBin ?? "docker");
   const provisionQueue = createKeyedQueue<string>();
   const byContainerDns = endpointMode.kind === "container-dns";
-  const selfContainer = endpointMode.kind === "container-dns" ? endpointMode.selfContainer : undefined;
+  const attachContainers = endpointMode.kind === "container-dns" ? (endpointMode.attachContainers ?? []) : [];
 
-  const selfAttached = new Set<string>();
+  const attachedContainerNetworks = new Set<string>();
   const portByName = new Map<string, number>();
   const scopeByContainer = new Map<string, string>();
   const scratchByKey = new Map<string, string>();
@@ -108,13 +122,12 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
         preflightDone = undefined;
         throw new Error(`SANDBOX_BACKEND=${label} requires a running Docker daemon${daemonHint}`);
       }
-      const img = await dexec(["image", "ls", "--format", `{{.Repository}}:{{.Tag}} {{.ID}}`], 15_000);
-      const line = img.stdout.split("\n").find((l) => l.startsWith(`${image} `));
-      if (img.code !== 0 || !line) {
+      const img = await dexec(["image", "inspect", "-f", "{{.Id}}", image], 15_000);
+      const imageId = img.stdout.trim();
+      if (img.code !== 0 || !imageId) {
         preflightDone = undefined;
         throw new Error(`${label} sandbox image ${image} not found — ${buildHint}`);
       }
-      const imageId = line.split(/\s+/)[1] ?? "";
       const want = await computeSandboxImageFingerprint(opts.repoRoot ?? process.cwd());
       if (!staleWarned && want && imageId) {
         const labeled = await dexec([
@@ -135,11 +148,21 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
     return preflightDone;
   }
 
-  async function containerState(name: string): Promise<{ running: boolean; imageId: string } | null> {
-    const r = await dexec(["inspect", "-f", "{{.State.Running}} {{.Image}}", name]);
+  async function containerState(name: string): Promise<DockerContainerState | null> {
+    const r = await dexec([
+      "inspect",
+      "-f",
+      "{{.State.Running}}\t{{.State.OOMKilled}}\t{{.State.ExitCode}}\t{{.Image}}",
+      name,
+    ]);
     if (r.code !== 0) return null;
-    const [running = "", imageId = ""] = r.stdout.trim().split(/\s+/);
-    return { running: running === "true", imageId };
+    const [running = "", oomKilled = "", exitCode = "", imageId = ""] = r.stdout.trim().split("\t");
+    return {
+      running: running === "true",
+      oomKilled: oomKilled === "true",
+      exitCode: Number(exitCode) || 0,
+      imageId,
+    };
   }
 
   async function resolvePort(name: string): Promise<number> {
@@ -173,33 +196,43 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
     await waitDaemon(name);
   }
 
-  async function attachSelf(net: string): Promise<void> {
-    if (!selfContainer || selfAttached.has(net)) return;
-    const r = await dexec(["network", "connect", net, selfContainer]);
+  async function attachContainer(net: string, container: string, refresh: boolean): Promise<void> {
+    const key = `${net}\0${container}`;
+    if (!refresh && attachedContainerNetworks.has(key)) return;
+    const r = await dexec(["network", "connect", net, container]);
     if (r.code !== 0 && !/already exists in network|already connected/i.test(r.stderr)) {
-      throw new Error(`docker network connect ${net} ${selfContainer} failed: ${r.stderr.trim()}`);
+      throw new Error(`docker network connect ${net} ${container} failed: ${r.stderr.trim()}`);
     }
-    selfAttached.add(net);
+    attachedContainerNetworks.add(key);
   }
 
-  async function ensureNetwork(name: string): Promise<string> {
+  async function ensureNetwork(name: string, refreshPeers = false): Promise<string> {
     const net = networkNameFor(namePrefix, name);
-    if ((await dexec(["network", "inspect", net])).code !== 0) {
-      const r = await dexec(["network", "create", net]);
+    const inspected = await dexec(["network", "inspect", "-f", "{{.Internal}}", net]);
+    if (inspected.code !== 0) {
+      const r = await dexec(["network", "create", ...(opts.internalNetwork ? ["--internal"] : []), net]);
       if (r.code !== 0 && !/already exists/i.test(r.stderr)) {
         throw new Error(`docker network create ${net} failed: ${r.stderr.trim()}`);
       }
+    } else if (opts.internalNetwork && inspected.stdout.trim() !== "true") {
+      throw new Error(`${label} sandbox network ${net} must be internal`);
     }
-    await attachSelf(net);
+    for (const container of attachContainers) await attachContainer(net, container, refreshPeers);
     return net;
   }
 
-  async function ensureReachable(name: string): Promise<void> {
-    if (byContainerDns) await ensureNetwork(name);
+  async function ensureReachable(name: string, refreshPeers = false): Promise<void> {
+    if (byContainerDns) await ensureNetwork(name, refreshPeers);
   }
 
   async function runContainer(name: string, scope: string | undefined, withVolume: boolean): Promise<void> {
     const net = await ensureNetwork(name);
+    let homeArgs: string[] = [];
+    if (withVolume && scope) {
+      homeArgs = opts.homeQuota
+        ? ["--mount", `type=bind,src=${opts.homeQuota.sourceOf(scope)},dst=${homeDir}`]
+        : ["-v", `${volumeNameFor(namePrefix, scope)}:${homeDir}`];
+    }
     const args = [
       "run",
       "-d",
@@ -214,10 +247,16 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
       "agent_env=dev",
       "--network",
       net,
-      ...(withVolume && scope ? ["-v", `${volumeNameFor(namePrefix, scope)}:${homeDir}`] : []),
+      ...homeArgs,
       ...(byContainerDns ? [] : ["-p", `127.0.0.1:0:${AGENT_PORT}`, "--add-host=host.docker.internal:host-gateway"]),
       ...(opts.cpus ? ["--cpus", String(opts.cpus)] : []),
-      ...(opts.memoryMb ? ["--memory", `${opts.memoryMb}m`] : []),
+      ...(opts.memoryMb ? ["--memory", `${opts.memoryMb}m`, "--memory-swap", `${opts.memoryMb}m`] : []),
+      ...(opts.pidsLimit ? ["--pids-limit", String(opts.pidsLimit)] : []),
+      ...(opts.rootfsMb ? ["--storage-opt", `size=${opts.rootfsMb}m`] : []),
+      "--cap-drop",
+      "ALL",
+      "--security-opt",
+      "no-new-privileges:true",
       image,
     ];
     const r = await dexec(args, 120_000);
@@ -228,8 +267,24 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
 
   async function removeNetwork(containerName: string, swallowLabel: string): Promise<void> {
     const net = networkNameFor(namePrefix, containerName);
-    selfAttached.delete(net);
+    for (const container of attachContainers) {
+      await dexec(["network", "disconnect", "-f", net, container]).catch(
+        swallowAs(`${swallowLabel}: disconnect ${container}`, undefined),
+      );
+    }
+    for (const key of attachedContainerNetworks) if (key.startsWith(`${net}\0`)) attachedContainerNetworks.delete(key);
     await dexec(["network", "rm", net]).catch(swallowAs(swallowLabel, undefined));
+  }
+
+  async function ensureVolume(scope: string): Promise<boolean> {
+    if (opts.homeQuota) return !(await opts.homeQuota.ensure(scope)).coldStart;
+    const volume = volumeNameFor(namePrefix, scope);
+    const hadVolume = (await dexec(["volume", "inspect", volume])).code === 0;
+    if (!hadVolume) {
+      const created = await dexec(["volume", "create", volume]);
+      if (created.code !== 0) throw new Error(`docker volume create ${volume} failed: ${created.stderr.trim()}`);
+    }
+    return hadVolume;
   }
 
   function teardownQueueKey(ref: { id: string; scratch?: boolean }): string {
@@ -243,7 +298,8 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
   return {
     endpointOf,
     networkNameOf: (containerName) => networkNameFor(namePrefix, containerName),
-    volumeNameOf: (scope) => volumeNameFor(namePrefix, scope),
+    volumeNameOf: (scope) => opts.homeQuota?.sourceOf(scope) ?? volumeNameFor(namePrefix, scope),
+    stateOf: containerState,
 
     async ensureScope(scope: string): Promise<BoxRef> {
       return provisionQueue(scope, async () => {
@@ -252,18 +308,13 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
         scopeByContainer.set(name, scope);
         const state = await containerState(name);
         if (state && state.imageId === imageId) {
-          await ensureReachable(name);
+          await ensureReachable(name, true);
           if (!state.running) await startContainer(name);
           activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
           return { id: name, coldStart: false };
         }
         if (state) await dexec(["rm", "-f", name]);
-        const volume = volumeNameFor(namePrefix, scope);
-        const hadVolume = (await dexec(["volume", "inspect", volume])).code === 0;
-        if (!hadVolume) {
-          const created = await dexec(["volume", "create", volume]);
-          if (created.code !== 0) throw new Error(`docker volume create ${volume} failed: ${created.stderr.trim()}`);
-        }
+        const hadVolume = await ensureVolume(scope);
         await runContainer(name, scope, true);
         activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
         return { id: name, coldStart: !hadVolume };
@@ -277,7 +328,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
         scratchByKey.set(key, name);
         const state = await containerState(name);
         if (state) {
-          await ensureReachable(name);
+          await ensureReachable(name, true);
           if (!state.running) await startContainer(name);
           activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
           return { id: name, coldStart: false };
@@ -293,6 +344,25 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
       const state = await containerState(name);
       if (!state) throw new Error(`${label} sandbox container ${name} is gone`);
       if (!state.running) await startContainer(name);
+    },
+
+    async recycle(ref: { id: string; scopeId?: string; scratchKey?: string }): Promise<void> {
+      return provisionQueue(ref.scopeId ?? (ref.scratchKey ? `scratch:${ref.scratchKey}` : ref.id), async () => {
+        await dexec(["rm", "-f", ref.id]);
+        portByName.delete(ref.id);
+        if (ref.scopeId) {
+          scopeByContainer.set(ref.id, ref.scopeId);
+          await ensureVolume(ref.scopeId);
+          await runContainer(ref.id, ref.scopeId, true);
+          return;
+        }
+        if (ref.scratchKey) {
+          scratchByKey.set(ref.scratchKey, ref.id);
+          await runContainer(ref.id, undefined, false);
+          return;
+        }
+        throw new Error(`${label} sandbox ${ref.id}: cannot recycle without scopeId or scratchKey`);
+      });
     },
 
     async teardown(ref: { id: string; scratch?: boolean }, tdOpts?: TeardownOptions): Promise<void> {
@@ -319,10 +389,13 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
           await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: destroy rm`, undefined));
           await removeNetwork(ref.id, `${label}-sandbox: destroy network rm`);
           const scope = scopeByContainer.get(ref.id);
-          if (scope)
-            await dexec(["volume", "rm", volumeNameFor(namePrefix, scope)]).catch(
-              swallowAs(`${label}-sandbox: destroy volume rm`, undefined),
-            );
+          if (scope) {
+            if (opts.homeQuota) await opts.homeQuota.destroy(scope);
+            else
+              await dexec(["volume", "rm", volumeNameFor(namePrefix, scope)]).catch(
+                swallowAs(`${label}-sandbox: destroy volume rm`, undefined),
+              );
+          }
           scopeByContainer.delete(ref.id);
           portByName.delete(ref.id);
           return;

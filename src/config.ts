@@ -254,15 +254,26 @@ interface LocalSandboxEnv {
 interface RunnerSandboxEnv {
   baseUrl?: string;
   signingSecret?: string;
+  egressProxyUrl?: string;
+  residentEnv?: Record<string, string>;
   cpus?: number;
   memoryMb?: number;
   defaultTimeoutSec?: number;
 }
 
 function runnerSandboxEnv(env: NodeJS.ProcessEnv): RunnerSandboxEnv {
+  const residentEnv = Object.fromEntries(
+    Object.entries(env).flatMap(([name, value]) =>
+      name.startsWith("FLY_RESIDENT_ENV_") && value !== undefined
+        ? [[name.slice("FLY_RESIDENT_ENV_".length), value]]
+        : [],
+    ),
+  );
   return {
     ...(env.RUNNER_URL ? { baseUrl: env.RUNNER_URL } : {}),
     ...(env.SANDBOX_RUNNER_SECRET ? { signingSecret: env.SANDBOX_RUNNER_SECRET } : {}),
+    ...(env.RUNNER_EGRESS_PROXY_URL ? { egressProxyUrl: env.RUNNER_EGRESS_PROXY_URL } : {}),
+    ...(Object.keys(residentEnv).length ? { residentEnv } : {}),
     ...(numEnvStrict("RUNNER_SANDBOX_CPUS", env.RUNNER_SANDBOX_CPUS) !== undefined
       ? { cpus: numEnvStrict("RUNNER_SANDBOX_CPUS", env.RUNNER_SANDBOX_CPUS) }
       : {}),
@@ -733,6 +744,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     numEnvStrict("RUN_MAX_AGE_MS", env.RUN_MAX_AGE_MS) ??
     (turnWallClockMs > 0 ? 2 * turnWallClockMs : CONFIG_DEFAULTS.runMaxAgeMs);
   const slack = slackPluginConfigFromEnv(env);
+  const runnerSandbox = runnerSandboxEnv(env);
+  if (runnerSandbox.signingSecret) {
+    const collision = [
+      "CAPABILITY_SECRET",
+      "CONNECTOR_SECRET_KEY",
+      "CORE_SIGNING_SECRET",
+      "PORTAL_IDENTITY_SECRET",
+      "SKILL_SIGNING_SECRET",
+    ].find((name) => env[name] === runnerSandbox.signingSecret);
+    if (collision) throw new Error(`SANDBOX_RUNNER_SECRET must differ from ${collision}`);
+  }
   return {
     production: env.NODE_ENV === "production",
     allowUnauthenticatedCore: boolEnvStrict("ALLOW_UNAUTHENTICATED_CORE", env.ALLOW_UNAUTHENTICATED_CORE) ?? false,
@@ -903,7 +925,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     eagerProvisionEnabled: boolEnvStrict("EAGER_PROVISION", env.EAGER_PROVISION) ?? false,
     awsSandbox: awsSandboxEnv(env),
     localSandbox: localSandboxEnv(env),
-    runnerSandbox: runnerSandboxEnv(env),
+    runnerSandbox,
     spritesSandbox: spritesSandboxEnv(env),
     awsDeploy: awsDeployEnv(env),
   };

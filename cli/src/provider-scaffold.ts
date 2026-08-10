@@ -157,14 +157,14 @@ export const dockerScaffold: ProviderScaffold = {
       secretEnv: "",
       sandbox: `,
 
-  // The Fly app agents execute in. The core boots the immutable sandbox image
-  // recorded by \`qm sandbox publish\`.
-  "sandbox": { "app": ${JSON.stringify(`${orgId}-sandboxes`)} }`,
+  // The on-prem runner boots the immutable sandbox image recorded by
+  // \`qm sandbox publish --app <registry/repository>\`.
+  "sandbox": { "backend": "runner" }`,
     }),
   ignores: [".env", "node_modules/", ".generated/"],
   agentsAppendix: "",
   files: noFiles,
-  configurationHint: "docker: confirm the local public port and Fly sandbox app before setup",
+  configurationHint: "docker: confirm the local public port and sandbox image registry before setup",
   finalCommand: "npm exec qm -- up",
   finalWhy: "pull images, start services, print URLs",
 };
