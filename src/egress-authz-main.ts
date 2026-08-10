@@ -2,7 +2,13 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { BlockList, isIP } from "node:net";
 import { lookup as dnsLookup } from "node:dns/promises";
 import { EGRESS_PROXY_AUD, verifyCapabilityToken, type CapabilityClaims } from "./auth/capability-token.ts";
-import { egressDecision, hostMatches, isHostDenied, type EgressVerdict } from "./resolution/egress-policy.ts";
+import {
+  EGRESS_DENY_ALL_HOST,
+  egressDecision,
+  hostMatches,
+  isHostDenied,
+  type EgressVerdict,
+} from "./resolution/egress-policy.ts";
 import { createEgressAuditSink, type EgressAuditRecord, type EgressAuditSink } from "./admin/egress-audit-sink.ts";
 import { createPostgresEgressAuditSink } from "./admin/postgres-egress-audit-sink.ts";
 import { signedRequestHeaders } from "./auth/source-auth-sign.ts";
@@ -14,7 +20,7 @@ import { isPrivateNetworkIp } from "./util/network.ts";
 
 const OPEN: EgressPolicy = { allowedHosts: [], deniedHosts: [] };
 
-const DENY_ALL: EgressPolicy = { allowedHosts: ["deny.invalid"], deniedHosts: [] };
+const DENY_ALL: EgressPolicy = { allowedHosts: [EGRESS_DENY_ALL_HOST], deniedHosts: [] };
 
 const METADATA_HOSTS = ["metadata.google.internal", "metadata.goog"];
 
@@ -134,7 +140,7 @@ export function buildEgressAuthzServer(deps: EgressAuthzDeps): Server {
     const token = tokenFromRequest(req);
     const claims = await claimsFor(token, deps);
     let policy: EgressPolicy | undefined = DENY_ALL;
-    if (claims) policy = claims.egress;
+    if (claims) policy = claims.egress ?? DENY_ALL;
     else if (!token && deps.tokenless === "open") policy = OPEN;
     const d = await decide(host, policy, lookup);
     try {

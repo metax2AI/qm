@@ -1,5 +1,7 @@
 import type { EgressPolicy } from "../types.ts";
 
+export const EGRESS_DENY_ALL_HOST = "deny.invalid";
+
 function normalizeHost(host: string): string {
   const s = host
     .trim()

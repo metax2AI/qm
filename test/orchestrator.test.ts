@@ -13,7 +13,7 @@ import { verifyCapabilityToken, EGRESS_PROXY_AUD } from "../src/auth/capability-
 import { egressClaimAllowingControlPlane } from "../src/core/orchestrator.ts";
 import { TURN_FILES_DIR, turnFileId } from "../src/core/attachments.ts";
 import { contextSummaryPayload } from "../src/harness/context-compaction.ts";
-import { egressDecision } from "../src/resolution/egress-policy.ts";
+import { EGRESS_DENY_ALL_HOST, egressDecision } from "../src/resolution/egress-policy.ts";
 import { hashId } from "../src/util/crypto.ts";
 import type { SecurityScreener } from "../src/security/security-screener.ts";
 
@@ -784,30 +784,37 @@ test("turn timezone rides the prompt and control-plane capability token", async 
   assert.equal(invalidClaims!.timezone, undefined, "invalid surface timezones are omitted from the token");
 });
 
-test("the egress claim keeps the control-plane host reachable under an allowlist or a matching denylist", () => {
+test("the egress claim denies by default and keeps only the control-plane host reachable", () => {
   const core = "https://core.example.com";
 
-  const a = egressClaimAllowingControlPlane({ allowedHosts: ["api.github.com"] }, core)!;
+  const a = egressClaimAllowingControlPlane({ allowedHosts: ["api.github.com"] }, core);
   assert.ok(a.allowedHosts.includes("core.example.com"));
   assert.equal(egressDecision("core.example.com", a).allow, true);
   assert.equal(egressDecision("evil.com", a).allow, false, "the allowlist still bites everything else");
 
-  const d = egressClaimAllowingControlPlane({ allowedHosts: [], deniedHosts: ["example.com", "tracker.io"] }, core)!;
+  const unconfigured = egressClaimAllowingControlPlane({ allowedHosts: [] }, core);
+  assert.deepEqual(unconfigured.allowedHosts, ["core.example.com"]);
+  assert.equal(egressDecision("api.github.com", unconfigured).allow, false, "an unconfigured scope reaches nothing");
+  assert.equal(egressDecision("core.example.com", unconfigured).allow, true, "except the control plane");
+
+  const d = egressClaimAllowingControlPlane({ allowedHosts: [], deniedHosts: ["example.com", "tracker.io"] }, core);
   assert.equal(egressDecision("core.example.com", d).allow, true, "core must not be denied");
   assert.equal(egressDecision("tracker.io", d).allow, false, "unrelated denies survive");
 
-  assert.equal(egressClaimAllowingControlPlane({ allowedHosts: [] }, core), undefined);
-
-  const auto = egressClaimAllowingControlPlane({ allowedHosts: [] }, core, true)!;
+  const auto = egressClaimAllowingControlPlane({ allowedHosts: [] }, core, true);
   assert.deepEqual(auto, {
-    allowedHosts: [],
+    allowedHosts: ["core.example.com"],
     denyPrivateNetworks: true,
     privateNetworkAllowedHosts: ["core.example.com"],
   });
-  assert.equal(egressDecision("api.github.com", auto).allow, true, "Auto keeps public internet capability");
 
-  const withoutControlPlane = egressClaimAllowingControlPlane({ allowedHosts: [] }, "", true)!;
-  assert.deepEqual(withoutControlPlane, { allowedHosts: [], denyPrivateNetworks: true });
+  const withoutControlPlane = egressClaimAllowingControlPlane({ allowedHosts: [] }, "", true);
+  assert.deepEqual(withoutControlPlane, { allowedHosts: [EGRESS_DENY_ALL_HOST], denyPrivateNetworks: true });
+  assert.equal(
+    egressDecision("api.github.com", withoutControlPlane).allow,
+    false,
+    "no reachable control plane means no egress at all",
+  );
 });
 
 test("identity grounding: the roster lists this conversation's participants by their canonical directory name", async () => {
