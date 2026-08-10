@@ -110,8 +110,7 @@ jobs:
           sudo mkdir -p /mnt/qm-runner-ci
           sudo mount -o loop,pquota /tmp/qm-runner-ci.xfs /mnt/qm-runner-ci
           sudo xfs_quota -x -c "state -p" /mnt/qm-runner-ci
-          docker run --rm -v /mnt/qm-runner-ci:/mnt/qm-runner-ci --entrypoint sh qm-runner:ci \
-            -c 'ls -la /mnt/qm-runner-ci; xfs_quota -x -c "state -p" /mnt/qm-runner-ci || true'
+          loopdev=$(sudo losetup -j /tmp/qm-runner-ci.xfs | head -1 | cut -d: -f1)
           docker run -d --name qm-ci-registry -p 5000:5000 registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
           for attempt in $(seq 1 30); do
             curl -fsS http://127.0.0.1:5000/v2/ && break
@@ -127,6 +126,7 @@ jobs:
             --add-host host.docker.internal:host-gateway \
             -p 127.0.0.1:48090:48090 \
             --cap-add SYS_ADMIN \
+            --device "$loopdev" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v /mnt/qm-runner-ci:/mnt/qm-runner-ci \
             -e ORG_ID=ci \
