@@ -374,14 +374,14 @@ flowchart LR
 
 验收标准逐条对照：
 
-| 验收标准                              | 状态                             |
-| ------------------------------------- | -------------------------------- |
-| Core 无法直接访问 Docker Socket       | 成立。Socket 只挂给 Runner 容器  |
-| 两个 scope 不能读取对方文件/进程/网络 | **真机验证通过**                 |
-| 未授权外网请求在网络层失败            | **真机验证通过**                 |
-| Runner 重启后恢复或安全重建           | 仅单元测试，未在真实重启场景验证 |
-| 超时、资源耗尽、异常容器可回收并审计  | 已修：回收改由 agent 不可达触发  |
-| 专项安全测试与残余风险记录            | 测试已执行，残余风险见本节       |
+| 验收标准                              | 状态                                       |
+| ------------------------------------- | ------------------------------------------ |
+| Core 无法直接访问 Docker Socket       | 成立。Socket 只挂给 Runner 容器            |
+| 两个 scope 不能读取对方文件/进程/网络 | **真机验证通过**                           |
+| 未授权外网请求在网络层失败            | **真机验证通过**                           |
+| Runner 重启后恢复或安全重建           | 本地真实容器重建通过；ECS 进程级重启待验收 |
+| 超时、资源耗尽、异常容器可回收并审计  | 已修：回收改由 agent 不可达触发            |
+| 专项安全测试与残余风险记录            | 测试已执行，残余风险见本节                 |
 
 真机验收执行记录（Docker Desktop 28.5.1，`test/docker/runner-security.test.ts`，三项全过）：
 
@@ -389,6 +389,13 @@ flowchart LR
 - **直连出网拒绝**：清除代理环境变量后 `curl https://example.com` 失败，`getent hosts` 连域名都解析不出来——出网在网络层断，不依赖模型自觉。
 - **强制走代理**：白名单含 `example.com` 时经代理可达；`iana.org` 被拒；持有代理地址但无 capability token 的请求被拒（`EGRESS_TOKENLESS=deny`）。
 - **资源上限真实落到内核**：容器内读出 `memory.max=67108864`、`pids.max=32`。
+
+重启恢复执行记录（Docker Desktop 28.5.1、临时 Postgres 17，
+`test/docker/runner-restart.test.ts`，一项通过）：首个 Runner 服务、生命周期对象与 Postgres
+连接全部关闭后，真实沙箱容器被 `SIGKILL`；全新实例从 Postgres 读出原记录，将退出码 137
+判为 `abnormal_exit` 并重建容器。重建后持久卷中的文件可读、命令可执行，且审计记录状态为
+`abnormal_exit`。该测试替换了全部 Runner 组件实例，但未启动完整 `runner-main` 进程，也未替代
+目标 ECS 上的进程级重启验收。
 
 计划未预见的三个缺口，均在本轮修复：
 
@@ -420,7 +427,8 @@ flowchart LR
 
 未覆盖：
 
-- Runner 重启恢复只有单元测试，未在真实重启、真实容器状态下走过。
+- Runner 重启恢复已在本地真实 Docker 容器与 Postgres 状态下走过组件重建；完整
+  `runner-main` 进程重启仍需在具备 XFS `pquota` 的目标 ECS 上验收。
 - 容器逃逸面未做专项测试。当前依据是 `cap-drop ALL`、`no-new-privileges` 与非特权容器的既有性质，不是本里程碑自证的结论。
 - 路径穿越只在 API 层验证了 sandbox id，未对 `read`/`write` 的路径参数做穿越测试——guest agent 接受绝对路径，穿越范围限于容器内，但未有测试证明。
 
