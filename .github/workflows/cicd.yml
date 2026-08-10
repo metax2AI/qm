@@ -109,6 +109,9 @@ jobs:
           mkfs.xfs -f /tmp/qm-runner-ci.xfs
           sudo mkdir -p /mnt/qm-runner-ci
           sudo mount -o loop,pquota /tmp/qm-runner-ci.xfs /mnt/qm-runner-ci
+          sudo xfs_quota -x -c "state -p" /mnt/qm-runner-ci
+          docker run --rm -v /mnt/qm-runner-ci:/mnt/qm-runner-ci --entrypoint sh qm-runner:ci \
+            -c 'ls -la /mnt/qm-runner-ci; xfs_quota -x -c "state -p" /mnt/qm-runner-ci || true'
           docker run -d --name qm-ci-registry -p 5000:5000 registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
           for attempt in $(seq 1 30); do
             curl -fsS http://127.0.0.1:5000/v2/ && break
@@ -164,7 +167,7 @@ jobs:
             await sandbox.teardown(handle, { destroy: true });
           '
           test -z "$(find /mnt/qm-runner-ci/ci/scopes -mindepth 1 -maxdepth 1 -type d -print -quit)"
-          test -z "$(find /mnt/qm-runner-ci/ci/.projects -mindepth 1 -maxdepth 1 -type f -print -quit)"
+          test -z "$(find /mnt/qm-runner-ci/.projects -mindepth 1 -maxdepth 1 -type f -print -quit)"
       - name: Clean up Runner smoke test
         if: always()
         run: |
