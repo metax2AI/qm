@@ -83,7 +83,7 @@ export interface DockerLifecycleOptions {
   onError?: (e: { category: string; code: string; message: string; scopeLabel?: string }) => void;
 }
 
-export interface TeardownOutcome {
+interface TeardownOutcome {
   released: boolean;
 }
 
