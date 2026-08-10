@@ -31,7 +31,7 @@ export function xfsProjectId(namespace: string, scope: string): number {
   return 10_000 + (raw % (2_147_483_647 - 10_000));
 }
 
-export interface MountEntry {
+interface MountEntry {
   mountPoint: string;
   fstype: string;
   source: string;
@@ -41,7 +41,7 @@ function unescapeMountField(field: string): string {
   return field.replace(/\\(\d{3})/g, (_, octal: string) => String.fromCharCode(parseInt(octal, 8)));
 }
 
-export function mountHolding(path: string, mountinfo: string): MountEntry | undefined {
+function mountHolding(path: string, mountinfo: string): MountEntry | undefined {
   let held: MountEntry | undefined;
   for (const line of mountinfo.split("\n")) {
     const separator = line.indexOf(" - ");
