@@ -693,7 +693,10 @@ M0 至 M2 已交付，M3 的实现与真机隔离验收已完成，尚未合入�
   `qm sandbox` 与 Fly backend。
 - `.github/workflows/` 的镜像仓库硬编码为上游 `ghcr.io/yc-software/qm/...`。M3 往
   其中加了 runner 与 egress-proxy 两个镜像条目，在中国版仓库执行会推向上游或拉取
-  不到。合入 M3 前需确认这两个 workflow 在本仓库是否实际运行。
+  不到。已确认不阻塞合入：`release-package.yml` 与 `publish-cli.yml` 只能由
+  `workflow_call` 或 `workflow_dispatch` 触发，唯一的调用方 `release.yml` 也是
+  `workflow_dispatch`，三者在本仓库从未运行过。阻塞的是首次发版——切自建镜像仓库
+  与 npm 包名要在 M4 之前完成。
 - 沙箱停泊会杀死后台进程，但进程会话记录仍报告 `running`。停泊走 `docker stop`，
   容器内进程随之终止，而 `listProcesses` 不知情，Agent 会以为自己启动的服务还在跑。
   正常路径下窗口很窄——`src/core/orchestrator/sandboxes.ts:568` 会在停泊前检查活进程
