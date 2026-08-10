@@ -113,6 +113,12 @@ xfs_quota -x -c 'state -p' /data     # Accounting 与 Enforcement 都应为 ON
   `/data/qm/sandbox-homes`（默认值 `/var/lib/qm/sandbox-homes` 在系统盘上，系统盘通常是 ext4，
   必须改；Runner 会在该根目录下自动追加 `orgId`，不同部署不共用 scope 目录）
 
+`xfs_quota` 通过设备节点与文件系统对话，而 docker 不会为 bind mount 创建设备节点。`qm up`
+因此会从宿主机的 `/proc/self/mountinfo` 解析出承载家目录的 XFS 设备，并用 `--device` 传给
+Runner 容器。这一步是自动的，但它解释了两件事：这块盘必须是**独立挂载的 XFS**（家目录必须
+落在某个 XFS 挂载点之下），以及换盘或改挂载点后必须 `qm up` 重建 Runner 容器，而不是
+`docker restart`。
+
 ### 2. 扩大 Docker 的网络地址池
 
 每个 scope 拿一个独立 Docker 网络，这是 scope 之间不能互相访问的实现方式。而 Docker

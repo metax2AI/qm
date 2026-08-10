@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { dockerDown, dockerLogs, dockerStatus, dockerUp } from "../src/backends/docker.ts";
+import { dockerDown, dockerLogs, dockerStatus, dockerUp, xfsDeviceOf } from "../src/backends/docker.ts";
 import { CONFIG_FILENAME, loadConfigAt } from "../src/config.ts";
 
 const SANDBOX_IMAGE = `registry.example.com/qm/sandbox@sha256:${"7a".repeat(32)}`;
@@ -189,4 +189,18 @@ test("docker purge removes only this organization's configured runner homes", as
     process.env.PATH = priorPath;
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("the runner's XFS device is resolved from the mount that holds the sandbox homes", () => {
+  const mountinfo = [
+    "31 1 259:1 / / rw,relatime - ext4 /dev/vda1 rw",
+    "48 31 253:0 / /data rw,relatime - xfs /dev/vdb rw,prjquota",
+    "52 48 253:1 / /data/nested rw,relatime - xfs /dev/vdc rw,prjquota",
+    "60 31 0:44 / /mnt/overlay rw,relatime - xfs overlay rw",
+  ].join("\n");
+
+  assert.equal(xfsDeviceOf("/data/qm/sandbox-homes", mountinfo), "/dev/vdb");
+  assert.equal(xfsDeviceOf("/data/nested/homes", mountinfo), "/dev/vdc");
+  assert.equal(xfsDeviceOf("/var/lib/qm/sandbox-homes", mountinfo), undefined);
+  assert.equal(xfsDeviceOf("/mnt/overlay/homes", mountinfo), undefined);
 });

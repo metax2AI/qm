@@ -483,6 +483,29 @@ core 对 `..` 的防守此前只在四个调用点（publish 目录、attachment
   只在同时传了 `entrypoint` 时才生效）；后者的 tar 成员路径此前只靠 GNU tar 自己拒绝。两处
   按仓库「同一处修全部实例」的要求补齐。
 
+在 CI 里加一步「用生产 Runner 镜像在真实 XFS 上启动」之后暴露的三项，均已修复。这一步的价值
+正在于此：XFS 配额此前只有单元测试，而单元测试喂的是伪造的 `xfs_quota` 输出，掩盖了下面全部三项。
+
+- **`xfs_quota` 失败时退出码是 0。** 用生产镜像实测：路径无法解析时它把
+  `xfs_quota: cannot setup path for mount ...` 打到 stderr，然后 **exit 0**。于是
+  `checked()` 的退出码判断形同虚设：preflight 拿到空输出，报的是「accounting 与 enforcement
+  必须都为 ON」——一个与真实原因无关的结论，运维照着它去查配额挂载选项永远查不出问题。
+  更重的是 `ensure()` 里的 `project -s` 与 `limit -p`：它们失败同样静默通过，**scope 家目录
+  于是完全没有配额，而 Runner 报告成功**。这与磁盘配额那条（`--storage-opt` 被驱动接受后
+  忽略）是同一类错误的第二次出现：申请成功不等于生效。现改为把 `xfs_quota: ` 开头的诊断
+  一律视为失败。
+- **配额命令发给了子目录，而 `xfs_quota` 只接受挂载点或设备文件。** man page 原文是
+  「mount points or device files which identify XFS filesystems」。而 Runner 传的是
+  `RUNNER_SANDBOX_HOME_ROOT/<orgId>`，即挂载点下的子目录（部署文档里是
+  `/data/qm/sandbox-homes/<org>`，挂载点是 `/data`）。也就是说按文档部署，home 配额
+  **一次也没有生效过**，preflight 必然失败关闭且给出上面那条错误信息。现改为从
+  `/proc/self/mountinfo` 解析包含该目录的最长 XFS 挂载点，命令一律发给挂载点；家目录不在
+  XFS 上时报的是「不在 XFS 文件系统上」而不是配额没开。
+- **Runner 容器里没有 XFS 的设备节点。** `xfs_quota` 通过设备节点做 quotactl，而 docker 不会
+  为 bind mount 创建设备节点，容器内因此 ENXIO。`qm up` 的 docker 后端此前只挂 home 目录和
+  `SYS_ADMIN`，没有 `--device`，目标 ECS 上会撞上同一堵墙。现由 CLI 从宿主机 mountinfo 解析
+  出该文件系统的设备并传 `--device`。
+
 残余风险（无法由现有测试证明，需运维与后续里程碑承担）：
 
 - **Runner 容器等价于宿主机 root。** 它持有 Docker Socket 与 `SYS_ADMIN`。这是本设计的取舍：处理不可信输入的是 Core，而 Core 已不再持有 Socket。Runner 必须按最小攻击面运维，不承载任何其他职责。

@@ -31,6 +31,20 @@ export function xfsProjectId(namespace: string, scope: string): number {
   return 10_000 + (raw % (2_147_483_647 - 10_000));
 }
 
+export function xfsMountPointOf(path: string, mountinfo: string): string {
+  let match = "";
+  for (const line of mountinfo.split("\n")) {
+    const [fields, rest] = line.split(" - ");
+    if (!rest || !/^xfs\s/.test(rest)) continue;
+    const mountPoint = fields?.split(" ")[4];
+    if (!mountPoint) continue;
+    if (path !== mountPoint && !path.startsWith(mountPoint === "/" ? "/" : `${mountPoint}/`)) continue;
+    if (mountPoint.length >= match.length) match = mountPoint;
+  }
+  if (!match) throw new Error(`${path} is not on an XFS filesystem, so project quotas cannot be applied`);
+  return match;
+}
+
 function spawnQuotaExec(binary: string): QuotaExec {
   return async (args) =>
     new Promise((resolve) => {
@@ -51,6 +65,7 @@ export function createXfsProjectQuota(opts: {
   limitMb: number;
   quotaExec?: QuotaExec;
   xfsQuotaBin?: string;
+  mountinfoPath?: string;
 }): XfsProjectQuota {
   if (!/^\/[A-Za-z0-9._/-]+$/.test(opts.root)) throw new Error("RUNNER_SANDBOX_HOME_ROOT must be a safe absolute path");
   if (!/^\/[A-Za-z0-9._/-]+$/.test(opts.registryRoot)) {
@@ -63,28 +78,38 @@ export function createXfsProjectQuota(opts: {
   const quotaExec = opts.quotaExec ?? spawnQuotaExec(opts.xfsQuotaBin ?? "xfs_quota");
   const projectsDir = join(opts.registryRoot, ".projects");
   const scopesDir = join(opts.root, "scopes");
-  let preflightPromise: Promise<void> | null = null;
+  const mountinfoPath = opts.mountinfoPath ?? "/proc/self/mountinfo";
+  let preflightPromise: Promise<string> | null = null;
 
   async function checked(args: string[], action: string): Promise<QuotaExecResult> {
     const result = await quotaExec(args);
-    if (result.code !== 0) throw new Error(`${action} failed: ${result.stderr.trim() || result.stdout.trim()}`);
+    const diagnostic = /^xfs_quota: .*/m.exec(`${result.stdout}\n${result.stderr}`)?.[0];
+    if (result.code !== 0 || diagnostic) {
+      throw new Error(`${action} failed: ${diagnostic ?? (result.stderr.trim() || result.stdout.trim())}`);
+    }
     return result;
   }
 
-  async function preflight(): Promise<void> {
+  async function prepare(): Promise<string> {
     preflightPromise ??= (async () => {
       await mkdir(opts.root, { recursive: true, mode: 0o700 });
-      const state = await checked(["-x", "-c", "state -p", opts.root], "xfs project quota state");
+      const filesystem = xfsMountPointOf(opts.root, await readFile(mountinfoPath, "utf8"));
+      const state = await checked(["-x", "-c", "state -p", filesystem], "xfs project quota state");
       if (!/Accounting:\s+ON/.test(state.stdout) || !/Enforcement:\s+ON/.test(state.stdout)) {
-        throw new Error(`XFS project quota accounting and enforcement must both be ON for ${opts.root}`);
+        throw new Error(`XFS project quota accounting and enforcement must both be ON for ${filesystem}`);
       }
       await mkdir(projectsDir, { recursive: true, mode: 0o700 });
       await mkdir(scopesDir, { recursive: true, mode: 0o700 });
+      return filesystem;
     })().catch((error) => {
       preflightPromise = null;
       throw error;
     });
     return preflightPromise;
+  }
+
+  async function preflight(): Promise<void> {
+    await prepare();
   }
 
   function sourceOf(scope: string): string {
@@ -108,7 +133,7 @@ export function createXfsProjectQuota(opts: {
     preflight,
     sourceOf,
     async ensure(scope) {
-      await preflight();
+      const filesystem = await prepare();
       const source = sourceOf(scope);
       let coldStart = false;
       try {
@@ -120,15 +145,15 @@ export function createXfsProjectQuota(opts: {
       }
       const projectId = xfsProjectId(opts.namespace, scope);
       await claimProject(scope, projectId);
-      await checked(["-x", "-c", `project -s -p ${source} ${projectId}`, opts.root], "xfs project setup");
-      await checked(["-x", "-c", `limit -p bhard=${opts.limitMb}m ${projectId}`, opts.root], "xfs project limit");
+      await checked(["-x", "-c", `project -s -p ${source} ${projectId}`, filesystem], "xfs project setup");
+      await checked(["-x", "-c", `limit -p bhard=${opts.limitMb}m ${projectId}`, filesystem], "xfs project limit");
       return { source, coldStart };
     },
     async destroy(scope) {
-      await preflight();
+      const filesystem = await prepare();
       const projectId = xfsProjectId(opts.namespace, scope);
       await rm(sourceOf(scope), { recursive: true, force: true });
-      await checked(["-x", "-c", `limit -p bsoft=0 bhard=0 ${projectId}`, opts.root], "xfs project clear");
+      await checked(["-x", "-c", `limit -p bsoft=0 bhard=0 ${projectId}`, filesystem], "xfs project clear");
       await rm(join(projectsDir, String(projectId)), { force: true });
     },
   };

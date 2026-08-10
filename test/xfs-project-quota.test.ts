@@ -1,10 +1,29 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createXfsProjectQuota, xfsProjectId, xfsScopeHash } from "../src/sandbox/xfs-project-quota.ts";
+import {
+  createXfsProjectQuota,
+  xfsMountPointOf,
+  xfsProjectId,
+  xfsScopeHash,
+} from "../src/sandbox/xfs-project-quota.ts";
+
+function mountinfoFor(mountPoint: string, fstype = "xfs"): string {
+  return [
+    `24 30 0:22 / /proc rw,relatime - proc proc rw`,
+    `31 1 259:1 / / rw,relatime - ext4 /dev/vda1 rw`,
+    `48 31 253:0 / ${mountPoint} rw,relatime - ${fstype} /dev/vdb rw,prjquota`,
+  ].join("\n");
+}
+
+function mountinfoPathFor(mountPoint: string, fstype?: string): string {
+  const path = join(mkdtempSync(join(tmpdir(), "xfs-mountinfo-")), "mountinfo");
+  writeFileSync(path, mountinfoFor(mountPoint, fstype));
+  return path;
+}
 
 test("XFS project quota fails closed unless project accounting and enforcement are both active", async () => {
   const root = mkdtempSync(join(tmpdir(), "xfs-quota-off-"));
@@ -13,10 +32,97 @@ test("XFS project quota fails closed unless project accounting and enforcement a
     registryRoot: root,
     namespace: "acme",
     limitMb: 1024,
+    mountinfoPath: mountinfoPathFor(root),
     quotaExec: async () => ({ code: 0, stdout: "Accounting: ON\nEnforcement: OFF\n", stderr: "" }),
   });
 
   await assert.rejects(quota.preflight(), /project quota accounting and enforcement must both be ON/);
+});
+
+test("XFS project quota addresses the mount point, not the scope tree inside it", async () => {
+  const mountPoint = mkdtempSync(join(tmpdir(), "xfs-quota-mount-"));
+  const root = join(mountPoint, "qm", "sandbox-homes", "acme");
+  const calls: string[][] = [];
+  const quota = createXfsProjectQuota({
+    root,
+    registryRoot: join(mountPoint, "qm", "sandbox-homes"),
+    namespace: "acme",
+    limitMb: 64,
+    mountinfoPath: mountinfoPathFor(mountPoint),
+    quotaExec: async (args) => {
+      calls.push(args);
+      return { code: 0, stdout: args.includes("state -p") ? "Accounting: ON\nEnforcement: ON\n" : "", stderr: "" };
+    },
+  });
+
+  await quota.ensure("personal:U1");
+
+  assert.equal(calls.length > 0, true);
+  for (const args of calls) assert.equal(args.at(-1), mountPoint);
+});
+
+test("XFS project quota refuses a home root that is not on an XFS filesystem", async () => {
+  const root = mkdtempSync(join(tmpdir(), "xfs-quota-ext4-"));
+  const quota = createXfsProjectQuota({
+    root,
+    registryRoot: root,
+    namespace: "acme",
+    limitMb: 64,
+    mountinfoPath: mountinfoPathFor(root, "ext4"),
+    quotaExec: async () => ({ code: 0, stdout: "Accounting: ON\nEnforcement: ON\n", stderr: "" }),
+  });
+
+  await assert.rejects(quota.preflight(), /is not on an XFS filesystem/);
+});
+
+test("XFS project quota treats an xfs_quota diagnostic as failure even when it exits zero", async () => {
+  const root = mkdtempSync(join(tmpdir(), "xfs-quota-enxio-"));
+  const quota = createXfsProjectQuota({
+    root,
+    registryRoot: root,
+    namespace: "acme",
+    limitMb: 64,
+    mountinfoPath: mountinfoPathFor(root),
+    quotaExec: async () => ({
+      code: 0,
+      stdout: "",
+      stderr: `xfs_quota: cannot setup path for mount ${root}: No such device or address\n`,
+    }),
+  });
+
+  await assert.rejects(quota.preflight(), /cannot setup path for mount/);
+});
+
+test("XFS project quota reports a silent per-scope command failure instead of running without a limit", async () => {
+  const root = mkdtempSync(join(tmpdir(), "xfs-quota-limit-"));
+  const quota = createXfsProjectQuota({
+    root,
+    registryRoot: root,
+    namespace: "acme",
+    limitMb: 64,
+    mountinfoPath: mountinfoPathFor(root),
+    quotaExec: async (args) => ({
+      code: 0,
+      stdout: args.includes("state -p") ? "Accounting: ON\nEnforcement: ON\n" : "",
+      stderr: args.some((arg) => arg.startsWith("limit -p"))
+        ? "xfs_quota: cannot set limits: Operation not permitted\n"
+        : "",
+    }),
+  });
+
+  await assert.rejects(quota.ensure("personal:U1"), /xfs project limit failed: xfs_quota: cannot set limits/);
+});
+
+test("the XFS mount point of a path is the longest XFS mount containing it", () => {
+  const mountinfo = [
+    `31 1 259:1 / / rw,relatime - ext4 /dev/vda1 rw`,
+    `48 31 253:0 / /data rw,relatime - xfs /dev/vdb rw,prjquota`,
+    `52 48 253:1 / /data/nested rw,relatime - xfs /dev/vdc rw,prjquota`,
+  ].join("\n");
+
+  assert.equal(xfsMountPointOf("/data/qm/sandbox-homes/acme", mountinfo), "/data");
+  assert.equal(xfsMountPointOf("/data/nested/homes", mountinfo), "/data/nested");
+  assert.throws(() => xfsMountPointOf("/srv/homes", mountinfo), /is not on an XFS filesystem/);
 });
 
 test("XFS project quota creates a private scope tree and applies a hard byte limit", async () => {
@@ -27,6 +133,7 @@ test("XFS project quota creates a private scope tree and applies a hard byte lim
     registryRoot: root,
     namespace: "acme",
     limitMb: 2048,
+    mountinfoPath: mountinfoPathFor(root),
     quotaExec: async (args) => {
       calls.push(args);
       return {
@@ -59,6 +166,7 @@ test("destroying an XFS quota tree clears the limit and project allocation", asy
     registryRoot: root,
     namespace: "acme",
     limitMb: 512,
+    mountinfoPath: mountinfoPathFor(root),
     quotaExec: async (args) => {
       calls.push(args);
       return {
@@ -94,11 +202,13 @@ test("a shared XFS registry rejects a project ID collision across organizations"
     stdout: args.includes("state -p") ? "Accounting: ON\nEnforcement: ON\n" : "",
     stderr: "",
   });
+  const mountinfoPath = mountinfoPathFor(registryRoot);
   const acme = createXfsProjectQuota({
     root: join(registryRoot, "acme"),
     registryRoot,
     namespace: "acme",
     limitMb: 64,
+    mountinfoPath,
     quotaExec,
   });
   const globex = createXfsProjectQuota({
@@ -106,6 +216,7 @@ test("a shared XFS registry rejects a project ID collision across organizations"
     registryRoot,
     namespace: "globex",
     limitMb: 64,
+    mountinfoPath,
     quotaExec,
   });
   const acmeScope = "personal:A5957";

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { CliError, bold, die, dim, errMessage, header, note, ok, step, warn } from "../log.ts";
@@ -83,6 +83,32 @@ function runnerHomeBase(config: QmConfig): string {
 }
 
 const runnerOrgHome = (config: QmConfig): string => join(runnerHomeBase(config), config.orgId);
+
+export function xfsDeviceOf(path: string, mountinfo: string): string | undefined {
+  let match = "";
+  let device: string | undefined;
+  for (const line of mountinfo.split("\n")) {
+    const [fields, rest] = line.split(" - ");
+    if (!rest || !/^xfs\s/.test(rest)) continue;
+    const mountPoint = fields?.split(" ")[4];
+    const source = rest.split(" ")[1];
+    if (!mountPoint || !source?.startsWith("/dev/")) continue;
+    if (path !== mountPoint && !path.startsWith(mountPoint === "/" ? "/" : `${mountPoint}/`)) continue;
+    if (mountPoint.length >= match.length) {
+      match = mountPoint;
+      device = source;
+    }
+  }
+  return device;
+}
+
+function runnerXfsDevice(homeRoot: string): string | undefined {
+  try {
+    return xfsDeviceOf(homeRoot, readFileSync("/proc/self/mountinfo", "utf8"));
+  } catch {
+    return undefined;
+  }
+}
 
 function requireDocker(): void {
   if (!which("docker")) die("docker not found on PATH (the docker target needs a running Docker daemon).");
@@ -445,6 +471,8 @@ function infrastructureRunArgs(
     args.push("--cap-add", "SYS_ADMIN");
     args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
     args.push("-v", `${homeRoot}:${homeRoot}`);
+    const xfsDevice = runnerXfsDevice(homeRoot);
+    if (xfsDevice) args.push("--device", xfsDevice);
   } else args.push("--cap-add", "NET_ADMIN");
   const cleanup = pushEnvArgs(args, { ...env, ...secrets }, new Set(Object.keys(secrets)));
   args.push(image);
