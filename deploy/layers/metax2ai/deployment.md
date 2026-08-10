@@ -53,7 +53,8 @@
 此前 `docker` 目标在契约层面强制要求一个 Fly agent-computer app，可声明的沙箱后端只有
 `sprites`（Fly）与 `aws`——core 镜像不含 Docker 客户端，docker 后端也不挂载宿主机
 Docker socket，因此容器化的 core 够不到 `local` 沙箱，而生产环境下 core 必须显式声明
-`SANDBOX_BACKEND`。配置里因此故意不写 `sandbox`。
+`SANDBOX_BACKEND`。配置现在已声明 `sandbox.backend=runner`；首次部署前仍需发布镜像，让
+CLI 把 digest 钉死的 `sandbox.image` 写回配置。未完成这一步时，`qm up` 会拒绝启动。
 
 M3 的 **On-prem Sandbox Runner** 补上了缺的那一半：一个独占容器运行时的独立服务，core
 通过带鉴权的内网 API 调用它，因此 core 依然不持有宿主机 Docker Socket。`docker` 目标
@@ -71,8 +72,8 @@ M3 的 **On-prem Sandbox Runner** 补上了缺的那一半：一个独占容器�
 一个没有 agent 的镜像，Runner 起得来，但每个 scope 的沙箱都会卡在「agent 30 秒内没有
 就绪」。
 
-合入后本 layer 即可 `qm up`，但**先读上面的「宿主机准备」**：地址池与 XFS 两项都要在
-第一次部署前配好。
+合入后先执行 `qm sandbox publish --app <registry>/qm-sandbox`，再运行 `qm up`；但**先读
+下面的「宿主机准备」**：地址池与 XFS 两项都要在第一次部署前配好。
 
 ## 宿主机准备（部署前必做，顺序不能颠倒）
 
@@ -108,8 +109,9 @@ xfs_quota -x -c 'state -p' /data     # Accounting 与 Enforcement 都应为 ON
 然后把 Docker 的数据根目录和沙箱家目录都放到这块盘上：
 
 - `/etc/docker/daemon.json` 里 `"data-root": "/data/docker"`
-- `RUNNER_SANDBOX_HOME_ROOT=/data/qm/sandbox-homes`（默认值 `/var/lib/qm/sandbox-homes`
-  在系统盘上，系统盘通常是 ext4，必须改）
+- `qm.config.jsonc` 的 `env.core.RUNNER_SANDBOX_HOME_ROOT` 必须为
+  `/data/qm/sandbox-homes`（默认值 `/var/lib/qm/sandbox-homes` 在系统盘上，系统盘通常是 ext4，
+  必须改；Runner 会在该根目录下自动追加 `orgId`，不同部署不共用 scope 目录）
 
 ### 2. 扩大 Docker 的网络地址池
 

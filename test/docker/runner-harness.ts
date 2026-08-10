@@ -16,6 +16,7 @@ import { createGuestAgent } from "../../src/sandbox/guest-agent-client.ts";
 import { createRunnerSandbox } from "../../src/sandbox/runner-sandbox.ts";
 import type { Sandbox } from "../../src/sandbox/sandbox.ts";
 import { createLocalWorkspaceStore } from "../../src/workspace/workspace-store.ts";
+import { createKeyedQueue } from "../../src/util/async.ts";
 
 export const docker = spawnDockerExec("docker");
 export const sandboxImage = "qm-sandbox-local:latest";
@@ -26,6 +27,11 @@ export async function unavailableReason(): Promise<string | null> {
   if ((await docker(["version"], 15_000)).code !== 0) return "Docker daemon unavailable";
   if ((await docker(["image", "inspect", sandboxImage], 15_000)).code !== 0) return `${sandboxImage} unavailable`;
   return null;
+}
+
+export function skipUnavailable(t: TestContext, reason: string): void {
+  if (process.env.RUNNER_DOCKER_REQUIRED === "1") throw new Error(reason);
+  t.skip(reason);
 }
 
 export async function removeDockerResources(namePrefix: string): Promise<void> {
@@ -60,6 +66,7 @@ export async function startRunner(t: TestContext, label: string): Promise<Runner
       cpus: 0.5,
       memoryMb: 256,
       pidsLimit: 64,
+      trackHolds: false,
       repoRoot: process.cwd(),
     }),
     agent,
@@ -69,6 +76,7 @@ export async function startRunner(t: TestContext, label: string): Promise<Runner
     imageRef: sandboxImage,
     orgId: "runner-hardening-test",
     auditLog: createAuditLog(),
+    boxQueue: createKeyedQueue<string>(),
   });
 
   t.after(async () => {

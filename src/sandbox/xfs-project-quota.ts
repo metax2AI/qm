@@ -18,12 +18,16 @@ export interface XfsProjectQuota {
   sourceOf(scope: string): string;
 }
 
-export function xfsScopeHash(scope: string): string {
-  return createHash("sha256").update(scope).digest("hex");
+function quotaKey(namespace: string, scope: string): string {
+  return `${namespace}\0${scope}`;
 }
 
-export function xfsProjectId(scope: string): number {
-  const raw = createHash("sha256").update(scope).digest().readUInt32BE(0);
+export function xfsScopeHash(namespace: string, scope: string): string {
+  return createHash("sha256").update(quotaKey(namespace, scope)).digest("hex");
+}
+
+export function xfsProjectId(namespace: string, scope: string): number {
+  const raw = createHash("sha256").update(quotaKey(namespace, scope)).digest().readUInt32BE(0);
   return 10_000 + (raw % (2_147_483_647 - 10_000));
 }
 
@@ -42,16 +46,22 @@ function spawnQuotaExec(binary: string): QuotaExec {
 
 export function createXfsProjectQuota(opts: {
   root: string;
+  registryRoot: string;
+  namespace: string;
   limitMb: number;
   quotaExec?: QuotaExec;
   xfsQuotaBin?: string;
 }): XfsProjectQuota {
   if (!/^\/[A-Za-z0-9._/-]+$/.test(opts.root)) throw new Error("RUNNER_SANDBOX_HOME_ROOT must be a safe absolute path");
+  if (!/^\/[A-Za-z0-9._/-]+$/.test(opts.registryRoot)) {
+    throw new Error("XFS project registry root must be a safe absolute path");
+  }
+  if (!opts.namespace.trim()) throw new Error("XFS project quota namespace must be non-empty");
   if (!Number.isInteger(opts.limitMb) || opts.limitMb <= 0) {
     throw new Error("RUNNER_SANDBOX_HOME_MB must be a positive integer");
   }
   const quotaExec = opts.quotaExec ?? spawnQuotaExec(opts.xfsQuotaBin ?? "xfs_quota");
-  const projectsDir = join(opts.root, ".projects");
+  const projectsDir = join(opts.registryRoot, ".projects");
   const scopesDir = join(opts.root, "scopes");
   let preflightPromise: Promise<void> | null = null;
 
@@ -78,12 +88,12 @@ export function createXfsProjectQuota(opts: {
   }
 
   function sourceOf(scope: string): string {
-    return join(scopesDir, xfsScopeHash(scope));
+    return join(scopesDir, xfsScopeHash(opts.namespace, scope));
   }
 
   async function claimProject(scope: string, projectId: number): Promise<void> {
     const allocation = join(projectsDir, String(projectId));
-    const hash = xfsScopeHash(scope);
+    const hash = xfsScopeHash(opts.namespace, scope);
     try {
       await writeFile(allocation, hash, { flag: "wx", mode: 0o600 });
     } catch (error) {
@@ -108,7 +118,7 @@ export function createXfsProjectQuota(opts: {
         coldStart = true;
         await mkdir(source, { recursive: true, mode: 0o700 });
       }
-      const projectId = xfsProjectId(scope);
+      const projectId = xfsProjectId(opts.namespace, scope);
       await claimProject(scope, projectId);
       await checked(["-x", "-c", `project -s -p ${source} ${projectId}`, opts.root], "xfs project setup");
       await checked(["-x", "-c", `limit -p bhard=${opts.limitMb}m ${projectId}`, opts.root], "xfs project limit");
@@ -116,7 +126,7 @@ export function createXfsProjectQuota(opts: {
     },
     async destroy(scope) {
       await preflight();
-      const projectId = xfsProjectId(scope);
+      const projectId = xfsProjectId(opts.namespace, scope);
       await rm(sourceOf(scope), { recursive: true, force: true });
       await checked(["-x", "-c", `limit -p bsoft=0 bhard=0 ${projectId}`, opts.root], "xfs project clear");
       await rm(join(projectsDir, String(projectId)), { force: true });

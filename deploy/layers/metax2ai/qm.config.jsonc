@@ -69,7 +69,10 @@
   // AUTH_EMAIL_TRANSPORT must be stated: its own default is "resend", which
   // would route sign-in mail through a service outside mainland China.
   "env": {
-    "core": { "HARNESS": "pi" },
+    "core": {
+      "HARNESS": "pi",
+      "RUNNER_SANDBOX_HOME_ROOT": "/data/qm/sandbox-homes",
+    },
     "web-ui": { "WEB_UI_DEFAULT_LOCALE": "zh-Hans" },
     "portal": { "PORTAL_DEFAULT_LOCALE": "zh-Hans" },
     "auth": {
@@ -80,20 +83,5 @@
     },
   },
 
-  // "sandbox" is deliberately absent, and its absence is the one thing standing
-  // between this config and a deployable single machine.
-  //
-  // The scaffold writes { "app": "<org>-sandboxes" }, which resolves to
-  // FLY_SANDBOX_APP_NAME — Fly.io, which this product may not depend on. The
-  // only other declarable backend is "aws". There is no "local" here: the core
-  // image carries no Docker client and the docker target mounts no Docker
-  // socket, so a local sandbox cannot be reached from a containerized core, and
-  // core is required to declare SANDBOX_BACKEND explicitly in production.
-  //
-  // The on-prem Runner milestone is what closes this: a separate service owning
-  // the container runtime, reached over an authenticated private-network API,
-  // so core still never holds the host Docker socket. Until then, run agent
-  // turns through the /dev-instance workflow, where core runs on the host and
-  // SANDBOX_BACKEND=local works. `qm up` against this config will start the
-  // control plane but cannot execute an agent turn.
+  "sandbox": { "backend": "runner" },
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dockerDown, dockerLogs, dockerStatus, dockerUp } from "../src/backends/docker.ts";
@@ -63,6 +63,7 @@ test("docker up wires the isolated runner and egress proxy before core", { timeo
   const logs = console.log;
   const warnings = console.warn;
   try {
+    const homeRoot = join(dir, "sandbox-homes");
     writeFileSync(
       join(dir, CONFIG_FILENAME),
       JSON.stringify({
@@ -72,6 +73,7 @@ test("docker up wires the isolated runner and egress proxy before core", { timeo
         target: "docker",
         services: ["core"],
         sandbox: { backend: "runner", image: SANDBOX_IMAGE },
+        env: { core: { RUNNER_SANDBOX_HOME_ROOT: homeRoot } },
       }),
     );
     writeFileSync(
@@ -115,10 +117,10 @@ test("docker up wires the isolated runner and egress proxy before core", { timeo
     assert.ok(proxy.includes("NET_ADMIN"));
     assert.ok(runner.includes("/var/run/docker.sock:/var/run/docker.sock"));
     assert.ok(runner.includes("SYS_ADMIN"));
-    assert.ok(runner.includes("/var/lib/qm/sandbox-homes:/var/lib/qm/sandbox-homes"));
+    assert.ok(runner.includes(`${homeRoot}:${homeRoot}`));
     assert.ok(!core.some((arg) => arg.includes("docker.sock")));
     assert.ok(runner.includes(`RUNNER_SANDBOX_IMAGE=${SANDBOX_IMAGE}`));
-    assert.ok(runner.includes("RUNNER_SANDBOX_HOME_ROOT=/var/lib/qm/sandbox-homes"));
+    assert.ok(runner.includes(`RUNNER_SANDBOX_HOME_ROOT=${homeRoot}`));
     assert.ok(runner.includes("RUNNER_SELF_CONTAINER=qm-acme-runner"));
     assert.ok(runner.includes("RUNNER_SERVICE_NETWORK=qm-acme"));
     assert.ok(runner.includes("RUNNER_EGRESS_PROXY_URL=http://qm-acme-egress-proxy:48080"));
@@ -146,6 +148,45 @@ test("docker up wires the isolated runner and egress proxy before core", { timeo
     process.env.PATH = priorPath;
     if (priorDatabase === undefined) delete process.env.DATABASE_URL;
     else process.env.DATABASE_URL = priorDatabase;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("docker purge removes only this organization's configured runner homes", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "qm-docker-runner-purge-"));
+  const priorPath = process.env.PATH;
+  const logs = console.log;
+  const warnings = console.warn;
+  try {
+    const homeRoot = join(dir, "sandbox-homes");
+    mkdirSync(join(homeRoot, "acme"), { recursive: true });
+    mkdirSync(join(homeRoot, "globex"), { recursive: true });
+    writeFileSync(
+      join(dir, CONFIG_FILENAME),
+      JSON.stringify({
+        contract: 1,
+        orgId: "acme",
+        publicUrl: "http://localhost:8080",
+        target: "docker",
+        services: ["core"],
+        sandbox: { backend: "runner", image: SANDBOX_IMAGE },
+        env: { core: { RUNNER_SANDBOX_HOME_ROOT: homeRoot } },
+      }),
+    );
+    fakeDocker(dir);
+    process.env.PATH = `${dir}:${priorPath}`;
+    console.log = (): void => {};
+    console.warn = console.log;
+
+    const config = loadConfigAt(join(dir, CONFIG_FILENAME)).config;
+    await dockerDown(config, { purge: true });
+
+    assert.equal(existsSync(join(homeRoot, "acme")), false);
+    assert.equal(existsSync(join(homeRoot, "globex")), true);
+  } finally {
+    console.log = logs;
+    console.warn = warnings;
+    process.env.PATH = priorPath;
     rmSync(dir, { recursive: true, force: true });
   }
 });

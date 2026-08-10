@@ -74,6 +74,16 @@ const egressProxyName = (ctx: DockerCtx): string => cname(ctx, "egress-proxy");
 const runnerUrl = (ctx: DockerCtx): string => `http://${runnerName(ctx)}:${RUNNER_PORT}`;
 const egressProxyUrl = (ctx: DockerCtx): string => `http://${egressProxyName(ctx)}:${EGRESS_PROXY_PORT}`;
 
+function runnerHomeBase(config: QmConfig): string {
+  const root = config.env.core?.RUNNER_SANDBOX_HOME_ROOT ?? RUNNER_HOME_ROOT;
+  if (!/^\/[A-Za-z0-9._/-]+$/.test(root) || resolve(root) !== root) {
+    throw new CliError("RUNNER_SANDBOX_HOME_ROOT must be a safe absolute path");
+  }
+  return root;
+}
+
+const runnerOrgHome = (config: QmConfig): string => join(runnerHomeBase(config), config.orgId);
+
 function requireDocker(): void {
   if (!which("docker")) die("docker not found on PATH (the docker target needs a running Docker daemon).");
   try {
@@ -399,7 +409,7 @@ function runnerEnv(ctx: DockerCtx, sandboxImage: string): Record<string, string>
     RUNNER_SELF_CONTAINER: runnerName(ctx),
     RUNNER_SERVICE_NETWORK: ctx.network,
     RUNNER_SANDBOX_IMAGE: sandboxImage,
-    RUNNER_SANDBOX_HOME_ROOT: RUNNER_HOME_ROOT,
+    RUNNER_SANDBOX_HOME_ROOT: runnerHomeBase(ctx.config),
     RUNNER_EGRESS_PROXY_URL: egressProxyUrl(ctx),
   };
   for (const key of RUNNER_RESOURCE_ENV) {
@@ -431,9 +441,10 @@ function infrastructureRunArgs(
     "no",
   ];
   if (name === "runner") {
+    const homeRoot = runnerHomeBase(ctx.config);
     args.push("--cap-add", "SYS_ADMIN");
     args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
-    args.push("-v", `${RUNNER_HOME_ROOT}:${RUNNER_HOME_ROOT}`);
+    args.push("-v", `${homeRoot}:${homeRoot}`);
   } else args.push("--cap-add", "NET_ADMIN");
   const cleanup = pushEnvArgs(args, { ...env, ...secrets }, new Set(Object.keys(secrets)));
   args.push(image);
@@ -909,9 +920,10 @@ export async function dockerDown(config: QmConfig, opts: { purge?: boolean } = {
     warn("purging the network and Postgres volume (durable data will be lost)");
     docker(["network", "rm", prefix], /not found|No such/);
     docker(["volume", "rm", `${prefix}-pgdata`, `${prefix}-coredata`], /No such volume|not found|in use/);
-    if (runnerEnabled(config) && existsSync(RUNNER_HOME_ROOT)) {
-      warn(`purging sandbox homes under ${RUNNER_HOME_ROOT}`);
-      rmSync(RUNNER_HOME_ROOT, { recursive: true, force: true });
+    const homeRoot = runnerOrgHome(config);
+    if (runnerEnabled(config) && existsSync(homeRoot)) {
+      warn(`purging sandbox homes under ${homeRoot}`);
+      rmSync(homeRoot, { recursive: true, force: true });
     }
   }
   ok("down.");

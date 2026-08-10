@@ -5,14 +5,14 @@ import { EGRESS_PROXY_AUD, mintCapabilityToken } from "../../src/auth/capability
 import { probeRootfsQuota } from "../../src/sandbox/docker-lifecycle.ts";
 import { authenticatedProxyEnv } from "../../src/sandbox/sandbox-env.ts";
 import { scopeId } from "../../src/types.ts";
-import { docker, sandboxImage } from "./runner-harness.ts";
+import { docker, sandboxImage, skipUnavailable } from "./runner-harness.ts";
 
 const proxyImage = "qm-egress-proxy:local";
 
 test("runner sandbox networks deny direct egress and isolate scopes while preserving the proxy path", async (t) => {
-  if ((await docker(["version"], 15_000)).code !== 0) return t.skip("Docker daemon unavailable");
+  if ((await docker(["version"], 15_000)).code !== 0) return skipUnavailable(t, "Docker daemon unavailable");
   if ((await docker(["image", "inspect", sandboxImage], 15_000)).code !== 0)
-    return t.skip(`${sandboxImage} unavailable`);
+    return skipUnavailable(t, `${sandboxImage} unavailable`);
 
   const suffix = randomUUID().slice(0, 8);
   const netA = `qmr-test-a-${suffix}`;
@@ -22,6 +22,7 @@ test("runner sandbox networks deny direct egress and isolate scopes while preser
   const proxy = `qmr-test-proxy-${suffix}`;
   const containers = [boxA, boxB, proxy];
   const networks = [netA, netB];
+  const rootfsQuota = await probeRootfsQuota(docker, sandboxImage, 64);
 
   try {
     for (const network of networks) {
@@ -56,8 +57,7 @@ test("runner sandbox networks deny direct egress and isolate scopes while preser
           "256m",
           "--pids-limit",
           "64",
-          "--storage-opt",
-          "size=64m",
+          ...(rootfsQuota.enforced ? ["--storage-opt", "size=64m"] : []),
           "--cap-drop",
           "ALL",
           "--security-opt",
@@ -112,17 +112,24 @@ test("runner sandbox networks deny direct egress and isolate scopes while preser
     );
     assert.notEqual(crossScope.code, 0);
 
-    const limits = await docker(
-      [
-        "inspect",
-        "-f",
-        '{{.HostConfig.NanoCpus}} {{.HostConfig.Memory}} {{.HostConfig.MemorySwap}} {{.HostConfig.PidsLimit}} {{index .HostConfig.StorageOpt "size"}} {{json .HostConfig.CapDrop}} {{json .HostConfig.SecurityOpt}}',
-        boxA,
-      ],
-      15_000,
-    );
+    const limits = await docker(["inspect", "-f", "{{json .HostConfig}}", boxA], 15_000);
     assert.equal(limits.code, 0, limits.stderr);
-    assert.equal(limits.stdout.trim(), '500000000 268435456 268435456 64 64m ["ALL"] ["no-new-privileges:true"]');
+    const host = JSON.parse(limits.stdout) as {
+      NanoCpus: number;
+      Memory: number;
+      MemorySwap: number;
+      PidsLimit: number;
+      StorageOpt?: Record<string, string>;
+      CapDrop: string[];
+      SecurityOpt: string[];
+    };
+    assert.equal(host.NanoCpus, 500_000_000);
+    assert.equal(host.Memory, 268_435_456);
+    assert.equal(host.MemorySwap, 268_435_456);
+    assert.equal(host.PidsLimit, 64);
+    assert.equal(host.StorageOpt?.size, rootfsQuota.enforced ? "64m" : undefined);
+    assert.deepEqual(host.CapDrop, ["ALL"]);
+    assert.deepEqual(host.SecurityOpt, ["no-new-privileges:true"]);
   } finally {
     for (const container of containers) await docker(["rm", "-f", container], 15_000);
     for (const network of networks) await docker(["network", "rm", network], 15_000);
@@ -130,10 +137,11 @@ test("runner sandbox networks deny direct egress and isolate scopes while preser
 });
 
 test("runner egress is forced through the domain policy proxy", async (t) => {
-  if ((await docker(["version"], 15_000)).code !== 0) return t.skip("Docker daemon unavailable");
+  if ((await docker(["version"], 15_000)).code !== 0) return skipUnavailable(t, "Docker daemon unavailable");
   if ((await docker(["image", "inspect", sandboxImage], 15_000)).code !== 0)
-    return t.skip(`${sandboxImage} unavailable`);
-  if ((await docker(["image", "inspect", proxyImage], 15_000)).code !== 0) return t.skip(`${proxyImage} unavailable`);
+    return skipUnavailable(t, `${sandboxImage} unavailable`);
+  if ((await docker(["image", "inspect", proxyImage], 15_000)).code !== 0)
+    return skipUnavailable(t, `${proxyImage} unavailable`);
 
   const suffix = randomUUID().slice(0, 8);
   const serviceNetwork = `qmr-test-service-${suffix}`;
@@ -242,12 +250,17 @@ test("runner egress is forced through the domain policy proxy", async (t) => {
 });
 
 test("the rootfs quota probe's verdict matches what the storage driver actually enforces", async (t) => {
-  if ((await docker(["version"], 15_000)).code !== 0) return t.skip("Docker daemon unavailable");
+  if ((await docker(["version"], 15_000)).code !== 0) return skipUnavailable(t, "Docker daemon unavailable");
   if ((await docker(["image", "inspect", sandboxImage], 15_000)).code !== 0)
-    return t.skip(`${sandboxImage} unavailable`);
+    return skipUnavailable(t, `${sandboxImage} unavailable`);
 
   const capMb = 64;
   const verdict = await probeRootfsQuota(docker, sandboxImage, capMb);
+
+  if (verdict.detail) {
+    assert.equal(verdict.enforced, false);
+    return t.diagnostic(`driver rejected --storage-opt size: ${verdict.detail}`);
+  }
 
   const write = await docker(
     [

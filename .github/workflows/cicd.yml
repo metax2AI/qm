@@ -53,12 +53,124 @@ jobs:
   core:
     name: Core
     runs-on: ubuntu-latest
+    if: ${{ always() }}
     needs:
       - core-typecheck
       - core-tests
+      - runner-docker
     steps:
       - name: Core checks passed
-        run: echo "Core typecheck and root test shards passed."
+        run: |
+          test "${{ needs.core-typecheck.result }}" = success
+          test "${{ needs.core-tests.result }}" = success
+          test "${{ needs.runner-docker.result }}" = success
+
+  runner-docker:
+    name: Runner Docker tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.14-bookworm@sha256:64154d0babcb1741988719e703419af0382b19953706149f9872fbd0f438efa8
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Build test and production images
+        run: |
+          npm run sandbox:local:build
+          docker build -f deploy/egress-proxy/Dockerfile -t qm-egress-proxy:local .
+          docker build -f deploy/runner/Dockerfile -t qm-runner:ci .
+          docker run --rm qm-runner:ci node --check src/runner-main.ts
+      - name: Real Docker isolation and restart tests
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/qm
+          RUNNER_DOCKER_REQUIRED: "1"
+        run: npm run test:runner:docker
+      - name: Boot the production Runner image on XFS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xfsprogs
+          truncate -s 2G /tmp/qm-runner-ci.xfs
+          mkfs.xfs -f /tmp/qm-runner-ci.xfs
+          sudo mkdir -p /mnt/qm-runner-ci
+          sudo mount -o loop,pquota /tmp/qm-runner-ci.xfs /mnt/qm-runner-ci
+          docker run -d --name qm-ci-registry -p 5000:5000 registry:2.8.3@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:5000/v2/ && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:5000/v2/
+          docker tag qm-sandbox-local:latest localhost:5000/qm-sandbox:ci
+          docker push localhost:5000/qm-sandbox:ci
+          sandbox_ref=$(docker image inspect localhost:5000/qm-sandbox:ci --format '{{index .RepoDigests 0}}')
+          docker network create qm-runner-ci
+          docker run -d --name qm-runner-ci \
+            --network qm-runner-ci \
+            --add-host host.docker.internal:host-gateway \
+            -p 127.0.0.1:48090:48090 \
+            --cap-add SYS_ADMIN \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v /mnt/qm-runner-ci:/mnt/qm-runner-ci \
+            -e ORG_ID=ci \
+            -e DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5432/qm \
+            -e SANDBOX_RUNNER_SECRET=ci-runner-signing-secret-that-is-long-enough \
+            -e RUNNER_SELF_CONTAINER=qm-runner-ci \
+            -e RUNNER_SERVICE_NETWORK=qm-runner-ci \
+            -e RUNNER_SANDBOX_HOME_ROOT=/mnt/qm-runner-ci \
+            -e RUNNER_SANDBOX_HOME_MB=64 \
+            -e RUNNER_SANDBOX_IMAGE="$sandbox_ref" \
+            qm-runner:ci
+          runner_ready=false
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:48090/health; then
+              runner_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$runner_ready" != true ]; then
+            docker logs qm-runner-ci
+            exit 1
+          fi
+          node --input-type=module -e '
+            import { mkdtempSync } from "node:fs";
+            import { tmpdir } from "node:os";
+            import { join } from "node:path";
+            import { createRunnerSandbox } from "./src/sandbox/runner-sandbox.ts";
+            import { createLocalWorkspaceStore } from "./src/workspace/workspace-store.ts";
+            const sandbox = createRunnerSandbox(createLocalWorkspaceStore(mkdtempSync(join(tmpdir(), "qm-runner-xfs-"))), {
+              baseUrl: "http://127.0.0.1:48090",
+              signingSecret: "ci-runner-signing-secret-that-is-long-enough",
+            });
+            const handle = await sandbox.provision([{ scopeId: "personal:ci-xfs", mountPath: "", mode: "rw" }]);
+            await sandbox.writeFile(handle, "quota-smoke.txt", "xfs lifecycle");
+            const limit = await sandbox.run(handle, "dd if=/dev/zero of=quota-limit bs=1M count=80 2>/dev/null");
+            if (limit.code === 0) throw new Error("XFS home quota was not enforced");
+            await sandbox.teardown(handle, { destroy: true });
+          '
+          test -z "$(find /mnt/qm-runner-ci/ci/scopes -mindepth 1 -maxdepth 1 -type d -print -quit)"
+          test -z "$(find /mnt/qm-runner-ci/ci/.projects -mindepth 1 -maxdepth 1 -type f -print -quit)"
+      - name: Clean up Runner smoke test
+        if: always()
+        run: |
+          docker rm -f qm-runner-ci qm-ci-registry 2>/dev/null || true
+          docker network rm qm-runner-ci 2>/dev/null || true
+          sudo umount /mnt/qm-runner-ci 2>/dev/null || true
 
   cli:
     name: CLI

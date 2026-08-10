@@ -78,18 +78,34 @@ export function createRunnerSandbox(workspace: WorkspaceStore, opts: RunnerSandb
     return out;
   }
 
+  function requiredAcquisitionId(value: string | undefined): string {
+    if (!value) throw new Error("runner sandbox handle is missing its acquisition ID");
+    return value;
+  }
+
   const lifecycle: BoxLifecycle = {
     async ensureScope(scopeId: string): Promise<BoxRef> {
-      const r = await required<RunnerEnsureResponse>(runnerEnsurePath(), { scopeId }, CONTROL_TIMEOUT_MS);
-      return { id: r.id, coldStart: !!r.coldStart };
+      const acquisitionId = randomUUID();
+      const r = await required<RunnerEnsureResponse>(
+        runnerEnsurePath(),
+        { scopeId, acquisitionId },
+        CONTROL_TIMEOUT_MS,
+      );
+      return { id: r.id, coldStart: !!r.coldStart, acquisitionId: r.acquisitionId };
     },
     async ensureScratch(key: string): Promise<BoxRef> {
-      const r = await required<RunnerEnsureResponse>(runnerEnsurePath(), { scratchKey: key }, CONTROL_TIMEOUT_MS);
-      return { id: r.id, coldStart: !!r.coldStart };
+      const acquisitionId = randomUUID();
+      const r = await required<RunnerEnsureResponse>(
+        runnerEnsurePath(),
+        { scratchKey: key, acquisitionId },
+        CONTROL_TIMEOUT_MS,
+      );
+      return { id: r.id, coldStart: !!r.coldStart, acquisitionId: r.acquisitionId };
     },
     async ensureRunning(): Promise<void> {},
     async teardown(ref, tdOpts?: TeardownOptions): Promise<void> {
       const body: RunnerTeardownRequest = {
+        acquisitionId: ref.acquisitionId ?? "",
         ...(ref.scratch ? { scratch: true } : {}),
         ...(tdOpts?.keepWarm ? { keepWarm: true } : {}),
         ...(tdOpts?.destroy ? { destroy: true } : {}),
@@ -99,23 +115,31 @@ export function createRunnerSandbox(workspace: WorkspaceStore, opts: RunnerSandb
   };
 
   const io: BoxIo = {
-    async exec(id, command, timeoutSec, signal): Promise<ExecResult> {
+    async exec(id, command, timeoutSec, signal, acquisitionId): Promise<ExecResult> {
       const r = await required<RunnerExecResponse>(
         runnerBoxPath(id, "exec"),
-        { cmd: command, timeoutSec },
+        { cmd: command, timeoutSec, acquisitionId: requiredAcquisitionId(acquisitionId) },
         timeoutSec * 1000 + EXEC_OVERHEAD_MS,
         signal,
       );
       return { stdout: r.stdout ?? "", stderr: r.stderr ?? "", code: r.code, timedOut: !!r.timedOut };
     },
-    async readAbs(id, absPath): Promise<Uint8Array | null> {
-      const r = await call<RunnerReadResponse>(runnerBoxPath(id, "read"), { path: absPath }, GUEST_TRANSFER_TIMEOUT_MS);
+    async readAbs(id, absPath, acquisitionId): Promise<Uint8Array | null> {
+      const r = await call<RunnerReadResponse>(
+        runnerBoxPath(id, "read"),
+        { path: absPath, acquisitionId: requiredAcquisitionId(acquisitionId) },
+        GUEST_TRANSFER_TIMEOUT_MS,
+      );
       return r === null ? null : Buffer.from(r.b64, "base64");
     },
-    async writeAbs(id, absPath, data): Promise<void> {
+    async writeAbs(id, absPath, data, acquisitionId): Promise<void> {
       await required(
         runnerBoxPath(id, "write"),
-        { path: absPath, b64: Buffer.from(data).toString("base64") },
+        {
+          path: absPath,
+          b64: Buffer.from(data).toString("base64"),
+          acquisitionId: requiredAcquisitionId(acquisitionId),
+        },
         GUEST_TRANSFER_TIMEOUT_MS,
       );
     },

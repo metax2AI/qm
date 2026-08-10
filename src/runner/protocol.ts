@@ -2,6 +2,7 @@ export const RUNNER_PATH_PREFIX = "/v1/sandboxes";
 export const RUNNER_HEALTH_PATH = "/health";
 
 export interface RunnerEnsureRequest {
+  acquisitionId: string;
   scopeId?: string;
   scratchKey?: string;
 }
@@ -9,9 +10,11 @@ export interface RunnerEnsureRequest {
 export interface RunnerEnsureResponse {
   id: string;
   coldStart: boolean;
+  acquisitionId: string;
 }
 
 export interface RunnerExecRequest {
+  acquisitionId: string;
   cmd: string;
   timeoutSec: number;
 }
@@ -24,6 +27,7 @@ export interface RunnerExecResponse {
 }
 
 export interface RunnerReadRequest {
+  acquisitionId: string;
   path: string;
 }
 
@@ -32,11 +36,13 @@ export interface RunnerReadResponse {
 }
 
 export interface RunnerWriteRequest {
+  acquisitionId: string;
   path: string;
   b64: string;
 }
 
 export interface RunnerTeardownRequest {
+  acquisitionId: string;
   keepWarm?: boolean;
   destroy?: boolean;
   scratch?: boolean;

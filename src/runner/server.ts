@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { canonicalPayload, PayloadTooLargeError, readRawBody, sendJson, verifyOrReject } from "../api/http.ts";
 import { createSourceAuth, type SourceAuth } from "../auth/source-auth.ts";
@@ -13,12 +14,13 @@ import type {
   RunnerTeardownRequest,
   RunnerWriteRequest,
 } from "./protocol.ts";
-import type { RunnerBoxRecord } from "./store.ts";
+import { RUNNER_HOLD_LEASE_MS, runnerLiveHolds, type RunnerBoxRecord } from "./store.ts";
 import type { AuditLog } from "../audit/audit-log.ts";
-import { recycleRunnerBox } from "./recovery.ts";
+import { recycleRunnerBox, type RunnerBoxQueue } from "./recovery.ts";
 
 const MAX_RUNNER_BODY_BYTES = 256 * 1024 * 1024;
 const BOX_NAME = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+const ACQUISITION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface RunnerServerOptions {
   lifecycle: DockerLifecycle;
@@ -32,6 +34,7 @@ export interface RunnerServerOptions {
   maxExecTimeoutSec?: number;
   now?: () => number;
   auth?: SourceAuth;
+  boxQueue: RunnerBoxQueue;
 }
 
 function assertBoxName(id: string, namePrefix: string): void {
@@ -56,9 +59,28 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
   const now = opts.now ?? (() => Date.now());
   const maxExecTimeoutSec = opts.maxExecTimeoutSec ?? 600;
   const auth = opts.auth ?? createSourceAuth({ signingSecret, now });
+  const boxQueue = opts.boxQueue;
 
-  async function touch(id: string): Promise<void> {
-    await store.merge(id, { lastActivityMs: now(), parked: false });
+  async function updateRecord(
+    id: string,
+    update: (record: RunnerBoxRecord) => RunnerBoxRecord,
+  ): Promise<RunnerBoxRecord | null> {
+    if (!store.update) throw new Error("runner store must support atomic updates");
+    return store.update(id, update);
+  }
+
+  async function touch(id: string, acquisitionId: string): Promise<RunnerBoxRecord | null> {
+    if (!ACQUISITION_ID.test(acquisitionId)) throw new BadRequestError("need acquisitionId");
+    const at = now();
+    return updateRecord(id, (record) => {
+      if ((record.holds?.[acquisitionId] ?? 0) <= at) throw new BadRequestError("expired acquisitionId");
+      return {
+        ...record,
+        lastActivityMs: at,
+        parked: false,
+        holds: { ...record.holds, [acquisitionId]: at + RUNNER_HOLD_LEASE_MS },
+      };
+    });
   }
 
   async function liveEndpoint(id: string): Promise<string> {
@@ -67,17 +89,24 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
     return lifecycle.endpointOf(id);
   }
 
-  async function viaAgent<T>(id: string, call: (endpoint: string) => Promise<T>): Promise<T> {
+  async function viaAgent<T>(id: string, acquisitionId: string, call: (endpoint: string) => Promise<T>): Promise<T> {
+    const generation = await boxQueue(id, async () => {
+      assertBoxName(id, namePrefix);
+      const current = await touch(id, acquisitionId);
+      if (!current) throw new BadRequestError(`unknown sandbox id: ${id}`);
+      return current.generation;
+    });
     try {
       return await call(await liveEndpoint(id));
     } catch (error) {
       if (error instanceof GuestAgentStatusError || error instanceof BadRequestError) throw error;
-      const record = await store.get(id);
-      if (record) {
+      await boxQueue(id, async () => {
+        const record = await store.get(id);
+        if (!record || record.generation !== generation || record.destroyPending || record.parked) return;
         await recycleRunnerBox(id, record, "agent_unreachable", { lifecycle, store, auditLog, now }).catch((e) =>
           console.warn(`[runner] could not recycle ${id} after an unreachable agent: ${errMessage(e)}`),
         );
-      }
+      });
       throw error;
     }
   }
@@ -86,20 +115,44 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
     const scopeId = body.scopeId?.trim();
     const scratchKey = body.scratchKey?.trim();
     if (!scopeId === !scratchKey) throw new BadRequestError("need exactly one of scopeId or scratchKey");
-    const ref = scratchKey ? await lifecycle.ensureScratch(scratchKey) : await lifecycle.ensureScope(scopeId!);
-    const existing = await store.get(ref.id);
-    const record: RunnerBoxRecord = {
-      containerName: ref.id,
-      networkName: lifecycle.networkNameOf(ref.id),
-      imageRef,
-      orgId,
-      createdAtMs: existing?.createdAtMs ?? now(),
-      lastActivityMs: now(),
-      ...(scopeId ? { scopeId, volumeName: lifecycle.volumeNameOf(scopeId) } : {}),
-      ...(scratchKey ? { scratchKey } : {}),
-    };
-    await store.put(ref.id, record);
-    return { id: ref.id, coldStart: ref.coldStart };
+    if (!ACQUISITION_ID.test(body.acquisitionId)) throw new BadRequestError("need acquisitionId");
+    const id = scratchKey ? lifecycle.scratchNameOf(scratchKey) : lifecycle.containerNameOf(scopeId!);
+    return boxQueue(id, async () => {
+      const existing = await store.get(id);
+      if (existing?.destroyPending) throw new Error(`sandbox ${id} is still being destroyed`);
+      const ref = scratchKey ? await lifecycle.ensureScratch(scratchKey) : await lifecycle.ensureScope(scopeId!);
+      const record: RunnerBoxRecord = {
+        generation: randomUUID(),
+        containerName: ref.id,
+        networkName: lifecycle.networkNameOf(ref.id),
+        imageRef,
+        orgId,
+        createdAtMs: now(),
+        lastActivityMs: now(),
+        keepWarm: false,
+        holds: {},
+        ...(scopeId ? { scopeId, volumeName: lifecycle.volumeNameOf(scopeId) } : {}),
+        ...(scratchKey ? { scratchKey } : {}),
+      };
+      await store.putIfAbsent(ref.id, record);
+      const held = await updateRecord(ref.id, (current) => {
+        if (current.orgId !== orgId) throw new Error(`sandbox ${ref.id} belongs to another organization`);
+        if (current.destroyPending) throw new Error(`sandbox ${ref.id} is still being destroyed`);
+        const at = now();
+        return {
+          ...current,
+          ...record,
+          generation: current.generation,
+          createdAtMs: current.createdAtMs,
+          lastActivityMs: at,
+          holds: { ...runnerLiveHolds(current, at), [body.acquisitionId]: at + RUNNER_HOLD_LEASE_MS },
+          parked: false,
+          keepWarm: false,
+        };
+      });
+      if (!held) throw new Error(`sandbox ${ref.id} disappeared while it was being acquired`);
+      return { id: ref.id, coldStart: ref.coldStart, acquisitionId: body.acquisitionId };
+    });
   }
 
   async function handle(pathname: string, method: string, raw: string): Promise<{ status: number; body: unknown }> {
@@ -116,48 +169,75 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
       const req = parsed as RunnerExecRequest;
       if (typeof req.cmd !== "string") throw new BadRequestError("need cmd");
       const timeoutSec = Math.min(maxExecTimeoutSec, Math.max(1, Number(req.timeoutSec) || 60));
-      const result = await viaAgent(id, (endpoint) => agent.exec(endpoint, req.cmd, timeoutSec));
-      await touch(id);
+      const result = await viaAgent(id, req.acquisitionId, (endpoint) => agent.exec(endpoint, req.cmd, timeoutSec));
+      await touch(id, req.acquisitionId);
       return { status: 200, body: result };
     }
     if (action === "read") {
       const req = parsed as RunnerReadRequest;
       if (typeof req.path !== "string") throw new BadRequestError("need path");
-      const bytes = await viaAgent(id, (endpoint) => agent.readAbs(endpoint, req.path));
-      await touch(id);
+      const bytes = await viaAgent(id, req.acquisitionId, (endpoint) => agent.readAbs(endpoint, req.path));
+      await touch(id, req.acquisitionId);
       if (bytes === null) return { status: 404, body: { error: "not_found" } };
       return { status: 200, body: { b64: Buffer.from(bytes).toString("base64") } };
     }
     if (action === "write") {
       const req = parsed as RunnerWriteRequest;
       if (typeof req.path !== "string" || typeof req.b64 !== "string") throw new BadRequestError("need path + b64");
-      await viaAgent(id, (endpoint) => agent.writeAbs(endpoint, req.path, Buffer.from(req.b64, "base64")));
-      await touch(id);
+      await viaAgent(id, req.acquisitionId, (endpoint) =>
+        agent.writeAbs(endpoint, req.path, Buffer.from(req.b64, "base64")),
+      );
+      await touch(id, req.acquisitionId);
       return { status: 200, body: { ok: true } };
     }
     if (action === "teardown") {
       const req = parsed as RunnerTeardownRequest;
       assertBoxName(id, namePrefix);
-      const scopeId = (await store.get(id))?.scopeId;
-      const parking = !req.destroy && !req.keepWarm && !req.scratch;
-      if (parking) await store.merge(id, { lastActivityMs: now(), parked: true });
-      let released: boolean;
-      try {
-        ({ released } = await lifecycle.teardownBox(
-          { id, ...(req.scratch ? { scratch: true } : {}), ...(scopeId ? { scopeId } : {}) },
-          {
-            ...(req.keepWarm ? { keepWarm: true } : {}),
-            ...(req.destroy ? { destroy: true } : {}),
-          },
-        ));
-      } catch (error) {
-        if (parking) await touch(id);
-        throw error;
-      }
-      if (!released) await touch(id);
-      else if (req.destroy || req.scratch) await store.delete(id);
-      else if (req.keepWarm) await touch(id);
-      return { status: 200, body: { ok: true } };
+      if (!ACQUISITION_ID.test(req.acquisitionId)) throw new BadRequestError("need acquisitionId");
+      return boxQueue(id, async () => {
+        const current = await store.get(id);
+        if (!current) return { status: 200, body: { ok: true } };
+        if (!(req.acquisitionId in (current.holds ?? {})) && !current.destroyPending) {
+          return { status: 200, body: { ok: true } };
+        }
+        const held = await updateRecord(id, (record) => {
+          const at = now();
+          const holds = runnerLiveHolds(record, at);
+          delete holds[req.acquisitionId];
+          const released = Object.keys(holds).length === 0;
+          const destroyPending = !!record.destroyPending || !!req.destroy || !!req.scratch;
+          return {
+            ...record,
+            lastActivityMs: at,
+            holds,
+            ...(destroyPending ? { destroyPending: true } : {}),
+            ...(released && !destroyPending ? { parked: !req.keepWarm, keepWarm: !!req.keepWarm } : {}),
+          };
+        });
+        if (!held) return { status: 200, body: { ok: true } };
+        if (Object.keys(held.holds ?? {}).length > 0) {
+          return { status: 200, body: { ok: true } };
+        }
+        const destroy = !!held.destroyPending;
+        const parking = !destroy && !held.keepWarm;
+        try {
+          await lifecycle.teardownBox(
+            { id, ...(held.scratchKey ? { scratch: true } : {}), ...(held.scopeId ? { scopeId: held.scopeId } : {}) },
+            {
+              ...(held.keepWarm && !destroy ? { keepWarm: true } : {}),
+              ...(destroy ? { destroy: true } : {}),
+            },
+          );
+        } catch (error) {
+          if (parking) await store.merge(id, { parked: false, lastActivityMs: now() });
+          throw error;
+        }
+        if (destroy) {
+          if (!store.deleteIf) throw new Error("runner store must support conditional deletes");
+          await store.deleteIf(id, (record) => record.generation === held.generation);
+        }
+        return { status: 200, body: { ok: true } };
+      });
     }
     return { status: 404, body: { error: "not_found" } };
   }
@@ -175,10 +255,9 @@ export function buildRunnerServer(opts: RunnerServerOptions): Server {
       return sendJson(res, tooLarge ? 413 : 400, { error: tooLarge ? "payload_too_large" : "bad_request" });
     }
 
-    const payload = canonicalPayload(req.method ?? "POST", url, raw);
-    if (!(await verifyOrReject(req, res, signingSecret, auth, payload, true))) return;
-
     try {
+      const payload = canonicalPayload(req.method ?? "POST", url, raw);
+      if (!(await verifyOrReject(req, res, signingSecret, auth, payload, true))) return;
       const out = await handle(pathname, req.method ?? "POST", raw);
       sendJson(res, out.status, out.body);
     } catch (e) {

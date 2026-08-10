@@ -6,9 +6,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { runnerBoxPath } from "../../src/runner/protocol.ts";
 import { scopeId } from "../../src/types.ts";
+import type { SandboxHandle } from "../../src/sandbox/sandbox.ts";
 import {
   docker,
   rawPost,
+  skipUnavailable,
   startRunner,
   unavailableReason,
   type RawResponse,
@@ -22,7 +24,7 @@ const call = (harness: RunnerHarness, id: string, action: string, body: unknown)
 
 test("file paths cannot leave the workspace, and nothing reaches the host", { timeout: 300_000 }, async (t) => {
   const skip = await unavailableReason();
-  if (skip) return t.skip(skip);
+  if (skip) return skipUnavailable(t, skip);
 
   const harness = await startRunner(t, "qmtrav");
   const { sandbox } = harness;
@@ -57,15 +59,25 @@ test("file paths cannot leave the workspace, and nothing reaches the host", { ti
 
 test("the runner refuses sandbox ids that address anything but its own boxes", { timeout: 300_000 }, async (t) => {
   const skip = await unavailableReason();
-  if (skip) return t.skip(skip);
+  if (skip) return skipUnavailable(t, skip);
 
   const harness = await startRunner(t, "qmtrav");
   const handle = await harness.sandbox.provision([
     { scopeId: scopeId("personal", suffix()), mountPath: "", mode: "rw" },
   ]);
 
-  const body = { cmd: "printf pwned", timeoutSec: 5, path: "/etc/passwd", b64: "" };
-  const ok = await call(harness, handle.id, "exec", { cmd: "printf ok", timeoutSec: 5 });
+  const body = {
+    cmd: "printf pwned",
+    timeoutSec: 5,
+    path: "/etc/passwd",
+    b64: "",
+    acquisitionId: handle.acquisitionId,
+  };
+  const ok = await call(harness, handle.id, "exec", {
+    cmd: "printf ok",
+    timeoutSec: 5,
+    acquisitionId: handle.acquisitionId,
+  });
   assert.equal(ok.status, 200, ok.text);
   assert.match(ok.text, /"stdout":"ok"/, "a hand-built request reaches the box, so the rejections below are the check");
 
@@ -99,10 +111,10 @@ test("the runner refuses sandbox ids that address anything but its own boxes", {
 
 test("an absolute path in a runner request stays inside that one container", { timeout: 300_000 }, async (t) => {
   const skip = await unavailableReason();
-  if (skip) return t.skip(skip);
+  if (skip) return skipUnavailable(t, skip);
 
   const harness = await startRunner(t, "qmtrav");
-  const scope = (): Promise<{ id: string }> =>
+  const scope = (): Promise<SandboxHandle> =>
     harness.sandbox.provision([{ scopeId: scopeId("personal", suffix()), mountPath: "", mode: "rw" }]);
   const target = await scope();
   const bystander = await scope();
@@ -111,17 +123,27 @@ test("an absolute path in a runner request stays inside that one container", { t
   const written = await call(harness, target.id, "write", {
     path: `/etc/${marker}`,
     b64: Buffer.from("planted").toString("base64"),
+    acquisitionId: target.acquisitionId,
   });
   assert.equal(written.status, 200, written.text);
 
-  const readBack = await call(harness, target.id, "read", { path: `/etc/${marker}` });
+  const readBack = await call(harness, target.id, "read", {
+    path: `/etc/${marker}`,
+    acquisitionId: target.acquisitionId,
+  });
   assert.equal(readBack.status, 200, readBack.text);
   assert.equal(Buffer.from((JSON.parse(readBack.text) as { b64: string }).b64, "base64").toString(), "planted");
 
-  const elsewhere = await call(harness, bystander.id, "read", { path: `/etc/${marker}` });
+  const elsewhere = await call(harness, bystander.id, "read", {
+    path: `/etc/${marker}`,
+    acquisitionId: bystander.acquisitionId,
+  });
   assert.equal(elsewhere.status, 404, "the write reached one container's mount namespace only");
 
-  const socket = await call(harness, target.id, "read", { path: "/var/run/docker.sock" });
+  const socket = await call(harness, target.id, "read", {
+    path: "/var/run/docker.sock",
+    acquisitionId: target.acquisitionId,
+  });
   assert.equal(socket.status, 404, "there is no docker socket to read inside a sandbox");
 
   const hostSide = await docker(["exec", target.id, "test", "-e", `/etc/${marker}`], 15_000);

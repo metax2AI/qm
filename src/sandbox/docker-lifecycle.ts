@@ -78,6 +78,7 @@ export interface DockerLifecycleOptions {
   pidsLimit?: number;
   rootfsMb?: number;
   homeQuota?: XfsProjectQuota;
+  trackHolds?: boolean;
   internalNetwork?: boolean;
   repoRoot?: string;
   onError?: (e: { category: string; code: string; message: string; scopeLabel?: string }) => void;
@@ -90,6 +91,8 @@ interface TeardownOutcome {
 export interface DockerLifecycle extends BoxLifecycle {
   teardownBox(ref: BoxTeardownRef, opts?: TeardownOptions): Promise<TeardownOutcome>;
   endpointOf(name: string): Promise<string>;
+  containerNameOf(scopeId: string): string;
+  scratchNameOf(key: string): string;
   networkNameOf(containerName: string): string;
   volumeNameOf(scopeId: string): string;
   stateOf(name: string): Promise<DockerContainerState | null>;
@@ -323,7 +326,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
     await waitDaemon(name);
   }
 
-  async function removeNetwork(containerName: string, swallowLabel: string): Promise<void> {
+  async function removeNetwork(containerName: string, swallowLabel: string, strict = false): Promise<void> {
     const net = networkNameFor(namePrefix, containerName);
     for (const container of attachContainers) {
       await dexec(["network", "disconnect", "-f", net, container]).catch(
@@ -331,7 +334,28 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
       );
     }
     for (const key of attachedContainerNetworks) if (key.startsWith(`${net}\0`)) attachedContainerNetworks.delete(key);
-    await dexec(["network", "rm", net]).catch(swallowAs(swallowLabel, undefined));
+    const removed = await dexec(["network", "rm", net]).catch((error) => {
+      if (strict) throw error;
+      return undefined;
+    });
+    if (
+      strict &&
+      removed &&
+      removed.code !== 0 &&
+      !/not found|no such network/i.test(`${removed.stderr}\n${removed.stdout}`)
+    ) {
+      throw new Error(`docker network rm ${net} failed: ${removed.stderr.trim() || removed.stdout.trim()}`);
+    }
+    if (!strict && removed && removed.code !== 0) {
+      swallowAs(swallowLabel, undefined)(new Error(removed.stderr.trim()));
+    }
+  }
+
+  async function removeDockerObject(args: string[], missing: RegExp, action: string): Promise<void> {
+    const result = await dexec(args);
+    if (result.code !== 0 && !missing.test(`${result.stderr}\n${result.stdout}`)) {
+      throw new Error(`${action} failed: ${result.stderr.trim() || result.stdout.trim()}`);
+    }
   }
 
   async function ensureVolume(scope: string): Promise<boolean> {
@@ -355,19 +379,22 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
 
   async function teardownBox(ref: BoxTeardownRef, tdOpts?: TeardownOptions): Promise<TeardownOutcome> {
     return provisionQueue(teardownQueueKey(ref), async () => {
-      const remaining = (activeByContainer.get(ref.id) ?? 1) - 1;
-      if (remaining > 0) {
-        activeByContainer.set(ref.id, remaining);
-        return { released: false };
+      if (opts.trackHolds !== false) {
+        const remaining = (activeByContainer.get(ref.id) ?? 1) - 1;
+        if (remaining > 0) {
+          activeByContainer.set(ref.id, remaining);
+          return { released: false };
+        }
+        activeByContainer.delete(ref.id);
       }
-      activeByContainer.delete(ref.id);
       const scope = ref.scopeId ?? scopeByContainer.get(ref.id);
 
       if (ref.scratch) {
         for (const [k, name] of scratchByKey) if (name === ref.id) scratchByKey.delete(k);
-        if (tdOpts?.destroy) await dexec(["rm", "-f", ref.id]);
+        if (tdOpts?.destroy)
+          await removeDockerObject(["rm", "-f", ref.id], /no such (object|container)/i, `docker rm ${ref.id}`);
         else await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: scratch rm`, undefined));
-        await removeNetwork(ref.id, `${label}-sandbox: scratch network rm`);
+        await removeNetwork(ref.id, `${label}-sandbox: scratch network rm`, !!tdOpts?.destroy);
         portByName.delete(ref.id);
         return { released: true };
       }
@@ -375,15 +402,18 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
       if (tdOpts?.keepWarm) return { released: true };
 
       if (tdOpts?.destroy) {
-        await dexec(["rm", "-f", ref.id]).catch(swallowAs(`${label}-sandbox: destroy rm`, undefined));
-        await removeNetwork(ref.id, `${label}-sandbox: destroy network rm`);
+        await removeDockerObject(["rm", "-f", ref.id], /no such (object|container)/i, `docker rm ${ref.id}`);
+        await removeNetwork(ref.id, `${label}-sandbox: destroy network rm`, true);
         if (scope) {
-          if (opts.homeQuota)
-            await opts.homeQuota.destroy(scope).catch(swallowAs(`${label}-sandbox: destroy home quota`, undefined));
-          else
-            await dexec(["volume", "rm", volumeNameFor(namePrefix, scope)]).catch(
-              swallowAs(`${label}-sandbox: destroy volume rm`, undefined),
+          if (opts.homeQuota) await opts.homeQuota.destroy(scope);
+          else {
+            const volume = volumeNameFor(namePrefix, scope);
+            await removeDockerObject(
+              ["volume", "rm", volume],
+              /no such volume|not found/i,
+              `docker volume rm ${volume}`,
             );
+          }
         }
         scopeByContainer.delete(ref.id);
         portByName.delete(ref.id);
@@ -398,6 +428,7 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
           message: r.stderr.trim(),
           ...(scope ? { scopeLabel: scope } : {}),
         });
+      if (r.code !== 0) throw new Error(`docker stop ${ref.id} failed: ${r.stderr.trim() || r.stdout.trim()}`);
       portByName.delete(ref.id);
       return { released: true };
     });
@@ -405,6 +436,8 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
 
   return {
     endpointOf,
+    containerNameOf: (scope) => containerNameFor(namePrefix, scope),
+    scratchNameOf: (key) => scratchNameFor(namePrefix, key),
     networkNameOf: (containerName) => networkNameFor(namePrefix, containerName),
     volumeNameOf: (scope) => opts.homeQuota?.sourceOf(scope) ?? volumeNameFor(namePrefix, scope),
     stateOf: containerState,
@@ -418,13 +451,13 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
         if (state && state.imageId === imageId) {
           await ensureReachable(name, true);
           if (!state.running) await startContainer(name);
-          activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
+          if (opts.trackHolds !== false) activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
           return { id: name, coldStart: false };
         }
         if (state) await dexec(["rm", "-f", name]);
         const hadVolume = await ensureVolume(scope);
         await runContainer(name, scope, true);
-        activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
+        if (opts.trackHolds !== false) activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
         return { id: name, coldStart: !hadVolume };
       });
     },
@@ -438,11 +471,11 @@ export function createDockerLifecycle(opts: DockerLifecycleOptions): DockerLifec
         if (state) {
           await ensureReachable(name, true);
           if (!state.running) await startContainer(name);
-          activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
+          if (opts.trackHolds !== false) activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
           return { id: name, coldStart: false };
         }
         await runContainer(name, undefined, false);
-        activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
+        if (opts.trackHolds !== false) activeByContainer.set(name, (activeByContainer.get(name) ?? 0) + 1);
         return { id: name, coldStart: true };
       });
     },

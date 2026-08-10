@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { scopeId } from "../../src/types.ts";
 import type { SandboxHandle } from "../../src/sandbox/sandbox.ts";
-import { docker, startRunner, unavailableReason } from "./runner-harness.ts";
+import { docker, skipUnavailable, startRunner, unavailableReason } from "./runner-harness.ts";
 
 const suffix = (): string => randomUUID().replaceAll("-", "").slice(0, 10);
 
@@ -12,7 +12,7 @@ test(
   { timeout: 300_000 },
   async (t) => {
     const skip = await unavailableReason();
-    if (skip) return t.skip(skip);
+    if (skip) return skipUnavailable(t, skip);
 
     const { sandbox } = await startRunner(t, "qmesc");
     const handle = await sandbox.provision([{ scopeId: scopeId("personal", suffix()), mountPath: "", mode: "rw" }]);
@@ -88,7 +88,7 @@ test(
 
 test("one scope's sandbox cannot see another scope's processes or files", { timeout: 300_000 }, async (t) => {
   const skip = await unavailableReason();
-  if (skip) return t.skip(skip);
+  if (skip) return skipUnavailable(t, skip);
 
   const { sandbox } = await startRunner(t, "qmesc");
   const marker = `qm-escape-${suffix()}`;

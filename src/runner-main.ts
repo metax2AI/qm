@@ -1,5 +1,7 @@
 import { orgId as configOrgId } from "./config.ts";
-import { isStrongSigningSecret, MIN_SIGNING_SECRET_LENGTH } from "./auth/source-auth.ts";
+import { join, resolve } from "node:path";
+import { createSourceAuth, isStrongSigningSecret, MIN_SIGNING_SECRET_LENGTH } from "./auth/source-auth.ts";
+import { createPostgresReplayDedupe } from "./auth/replay-dedupe.ts";
 import {
   createDockerLifecycle,
   DEFAULT_ADDRESS_POOL_NETWORKS,
@@ -11,11 +13,11 @@ import { spawnDockerExec, type DockerExec } from "./sandbox/docker-exec.ts";
 import { buildRunnerServer } from "./runner/server.ts";
 import { createRunnerStore } from "./runner/store.ts";
 import { errMessage } from "./util/errors.ts";
-import { createAuditLog } from "./audit/audit-log.ts";
 import { createPostgresAuditLog } from "./admin/postgres-audit-log.ts";
 import { reconcileRunnerBoxes } from "./runner/recovery.ts";
 import { createSweeper } from "./util/sweeper.ts";
 import { createXfsProjectQuota } from "./sandbox/xfs-project-quota.ts";
+import { createKeyedQueue } from "./util/async.ts";
 
 const LABEL = "runner";
 const NAME_PREFIX = "qmr";
@@ -44,6 +46,18 @@ export function isDigestPinnedImageRef(ref: string): boolean {
 
 export function runnerNamePrefix(orgId: string): string {
   return `${NAME_PREFIX}-${orgId}`;
+}
+
+export function runnerHomeRoot(base: string, orgId: string): string {
+  if (!/^\/[A-Za-z0-9._/-]+$/.test(base) || resolve(base) !== base) {
+    throw new Error("RUNNER_SANDBOX_HOME_ROOT must be a safe absolute path");
+  }
+  return join(base, orgId);
+}
+
+export function requireRunnerDatabaseUrl(value: string | undefined): string {
+  if (!value?.trim()) throw new Error("DATABASE_URL is required for durable runner state and replay protection");
+  return value;
 }
 
 export async function resolveBindAddress(
@@ -86,6 +100,7 @@ async function main(): Promise<void> {
   const egressProxyContainer = egressProxyUrl ? new URL(egressProxyUrl).hostname : undefined;
   const orgId = configOrgId();
   const namePrefix = runnerNamePrefix(orgId);
+  const databaseUrl = requireRunnerDatabaseUrl(process.env.DATABASE_URL);
   const agent = createGuestAgent({ label: LABEL });
   const cpus = positiveNumEnv("RUNNER_SANDBOX_CPUS", process.env.RUNNER_SANDBOX_CPUS, DEFAULT_CPUS);
   const memoryMb = positiveNumEnv(
@@ -112,8 +127,11 @@ async function main(): Promise<void> {
     DEFAULT_TIMEOUT_SEC,
     true,
   );
+  const homeBase = process.env.RUNNER_SANDBOX_HOME_ROOT ?? DEFAULT_HOME_ROOT;
   const homeQuota = createXfsProjectQuota({
-    root: process.env.RUNNER_SANDBOX_HOME_ROOT ?? DEFAULT_HOME_ROOT,
+    root: runnerHomeRoot(homeBase, orgId),
+    registryRoot: homeBase,
+    namespace: orgId,
     limitMb: positiveNumEnv("RUNNER_SANDBOX_HOME_MB", process.env.RUNNER_SANDBOX_HOME_MB, DEFAULT_HOME_MB, true),
   });
   await homeQuota.preflight();
@@ -158,13 +176,14 @@ async function main(): Promise<void> {
     pidsLimit,
     ...(rootfsQuota.enforced ? { rootfsMb } : {}),
     homeQuota,
+    trackHolds: false,
     onError: (e) => console.warn(`[runner] ${e.category}/${e.code}: ${e.message}`),
   });
 
-  const databaseUrl = process.env.DATABASE_URL;
-  const store = createRunnerStore(databaseUrl);
-  const auditLog = databaseUrl ? createPostgresAuditLog(databaseUrl) : createAuditLog();
-  const recovery = { store, lifecycle, auditLog };
+  const store = createRunnerStore(databaseUrl, orgId);
+  const auditLog = createPostgresAuditLog(databaseUrl);
+  const boxQueue = createKeyedQueue<string>();
+  const recovery = { store, lifecycle, auditLog, boxQueue };
   const reconciled = await reconcileRunnerBoxes(recovery);
   if (reconciled) console.log(`[runner] recycled ${reconciled} missing or abnormal sandbox container(s)`);
 
@@ -177,7 +196,9 @@ async function main(): Promise<void> {
     imageRef,
     orgId,
     auditLog,
+    boxQueue,
     maxExecTimeoutSec,
+    auth: createSourceAuth({ signingSecret, dedupe: createPostgresReplayDedupe(databaseUrl) }),
   });
 
   const bind = await resolveBindAddress(dexec, selfContainer, serviceNetwork);

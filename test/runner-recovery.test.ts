@@ -1,21 +1,32 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isDigestPinnedImageRef, resolveBindAddress, runnerNamePrefix } from "../src/runner-main.ts";
-import { createRunnerStore, type RunnerBoxRecord } from "../src/runner/store.ts";
+import {
+  isDigestPinnedImageRef,
+  requireRunnerDatabaseUrl,
+  resolveBindAddress,
+  runnerHomeRoot,
+  runnerNamePrefix,
+} from "../src/runner-main.ts";
+import { createRunnerStore, runnerStoreTable, type RunnerBoxRecord } from "../src/runner/store.ts";
 import { installFakeDocker } from "./support/fake-docker.ts";
 import type { DockerExec } from "../src/sandbox/docker-exec.ts";
 import { createDockerLifecycle } from "../src/sandbox/docker-lifecycle.ts";
 import { createAuditLog } from "../src/audit/audit-log.ts";
 import { reconcileRunnerBoxes } from "../src/runner/recovery.ts";
+import { createKeyedQueue } from "../src/util/async.ts";
+
+const boxQueue = createKeyedQueue<string>();
 
 function record(containerName: string): RunnerBoxRecord {
   return {
+    generation: containerName,
     containerName,
     networkName: `qmr-net-${containerName}`,
     imageRef: "registry.invalid/sandbox@sha256:abc",
     orgId: "test-org",
     createdAtMs: 1,
     lastActivityMs: 2,
+    holds: { active: Number.MAX_SAFE_INTEGER },
   };
 }
 
@@ -45,7 +56,7 @@ test("restart recovery safely rebuilds a missing scope container and keeps its r
   fake.volumes.add(volume);
   const auditLog = createAuditLog();
 
-  assert.equal(await reconcileRunnerBoxes({ store, lifecycle, auditLog, now: () => 3 }), 1);
+  assert.equal(await reconcileRunnerBoxes({ store, lifecycle, auditLog, boxQueue, now: () => 3 }), 1);
   assert.ok(await store.get(id));
   assert.equal(fake.containers.has(id), true);
   assert.equal(fake.volumes.has(volume), true);
@@ -72,7 +83,7 @@ test("restart recovery recycles OOM-killed containers and records the resource e
   });
   const auditLog = createAuditLog();
 
-  assert.equal(await reconcileRunnerBoxes({ store, lifecycle, auditLog, now: () => 4 }), 1);
+  assert.equal(await reconcileRunnerBoxes({ store, lifecycle, auditLog, boxQueue, now: () => 4 }), 1);
   assert.equal(fake.containers.get(id)?.running, true);
   assert.equal(fake.volumes.has(volume), true);
   assert.equal((await auditLog.events())[0]?.status, "oom_killed");
@@ -110,10 +121,10 @@ test("restart recovery recycles abnormal exits but leaves normally parked contai
     labels: {},
     volume: parkedVolume,
   });
-  await store.merge(parkedId, { parked: true });
+  await store.merge(parkedId, { parked: true, holds: {} });
   const auditLog = createAuditLog();
 
-  assert.equal(await reconcileRunnerBoxes({ store, lifecycle, auditLog, now: () => 5 }), 1);
+  assert.equal(await reconcileRunnerBoxes({ store, lifecycle, auditLog, boxQueue, now: () => 5 }), 1);
   assert.equal(fake.containers.get(abnormalId)?.running, true);
   assert.equal(fake.containers.get(parkedId)?.running, false);
   assert.equal((await auditLog.events())[0]?.status, "abnormal_exit");
@@ -146,6 +157,16 @@ test("the runner accepts only digest-pinned sandbox images", () => {
 test("runner resource names are partitioned by organization", () => {
   assert.equal(runnerNamePrefix("acme"), "qmr-acme");
   assert.notEqual(runnerNamePrefix("acme"), runnerNamePrefix("globex"));
+  assert.equal(runnerHomeRoot("/data/qm/sandbox-homes", "acme"), "/data/qm/sandbox-homes/acme");
+  assert.notEqual(runnerHomeRoot("/data/qm/sandbox-homes", "acme"), runnerHomeRoot("/data/qm/sandbox-homes", "globex"));
+  assert.notEqual(runnerStoreTable("acme"), runnerStoreTable("globex"));
+  assert.throws(() => runnerHomeRoot("/data/qm/../shared", "acme"), /safe absolute path/);
+});
+
+test("the production runner requires durable database state", () => {
+  assert.equal(requireRunnerDatabaseUrl("postgres://db/qm"), "postgres://db/qm");
+  assert.throws(() => requireRunnerDatabaseUrl(undefined), /DATABASE_URL is required/);
+  assert.throws(() => requireRunnerDatabaseUrl("  "), /DATABASE_URL is required/);
 });
 
 test("a box parked after the sweep read the store is left alone, not rebuilt and then orphaned", async () => {
@@ -163,15 +184,15 @@ test("a box parked after the sweep read the store is left alone, not rebuilt and
     ...store,
     entries: async () => [...stale.entries()],
   };
-  await store.merge(box.id, { parked: true });
+  await store.merge(box.id, { parked: true, holds: {} });
 
-  assert.equal(await reconcileRunnerBoxes({ store: snapshotted, lifecycle, auditLog, now: () => 6 }), 0);
+  assert.equal(await reconcileRunnerBoxes({ store: snapshotted, lifecycle, auditLog, boxQueue, now: () => 6 }), 0);
   assert.equal(fake.containers.get(box.id)?.running, false, "the parked container must stay stopped");
   assert.equal((await store.get(box.id))?.parked, true);
   assert.deepEqual(await auditLog.events(), []);
 });
 
-test("a home quota that refuses to release does not strand the destroyed box's record", async () => {
+test("destroy fails until the home quota is released", async () => {
   const fake = installFakeDocker(1);
   const scope = "personal:U9";
   const lifecycle = createDockerLifecycle({
@@ -196,9 +217,152 @@ test("a home quota that refuses to release does not strand the destroyed box's r
   });
 
   const box = await lifecycle.ensureScope(scope);
-  const { released } = await lifecycle.teardownBox({ id: box.id, scopeId: scope }, { destroy: true });
-
-  assert.equal(released, true, "the caller must still be told the box is gone, so it can delete the record");
+  await assert.rejects(lifecycle.teardownBox({ id: box.id, scopeId: scope }, { destroy: true }), /no such project/);
   assert.equal(fake.containers.has(box.id), false);
   assert.equal(fake.networks.has(lifecycle.networkNameOf(box.id)), false);
+});
+
+test("a destroy tombstone survives cleanup failure and is retried", async () => {
+  const fake = installFakeDocker(1);
+  const scope = "personal:U10";
+  let attempts = 0;
+  const lifecycle = createDockerLifecycle({
+    label: "runner",
+    namePrefix: "qmr",
+    image: "qm-sandbox-local:latest",
+    homeDir: "/root",
+    buildHint: "publish the rootfs",
+    endpointMode: { kind: "container-dns" },
+    internalNetwork: true,
+    trackHolds: false,
+    homeQuota: {
+      preflight: async () => {},
+      sourceOf: (s) => `/quota/${s}`,
+      ensure: async (s) => ({ source: `/quota/${s}`, coldStart: true }),
+      destroy: async () => {
+        attempts++;
+        if (attempts === 1) throw new Error("quota busy");
+      },
+    },
+    waitReady: async () => {},
+    dockerExec: fake.dockerExec,
+    repoRoot: "/nonexistent-repo-root",
+  });
+  const box = await lifecycle.ensureScope(scope);
+  const store = createRunnerStore();
+  await store.put(box.id, {
+    ...record(box.id),
+    scopeId: scope,
+    volumeName: lifecycle.volumeNameOf(scope),
+    holds: {},
+    destroyPending: true,
+  });
+  const auditLog = createAuditLog();
+
+  await reconcileRunnerBoxes({ store, lifecycle, auditLog, boxQueue });
+  assert.ok(await store.get(box.id));
+  assert.equal(fake.containers.has(box.id), false);
+
+  await reconcileRunnerBoxes({ store, lifecycle, auditLog, boxQueue });
+  assert.equal(await store.get(box.id), null);
+  assert.equal(attempts, 2);
+});
+
+test("recovery waits for live acquisitions before finishing a pending destroy", async () => {
+  const fake = installFakeDocker(1);
+  const lifecycle = lifecycleOn(fake);
+  const scope = "personal:U11";
+  const box = await lifecycle.ensureScope(scope);
+  const store = createRunnerStore();
+  await store.put(box.id, {
+    ...record(box.id),
+    scopeId: scope,
+    volumeName: lifecycle.volumeNameOf(scope),
+    holds: { active: 100 },
+    destroyPending: true,
+  });
+  const auditLog = createAuditLog();
+  let at = 50;
+
+  await reconcileRunnerBoxes({ store, lifecycle, auditLog, boxQueue, now: () => at });
+  assert.ok(await store.get(box.id));
+  assert.equal(fake.containers.has(box.id), true);
+
+  at = 101;
+  await reconcileRunnerBoxes({ store, lifecycle, auditLog, boxQueue, now: () => at });
+  assert.equal(await store.get(box.id), null);
+  assert.equal(fake.containers.has(box.id), false);
+});
+
+test("a stale destroy snapshot cannot delete a recreated generation", async () => {
+  const fake = installFakeDocker(1);
+  const lifecycle = lifecycleOn(fake);
+  const scope = "personal:U12";
+  const box = await lifecycle.ensureScope(scope);
+  const store = createRunnerStore();
+  const fresh = {
+    ...record(box.id),
+    generation: "fresh",
+    scopeId: scope,
+    volumeName: lifecycle.volumeNameOf(scope),
+    holds: { active: Date.now() + 60_000 },
+  };
+  await store.put(box.id, fresh);
+  const stale = { ...fresh, generation: "old", holds: {}, destroyPending: true };
+  const snapshotted = { ...store, entries: async () => [[box.id, stale] as [string, RunnerBoxRecord]] };
+
+  assert.equal(
+    await reconcileRunnerBoxes({
+      store: snapshotted,
+      lifecycle,
+      auditLog: createAuditLog(),
+      boxQueue,
+    }),
+    0,
+  );
+  assert.equal((await store.get(box.id))?.generation, "fresh");
+  assert.equal(fake.containers.has(box.id), true);
+});
+
+test("recovery parks an unclaimed box after its acquisition lease expires", async () => {
+  const fake = installFakeDocker(1);
+  const lifecycle = lifecycleOn(fake);
+  const scope = "personal:U13";
+  const box = await lifecycle.ensureScope(scope);
+  const store = createRunnerStore();
+  await store.put(box.id, {
+    ...record(box.id),
+    scopeId: scope,
+    volumeName: lifecycle.volumeNameOf(scope),
+    holds: { lost: 10 },
+  });
+
+  await reconcileRunnerBoxes({
+    store,
+    lifecycle,
+    auditLog: createAuditLog(),
+    boxQueue,
+    now: () => 11,
+  });
+  assert.equal((await store.get(box.id))?.parked, true);
+  assert.equal(fake.containers.get(box.id)?.running, false);
+});
+
+test("recovery finishes a durable park intent left before the stop", async () => {
+  const fake = installFakeDocker(1);
+  const lifecycle = lifecycleOn(fake);
+  const scope = "personal:U14";
+  const box = await lifecycle.ensureScope(scope);
+  const store = createRunnerStore();
+  await store.put(box.id, {
+    ...record(box.id),
+    scopeId: scope,
+    volumeName: lifecycle.volumeNameOf(scope),
+    parked: true,
+    holds: {},
+  });
+
+  await reconcileRunnerBoxes({ store, lifecycle, auditLog: createAuditLog(), boxQueue });
+  assert.equal(fake.containers.get(box.id)?.running, false);
+  assert.equal((await store.get(box.id))?.parked, true);
 });

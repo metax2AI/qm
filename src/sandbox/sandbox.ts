@@ -2,6 +2,7 @@ import type { EgressPolicy, WorkspaceLayer } from "../types.ts";
 
 export interface SandboxHandle {
   id: string;
+  acquisitionId?: string;
   rootDir: string;
   homeDir?: string;
   coldStart?: boolean;

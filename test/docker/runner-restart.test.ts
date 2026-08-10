@@ -11,12 +11,13 @@ import { createPostgresMapFactory, type PostgresArtifactMaps } from "../../src/p
 import { reconcileRunnerBoxes } from "../../src/runner/recovery.ts";
 import { buildRunnerServer } from "../../src/runner/server.ts";
 import type { RunnerBoxRecord } from "../../src/runner/store.ts";
-import { docker, removeDockerResources, sandboxImage } from "./runner-harness.ts";
+import { docker, removeDockerResources, sandboxImage, skipUnavailable } from "./runner-harness.ts";
 import { createDockerLifecycle } from "../../src/sandbox/docker-lifecycle.ts";
 import { createGuestAgent } from "../../src/sandbox/guest-agent-client.ts";
 import { createRunnerSandbox } from "../../src/sandbox/runner-sandbox.ts";
 import { scopeId } from "../../src/types.ts";
 import { createLocalWorkspaceStore } from "../../src/workspace/workspace-store.ts";
+import { createKeyedQueue } from "../../src/util/async.ts";
 
 const secret = "runner-restart-test-secret-that-is-long-enough";
 
@@ -46,10 +47,10 @@ test(
   { timeout: 180_000 },
   async (t) => {
     const databaseUrl = process.env.RUNNER_TEST_DATABASE_URL ?? process.env.DATABASE_URL;
-    if (!databaseUrl) return t.skip("RUNNER_TEST_DATABASE_URL or DATABASE_URL unavailable");
-    if ((await docker(["version"], 15_000)).code !== 0) return t.skip("Docker daemon unavailable");
+    if (!databaseUrl) return skipUnavailable(t, "RUNNER_TEST_DATABASE_URL or DATABASE_URL unavailable");
+    if ((await docker(["version"], 15_000)).code !== 0) return skipUnavailable(t, "Docker daemon unavailable");
     if ((await docker(["image", "inspect", sandboxImage], 15_000)).code !== 0)
-      return t.skip(`${sandboxImage} unavailable`);
+      return skipUnavailable(t, `${sandboxImage} unavailable`);
 
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
     const namePrefix = `qmrr-${suffix}`;
@@ -72,6 +73,7 @@ test(
         homeDir: "/root",
         buildHint: "run npm run sandbox:local:build",
         endpointMode: { kind: "published-port" },
+        trackHolds: false,
         waitReady: (resolveEndpoint, name) => agent.waitReady(resolveEndpoint, name),
         dockerExec: docker,
         cpus: 0.5,
@@ -84,6 +86,7 @@ test(
       firstFactory = createPostgresMapFactory(databaseUrl);
       const firstStore = firstFactory.map<RunnerBoxRecord>(table);
       const firstLifecycle = lifecycle();
+      const firstBoxQueue = createKeyedQueue<string>();
       firstServer = buildRunnerServer({
         lifecycle: firstLifecycle,
         agent,
@@ -93,6 +96,7 @@ test(
         imageRef: sandboxImage,
         orgId: "runner-restart-test",
         auditLog,
+        boxQueue: firstBoxQueue,
       });
       const firstClient = createRunnerSandbox(workspace, {
         baseUrl: await listen(firstServer),
@@ -112,7 +116,16 @@ test(
       secondFactory = createPostgresMapFactory(databaseUrl);
       const secondStore = secondFactory.map<RunnerBoxRecord>(table);
       const secondLifecycle = lifecycle();
-      assert.equal(await reconcileRunnerBoxes({ store: secondStore, lifecycle: secondLifecycle, auditLog }), 1);
+      const secondBoxQueue = createKeyedQueue<string>();
+      assert.equal(
+        await reconcileRunnerBoxes({
+          store: secondStore,
+          lifecycle: secondLifecycle,
+          auditLog,
+          boxQueue: secondBoxQueue,
+        }),
+        1,
+      );
 
       secondServer = buildRunnerServer({
         lifecycle: secondLifecycle,
@@ -123,6 +136,7 @@ test(
         imageRef: sandboxImage,
         orgId: "runner-restart-test",
         auditLog,
+        boxQueue: secondBoxQueue,
       });
       const secondClient = createRunnerSandbox(workspace, {
         baseUrl: await listen(secondServer),
