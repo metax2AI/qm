@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,6 +11,10 @@ import {
   xfsScopeHash,
 } from "../src/sandbox/xfs-project-quota.ts";
 
+function tmpRoot(prefix: string): string {
+  return realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+}
+
 function mountinfoFor(mountPoint: string, fstype = "xfs"): string {
   return [
     `24 30 0:22 / /proc rw,relatime - proc proc rw`,
@@ -20,13 +24,13 @@ function mountinfoFor(mountPoint: string, fstype = "xfs"): string {
 }
 
 function mountinfoPathFor(mountPoint: string, fstype?: string): string {
-  const path = join(mkdtempSync(join(tmpdir(), "xfs-mountinfo-")), "mountinfo");
+  const path = join(tmpRoot("xfs-mountinfo-"), "mountinfo");
   writeFileSync(path, mountinfoFor(mountPoint, fstype));
   return path;
 }
 
 test("XFS project quota fails closed unless project accounting and enforcement are both active", async () => {
-  const root = mkdtempSync(join(tmpdir(), "xfs-quota-off-"));
+  const root = tmpRoot("xfs-quota-off-");
   const quota = createXfsProjectQuota({
     root,
     registryRoot: root,
@@ -40,7 +44,7 @@ test("XFS project quota fails closed unless project accounting and enforcement a
 });
 
 test("XFS project quota addresses the mount point, not the scope tree inside it", async () => {
-  const mountPoint = mkdtempSync(join(tmpdir(), "xfs-quota-mount-"));
+  const mountPoint = tmpRoot("xfs-quota-mount-");
   const root = join(mountPoint, "qm", "sandbox-homes", "acme");
   const calls: string[][] = [];
   const quota = createXfsProjectQuota({
@@ -62,7 +66,7 @@ test("XFS project quota addresses the mount point, not the scope tree inside it"
 });
 
 test("XFS project quota refuses a home root that is not on an XFS filesystem", async () => {
-  const root = mkdtempSync(join(tmpdir(), "xfs-quota-ext4-"));
+  const root = tmpRoot("xfs-quota-ext4-");
   const quota = createXfsProjectQuota({
     root,
     registryRoot: root,
@@ -72,11 +76,11 @@ test("XFS project quota refuses a home root that is not on an XFS filesystem", a
     quotaExec: async () => ({ code: 0, stdout: "Accounting: ON\nEnforcement: ON\n", stderr: "" }),
   });
 
-  await assert.rejects(quota.preflight(), /is not on an XFS filesystem/);
+  await assert.rejects(quota.preflight(), /not an XFS filesystem/);
 });
 
 test("XFS project quota treats an xfs_quota diagnostic as failure even when it exits zero", async () => {
-  const root = mkdtempSync(join(tmpdir(), "xfs-quota-enxio-"));
+  const root = tmpRoot("xfs-quota-enxio-");
   const quota = createXfsProjectQuota({
     root,
     registryRoot: root,
@@ -94,7 +98,7 @@ test("XFS project quota treats an xfs_quota diagnostic as failure even when it e
 });
 
 test("XFS project quota reports a silent per-scope command failure instead of running without a limit", async () => {
-  const root = mkdtempSync(join(tmpdir(), "xfs-quota-limit-"));
+  const root = tmpRoot("xfs-quota-limit-");
   const quota = createXfsProjectQuota({
     root,
     registryRoot: root,
@@ -113,20 +117,35 @@ test("XFS project quota reports a silent per-scope command failure instead of ru
   await assert.rejects(quota.ensure("personal:U1"), /xfs project limit failed: xfs_quota: cannot set limits/);
 });
 
-test("the XFS mount point of a path is the longest XFS mount containing it", () => {
+test("the XFS mount point of a path is the mount that actually holds it", () => {
   const mountinfo = [
     `31 1 259:1 / / rw,relatime - ext4 /dev/vda1 rw`,
     `48 31 253:0 / /data rw,relatime - xfs /dev/vdb rw,prjquota`,
     `52 48 253:1 / /data/nested rw,relatime - xfs /dev/vdc rw,prjquota`,
+    `56 48 0:61 / /data/scratch rw,relatime - tmpfs tmpfs rw`,
+    `60 31 253:2 / /data-archive rw,relatime - xfs /dev/vdd rw,prjquota`,
   ].join("\n");
 
   assert.equal(xfsMountPointOf("/data/qm/sandbox-homes/acme", mountinfo), "/data");
   assert.equal(xfsMountPointOf("/data/nested/homes", mountinfo), "/data/nested");
-  assert.throws(() => xfsMountPointOf("/srv/homes", mountinfo), /is not on an XFS filesystem/);
+  assert.throws(() => xfsMountPointOf("/srv/homes", mountinfo), /is on \/ \(ext4\), not an XFS filesystem/);
+  assert.throws(() => xfsMountPointOf("/data/scratch/homes", mountinfo), /is on \/data\/scratch \(tmpfs\)/);
+});
+
+test("a nearer non-XFS mount hides the XFS filesystem beneath it", () => {
+  const mountinfo = [
+    `31 1 259:1 / / rw,relatime - xfs /dev/mapper/root rw,prjquota`,
+    `48 31 0:61 / /var/lib/qm/sandbox-homes rw,relatime - tmpfs tmpfs rw`,
+  ].join("\n");
+
+  assert.throws(
+    () => xfsMountPointOf("/var/lib/qm/sandbox-homes/acme", mountinfo),
+    /is on \/var\/lib\/qm\/sandbox-homes \(tmpfs\), not an XFS filesystem/,
+  );
 });
 
 test("XFS project quota creates a private scope tree and applies a hard byte limit", async () => {
-  const root = mkdtempSync(join(tmpdir(), "xfs-quota-on-"));
+  const root = tmpRoot("xfs-quota-on-");
   const calls: string[][] = [];
   const quota = createXfsProjectQuota({
     root,
@@ -159,7 +178,7 @@ test("XFS project quota creates a private scope tree and applies a hard byte lim
 });
 
 test("destroying an XFS quota tree clears the limit and project allocation", async () => {
-  const root = mkdtempSync(join(tmpdir(), "xfs-quota-destroy-"));
+  const root = tmpRoot("xfs-quota-destroy-");
   const calls: string[][] = [];
   const quota = createXfsProjectQuota({
     root,
@@ -196,7 +215,7 @@ test("XFS project quota IDs are partitioned by organization", () => {
 });
 
 test("a shared XFS registry rejects a project ID collision across organizations", async () => {
-  const registryRoot = mkdtempSync(join(tmpdir(), "xfs-quota-shared-"));
+  const registryRoot = tmpRoot("xfs-quota-shared-");
   const quotaExec = async (args: string[]) => ({
     code: 0,
     stdout: args.includes("state -p") ? "Accounting: ON\nEnforcement: ON\n" : "",

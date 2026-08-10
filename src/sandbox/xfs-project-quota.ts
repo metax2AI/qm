@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 interface QuotaExecResult {
@@ -31,18 +31,40 @@ export function xfsProjectId(namespace: string, scope: string): number {
   return 10_000 + (raw % (2_147_483_647 - 10_000));
 }
 
-export function xfsMountPointOf(path: string, mountinfo: string): string {
-  let match = "";
+export interface MountEntry {
+  mountPoint: string;
+  fstype: string;
+  source: string;
+}
+
+function unescapeMountField(field: string): string {
+  return field.replace(/\\(\d{3})/g, (_, octal: string) => String.fromCharCode(parseInt(octal, 8)));
+}
+
+export function mountHolding(path: string, mountinfo: string): MountEntry | undefined {
+  let held: MountEntry | undefined;
   for (const line of mountinfo.split("\n")) {
-    const [fields, rest] = line.split(" - ");
-    if (!rest || !/^xfs\s/.test(rest)) continue;
-    const mountPoint = fields?.split(" ")[4];
-    if (!mountPoint) continue;
+    const separator = line.indexOf(" - ");
+    if (separator < 0) continue;
+    const mountPoint = unescapeMountField(line.slice(0, separator).split(" ")[4] ?? "");
+    const [fstype, source] = line.slice(separator + 3).split(" ");
+    if (!mountPoint || !fstype) continue;
     if (path !== mountPoint && !path.startsWith(mountPoint === "/" ? "/" : `${mountPoint}/`)) continue;
-    if (mountPoint.length >= match.length) match = mountPoint;
+    if (held && mountPoint.length < held.mountPoint.length) continue;
+    held = { mountPoint, fstype, source: unescapeMountField(source ?? "") };
   }
-  if (!match) throw new Error(`${path} is not on an XFS filesystem, so project quotas cannot be applied`);
-  return match;
+  return held;
+}
+
+export function xfsMountPointOf(path: string, mountinfo: string): string {
+  const held = mountHolding(path, mountinfo);
+  if (!held) throw new Error(`no mounted filesystem holds ${path}, so project quotas cannot be applied`);
+  if (held.fstype !== "xfs") {
+    throw new Error(
+      `${path} is on ${held.mountPoint} (${held.fstype}), not an XFS filesystem, so project quotas cannot be applied`,
+    );
+  }
+  return held.mountPoint;
 }
 
 function spawnQuotaExec(binary: string): QuotaExec {
@@ -93,7 +115,7 @@ export function createXfsProjectQuota(opts: {
   async function prepare(): Promise<string> {
     preflightPromise ??= (async () => {
       await mkdir(opts.root, { recursive: true, mode: 0o700 });
-      const filesystem = xfsMountPointOf(opts.root, await readFile(mountinfoPath, "utf8"));
+      const filesystem = xfsMountPointOf(await realpath(opts.root), await readFile(mountinfoPath, "utf8"));
       const state = await checked(["-x", "-c", "state -p", filesystem], "xfs project quota state");
       if (!/Accounting:\s+ON/.test(state.stdout) || !/Enforcement:\s+ON/.test(state.stdout)) {
         throw new Error(`XFS project quota accounting and enforcement must both be ON for ${filesystem}`);

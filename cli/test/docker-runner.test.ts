@@ -204,3 +204,14 @@ test("the runner's XFS device is resolved from the mount that holds the sandbox 
   assert.equal(xfsDeviceOf("/var/lib/qm/sandbox-homes", mountinfo), undefined);
   assert.equal(xfsDeviceOf("/mnt/overlay/homes", mountinfo), undefined);
 });
+
+test("a non-XFS mount over the sandbox homes yields no device, not the disk beneath it", () => {
+  const mountinfo = [
+    "31 1 253:0 / / rw,relatime - xfs /dev/mapper/root rw,prjquota",
+    "48 31 0:61 / /var/lib/qm/sandbox-homes rw,relatime - tmpfs tmpfs rw",
+    "52 31 253:3 /homes /data rw,relatime - xfs /dev/vdb\\040odd rw,prjquota",
+  ].join("\n");
+
+  assert.equal(xfsDeviceOf("/var/lib/qm/sandbox-homes/acme", mountinfo), undefined);
+  assert.equal(xfsDeviceOf("/data/acme", mountinfo), "/dev/vdb odd");
+});

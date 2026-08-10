@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { CliError, bold, die, dim, errMessage, header, note, ok, step, warn } from "../log.ts";
@@ -84,30 +84,45 @@ function runnerHomeBase(config: QmConfig): string {
 
 const runnerOrgHome = (config: QmConfig): string => join(runnerHomeBase(config), config.orgId);
 
+const unescapeMountField = (field: string): string =>
+  field.replace(/\\(\d{3})/g, (_, octal: string) => String.fromCharCode(parseInt(octal, 8)));
+
 export function xfsDeviceOf(path: string, mountinfo: string): string | undefined {
-  let match = "";
-  let device: string | undefined;
+  let match: { mountPoint: string; fstype: string; source: string } | undefined;
   for (const line of mountinfo.split("\n")) {
-    const [fields, rest] = line.split(" - ");
-    if (!rest || !/^xfs\s/.test(rest)) continue;
-    const mountPoint = fields?.split(" ")[4];
-    const source = rest.split(" ")[1];
-    if (!mountPoint || !source?.startsWith("/dev/")) continue;
+    const separator = line.indexOf(" - ");
+    if (separator < 0) continue;
+    const mountPoint = unescapeMountField(line.slice(0, separator).split(" ")[4] ?? "");
+    const [fstype, source] = line.slice(separator + 3).split(" ");
+    if (!mountPoint || !fstype) continue;
     if (path !== mountPoint && !path.startsWith(mountPoint === "/" ? "/" : `${mountPoint}/`)) continue;
-    if (mountPoint.length >= match.length) {
-      match = mountPoint;
-      device = source;
-    }
+    if (match && mountPoint.length < match.mountPoint.length) continue;
+    match = { mountPoint, fstype, source: unescapeMountField(source ?? "") };
   }
-  return device;
+  if (match?.fstype !== "xfs" || !match.source.startsWith("/dev/")) return undefined;
+  return match.source;
 }
 
-function runnerXfsDevice(homeRoot: string): string | undefined {
+function runnerXfsDevice(orgHome: string): string | undefined {
+  let mountinfo: string;
   try {
-    return xfsDeviceOf(homeRoot, readFileSync("/proc/self/mountinfo", "utf8"));
-  } catch {
+    mountinfo = readFileSync("/proc/self/mountinfo", "utf8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      warn(`could not read /proc/self/mountinfo (${errMessage(e)}) — the runner will start without its XFS device`);
+    }
     return undefined;
   }
+  const device = xfsDeviceOf(existsSync(orgHome) ? realpathSync(orgHome) : orgHome, mountinfo);
+  if (!device) {
+    warn(`${orgHome} is not on an XFS disk — the runner's home quota preflight will fail`);
+    return undefined;
+  }
+  if (!existsSync(device)) {
+    warn(`${device} holds ${orgHome} but has no device node — the runner's home quota preflight will fail`);
+    return undefined;
+  }
+  return device;
 }
 
 function requireDocker(): void {
@@ -471,7 +486,7 @@ function infrastructureRunArgs(
     args.push("--cap-add", "SYS_ADMIN");
     args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
     args.push("-v", `${homeRoot}:${homeRoot}`);
-    const xfsDevice = runnerXfsDevice(homeRoot);
+    const xfsDevice = runnerXfsDevice(runnerOrgHome(ctx.config));
     if (xfsDevice) args.push("--device", xfsDevice);
   } else args.push("--cap-add", "NET_ADMIN");
   const cleanup = pushEnvArgs(args, { ...env, ...secrets }, new Set(Object.keys(secrets)));
