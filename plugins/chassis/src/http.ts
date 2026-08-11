@@ -25,7 +25,12 @@ export async function readBody(req: IncomingMessage, maxBytes = Infinity): Promi
 
 export function cookie(req: IncomingMessage, name: string): string | null {
   const m = (req.headers.cookie ?? "").match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
-  return m ? decodeURIComponent(m[1] ?? "") || null : null;
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1] ?? "") || null;
+  } catch {
+    return null;
+  }
 }
 
 export function escapeHtml(s: string): string {

@@ -27,7 +27,7 @@ if (!existsSync(distIndex)) {
   mkdirSync(distDir, { recursive: true });
   writeFileSync(
     distIndex,
-    '<!doctype html><html><head><meta name="brand-self-label" content="Agent" /></head><body></body></html>',
+    '<!doctype html><html lang="en"><head><title>QM</title><meta name="web-ui-default-locale" content="en" /><meta name="brand-self-label" content="Agent" /></head><body></body></html>',
   );
 }
 
@@ -52,6 +52,30 @@ test("cold start: the FIRST shell render already carries accent, mark, and self-
     /<meta name="brand-self-label" content="QM"\s*\/?>/,
     "self-label meta injected regardless of template formatting",
   );
+});
+
+test("a malformed locale cookie cannot break the first shell response", async () => {
+  const r = await fetch(`${base}/`, { headers: { cookie: "webuiuser=alice; qm_web_ui_locale=%" } });
+  assert.equal(r.status, 200);
+  const html = await r.text();
+  assert.match(html, /<html lang="zh-Hans">/);
+  assert.match(html, /<title>QM · 网页<\/title>/);
+});
+
+test("the first shell response follows a supported locale cookie", async () => {
+  const r = await fetch(`${base}/`, { headers: { cookie: "webuiuser=alice; qm_web_ui_locale=en" } });
+  assert.equal(r.status, 200);
+  const html = await r.text();
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<title>QM · Web<\/title>/);
+});
+
+test("the first shell response ignores an unsupported locale cookie", async () => {
+  const r = await fetch(`${base}/`, { headers: { cookie: "webuiuser=alice; qm_web_ui_locale=fr" } });
+  assert.equal(r.status, 200);
+  const html = await r.text();
+  assert.match(html, /<html lang="zh-Hans">/);
+  assert.match(html, /<title>QM · 网页<\/title>/);
 });
 
 test("the vite template carries the self-label anchor the server injects into", () => {

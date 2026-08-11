@@ -5,6 +5,8 @@ import { allLocales, sourceLocale, targetLocales } from "./generated/locale-code
 export type AppLocale = (typeof allLocales)[number];
 
 const LOCALE_STORAGE_KEY = "qm.web-ui.locale";
+const LOCALE_COOKIE = "qm_web_ui_locale";
+const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 const localeLoaders: Record<(typeof targetLocales)[number], () => Promise<LocaleModule>> = {
   "zh-Hans": () => import("./generated/locales/zh-Hans.ts"),
@@ -52,6 +54,14 @@ function storedLocale(): string | null {
   }
 }
 
+function rememberLocale(locale: AppLocale): void {
+  try {
+    document.cookie = `${LOCALE_COOKIE}=${locale}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax`;
+  } catch {
+    void 0;
+  }
+}
+
 function deploymentLocale(): string | null {
   return document.querySelector<HTMLMetaElement>('meta[name="web-ui-default-locale"]')?.content ?? null;
 }
@@ -80,6 +90,7 @@ export async function initializeLocale(): Promise<AppLocale> {
     await setLocale(sourceLocale);
   }
   const locale = getLocale() as AppLocale;
+  rememberLocale(locale);
   syncMiniLitLocalization();
   updateDocument(locale);
   return locale;
@@ -108,6 +119,7 @@ export function saveLocale(locale: string): void {
   } catch {
     void 0;
   }
+  rememberLocale(normalized);
   location.reload();
 }
 

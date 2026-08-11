@@ -46,20 +46,25 @@ test("persists a normalized language choice before reloading", () => {
   const dom = new JSDOM("<!doctype html><html></html>", { url: "https://example.test" });
   const localStorageDescriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
   const locationDescriptor = Object.getOwnPropertyDescriptor(globalThis, "location");
+  const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
   let reloads = 0;
   Object.defineProperties(globalThis, {
     localStorage: { configurable: true, value: dom.window.localStorage },
     location: { configurable: true, value: { reload: () => reloads++ } },
+    document: { configurable: true, value: dom.window.document },
   });
   try {
     saveLocale("zh-CN");
     assert.equal(localStorage.getItem("qm.web-ui.locale"), "zh-Hans");
+    assert.match(dom.window.document.cookie, /qm_web_ui_locale=zh-Hans/);
     assert.equal(reloads, 1);
   } finally {
     if (localStorageDescriptor) Object.defineProperty(globalThis, "localStorage", localStorageDescriptor);
     else delete (globalThis as Record<string, unknown>).localStorage;
     if (locationDescriptor) Object.defineProperty(globalThis, "location", locationDescriptor);
     else delete (globalThis as Record<string, unknown>).location;
+    if (documentDescriptor) Object.defineProperty(globalThis, "document", documentDescriptor);
+    else delete (globalThis as Record<string, unknown>).document;
     dom.window.close();
   }
 });

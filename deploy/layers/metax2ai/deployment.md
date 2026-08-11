@@ -4,7 +4,7 @@
 > 具体命令的参考。两者冲突时以第一节为准——通用手册面向 Fly / AWS 与 Slack 场景，
 > 本部署两者都不使用。
 
-## 本 layer 的现状（2026-08-08）
+## 本 layer 的现状（2026-08-11）
 
 **目标形态**：国内公有云单机，一台 ECS，`target: "docker"`，全部服务跑在本机容器里。
 
@@ -48,7 +48,7 @@
   `validatePortalTrust` 把未设置的 issuer 解析成 Slack 的那条已知遗留问题只影响使用
   外部 OIDC 的部署，本 layer 不受影响。
 
-**单机部署的阻塞项已由 M3 解除**（实现完成，待评审合入）：
+**单机部署的代码阻塞项已由 M3 解除**（实现与评审均已合入）：
 
 此前 `docker` 目标在契约层面强制要求一个 Fly agent-computer app，可声明的沙箱后端只有
 `sprites`（Fly）与 `aws`——core 镜像不含 Docker 客户端，docker 后端也不挂载宿主机
@@ -72,7 +72,7 @@ M3 的 **On-prem Sandbox Runner** 补上了缺的那一半：一个独占容器�
 一个没有 agent 的镜像，Runner 起得来，但每个 scope 的沙箱都会卡在「agent 30 秒内没有
 就绪」。
 
-合入后先执行 `qm sandbox publish --app <registry>/qm-sandbox`，再运行 `qm up`；但**先读
+首次部署前先执行 `qm sandbox publish --app <registry>/qm-sandbox`，再运行 `qm up`；但**先读
 下面的「宿主机准备」**：地址池与 XFS 两项都要在第一次部署前配好，出网白名单要在交付前配好。
 
 ## 宿主机准备（部署前必做，顺序不能颠倒）
