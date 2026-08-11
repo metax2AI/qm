@@ -6025,7 +6025,8 @@ a.chat-row-open {
 }
 .field-select > select {
   min-width: 0;
-  width: 100%;
+  width: auto;
+  flex: 1 1 auto;
   min-height: 34px;
   box-sizing: border-box;
   padding: 0 36px 0 10px;

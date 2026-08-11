@@ -1,5 +1,7 @@
 export type WebLocale = "en" | "zh-Hans";
 
+export const LOCALE_COOKIE = "qm_web_ui_locale";
+
 export function normalizeWebLocale(value: string | undefined): WebLocale | null {
   const valueNormalized = value?.trim().replaceAll("_", "-");
   if (!valueNormalized) return null;
@@ -19,11 +21,12 @@ export function defaultWebLocale(value: string | undefined): WebLocale {
   return normalizeWebLocale(value) ?? "zh-Hans";
 }
 
-export function injectDefaultLocale(html: string, locale: WebLocale | null): string {
+export function injectDefaultLocale(html: string, deployment: WebLocale | null, requested?: WebLocale | null): string {
   const injected = html.replace(
     /<meta name="web-ui-default-locale" content="[^"]*"\s*\/?>/,
-    `<meta name="web-ui-default-locale" content="${locale ?? ""}" />`,
+    `<meta name="web-ui-default-locale" content="${deployment ?? ""}" />`,
   );
+  const locale = requested ?? deployment;
   if (!locale) return injected;
   const title = locale === "zh-Hans" ? "网页" : "Web";
   return injected

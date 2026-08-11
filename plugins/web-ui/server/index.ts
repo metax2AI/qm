@@ -20,7 +20,7 @@ import {
 } from "../../chassis/src/http.ts";
 import { verifyPortalIdentity, PORTAL_IDENTITY_HEADER } from "../../chassis/src/portal-identity.ts";
 import { createBrandingCache, injectBranding } from "../../chassis/src/branding.ts";
-import { defaultWebLocale, injectDefaultLocale } from "./localization.ts";
+import { defaultWebLocale, injectDefaultLocale, LOCALE_COOKIE, normalizeWebLocale } from "./localization.ts";
 import {
   CORE_API_URL as CORE,
   CORE_ORG_ID as ORG,
@@ -56,12 +56,13 @@ const brandingCache = createBrandingCache(async () => {
   };
 });
 
-async function brandIndexHtml(html: string): Promise<string> {
+async function brandIndexHtml(html: string, req?: IncomingMessage): Promise<string> {
   const branding = await brandingCache.forRender();
   let branded = injectBranding(html, branding);
   const label = branding.selfLabel?.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   if (label) branded = branded.replace(/<title>[^<]*<\/title>/, () => `<title>${label}</title>`);
-  return injectDefaultLocale(branded, DEFAULT_LOCALE);
+  const requested = req ? normalizeWebLocale(cookie(req, LOCALE_COOKIE) ?? undefined) : null;
+  return injectDefaultLocale(branded, DEFAULT_LOCALE, requested);
 }
 
 const portalTokenStore = new AsyncLocalStorage<string | undefined>();
@@ -619,7 +620,7 @@ async function uploadFileFromRequest(
   return void res.end(registered.text);
 }
 
-async function serveStatic(res: ServerResponse, urlPath: string): Promise<void> {
+async function serveStatic(req: IncomingMessage, res: ServerResponse, urlPath: string): Promise<void> {
   const rel = normalize(decodeURIComponent(urlPath)).replace(/^(\.\.[/\\])+/, "");
   let filePath = join(DIST, rel);
   if (!filePath.startsWith(DIST)) return void json(res, 403, { error: "forbidden" });
@@ -634,7 +635,7 @@ async function serveStatic(res: ServerResponse, urlPath: string): Promise<void> 
     }
   }
   if (filePath.endsWith("index.html")) {
-    const branded = await brandIndexHtml(readFileSync(filePath, "utf8"));
+    const branded = await brandIndexHtml(readFileSync(filePath, "utf8"), req);
     res.writeHead(
       200,
       withSecurityHeaders({ "content-type": "text/html; charset=utf-8", "cache-control": "no-cache" }),
@@ -674,7 +675,7 @@ async function serveAppEditHtml(req: IncomingMessage, res: ServerResponse, url: 
   delete headers["x-frame-options"];
   res.removeHeader("x-frame-options");
   res.writeHead(200, headers);
-  res.end(await brandIndexHtml(html));
+  res.end(await brandIndexHtml(html, req));
   return true;
 }
 
@@ -726,7 +727,7 @@ async function serveVite(req: IncomingMessage, res: ServerResponse, path: string
   let html = readFileSync(join(ROOT, "index.html"), "utf8");
   html = html.replace("%BASE_URL%favicon.svg", "favicon.svg");
   html = await vite.transformIndexHtml(req.url ?? "/", html);
-  sendHtml(res, 200, await brandIndexHtml(html));
+  sendHtml(res, 200, await brandIndexHtml(html, req));
   return true;
 }
 
@@ -1915,7 +1916,7 @@ const routeRequest = async (req: IncomingMessage, res: ServerResponse) => {
 
   if (method === "GET") {
     if (await serveVite(req, res, path)) return;
-    return await serveStatic(res, path === "/" ? "/index.html" : path);
+    return await serveStatic(req, res, path === "/" ? "/index.html" : path);
   }
 
   json(res, 404, { error: "not found" });

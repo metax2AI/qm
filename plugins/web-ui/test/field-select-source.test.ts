@@ -37,6 +37,13 @@ test("the chevron is inset from the edge, not pinned to it", () => {
   assert.match(block, /pointer-events: none/);
 });
 
+test("dropdowns keep their option width until their container constrains them", () => {
+  const block = css.slice(css.indexOf(".field-select {"), css.indexOf(".field-select.compact > select"));
+  assert.match(block, /max-width: 100%/);
+  assert.match(block, /width: auto/);
+  assert.match(block, /flex: 1 1 auto/);
+});
+
 test("no page keeps its own select chrome now that one rule owns it", () => {
   for (const dead of [".list-select select {", ".deploy-sort select {", ".ambient-enabled-select {\n  align-self"])
     assert.ok(!css.includes(dead) || dead.includes("align-self"), `${dead} should be gone`);
