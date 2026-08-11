@@ -6,8 +6,8 @@
 > - **不运行 Slack 服务**，`slack-app-manifest.yml` 已被删除。下文提到该文件、
 >   `qm slack render`、以及 `.codex/skills/deploy-qm/references/slack.md` 的部分都不要
 >   执行——运行 `qm slack render` 会把那份 manifest 重新生成出来。
-> - M3 的 On-prem Runner 已在当前开发分支实现，但云端采购与最终真机验收已暂缓；在相关
->   PR 合入并完成 M4 前，本目录仍是配置与密钥契约，不是客户生产部署。
+> - M3 的 On-prem Runner 已合入 `main`，但云端采购与最终真机验收已暂缓；在完成 M4 前，
+>   本目录仍是配置与密钥契约，不是客户生产部署。
 
 This directory is one QM deployment: a config, a secret contract, and a
 sandbox layer that customizes the agent without forking the core images. Commit
